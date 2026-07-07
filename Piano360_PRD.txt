@@ -1,0 +1,144 @@
+Product Requirements Document (PRD)
+
+Piano360
+
+Vision
+
+Piano360 is a visual piano learning platform designed to help learners
+develop complete keyboard fluency through guided practice. The ultimate
+goal is to enable users to play the piano without looking at the keys,
+in the same way touch typing allows someone to type without looking at a
+computer keyboard.
+
+Instead of relying on YouTube tutorials, sheet music, or repeatedly
+pausing videos to understand which keys are being pressed, Piano360
+provides a real-time visual coach that sits directly in front of the
+learner on a phone or tablet placed on the piano’s music stand.
+
+The application visually demonstrates exactly what should be played,
+verifies the performance in real time, and gradually develops the user’s
+muscle memory until playing becomes instinctive.
+
+Problem Statement
+
+Learning piano is unnecessarily difficult for beginners because most
+teaching methods require learners to constantly switch their attention
+between the instructor, sheet music, their hands, and the keyboard.
+Video tutorials require constant pausing and rewinding to identify which
+keys are being played. Most beginners spend months looking down at the
+keyboard instead of developing spatial awareness and finger memory.
+
+Piano360 solves this by acting as a real-time visual piano coach that
+develops touch fluency.
+
+Goal
+
+Build a responsive web application that teaches piano through guided
+visual instruction and interactive practice until learners can play
+without looking at the keyboard.
+
+Core Learning Philosophy
+
+Learning piano should mirror touch typing. Every lesson reinforces:
+
+-   Finger placement
+-   Keyboard familiarity
+-   Notes
+-   Intervals
+-   Chords
+-   Chord inversions
+-   Chord progressions
+-   Scales
+-   Rhythm
+-   Hand independence
+-   Muscle memory
+-   Spatial awareness
+
+The objective is complete keyboard fluency rather than simply learning
+songs.
+
+Platform
+
+Responsive web application optimized for desktop, tablet, and mobile
+browsers.
+
+Primary experience:
+
+The learner places a phone or tablet on the piano’s music stand.
+Piano360 becomes a live visual instructor while the learner practices on
+a real piano.
+
+Core Features
+
+-   Interactive virtual piano keyboard
+-   Visual key highlighting
+-   Finger numbering
+-   Left and right hand visualization
+-   Practice exercises
+-   Lesson mode
+-   Free practice mode
+-   Chord library
+-   Scale library
+-   Exercise library
+-   Chord progression trainer
+-   Progress tracking
+-   Real-time pitch detection
+-   Song learning (future)
+-   MIDI support (future)
+
+Pitch Detection
+
+The application listens through the device microphone and validates:
+
+-   Correct note
+-   Correct chord
+-   Correct octave
+-   Correct timing
+
+Users only progress after successfully completing the exercise.
+
+Exercise Database
+
+The application maintains a structured content database containing:
+
+-   Notes
+-   Chords
+-   Scales
+-   Finger exercises
+-   Chord progressions
+-   Practice drills
+-   Lessons
+-   Songs (future)
+
+Each exercise contains all metadata required to visually render the
+lesson and validate user performance.
+
+User Flow
+
+1.  User selects an exercise.
+2.  Piano360 displays the virtual keyboard.
+3.  Required keys are highlighted.
+4.  Finger numbers are shown.
+5.  User plays on a real piano.
+6.  Pitch detection validates performance.
+7.  Instant feedback is provided.
+8.  User progresses after completing the exercise correctly.
+
+Success Criteria
+
+A successful learner should be able to:
+
+-   Play without looking at the keyboard.
+-   Recognize notes instantly.
+-   Recall chords from memory.
+-   Develop proper fingering.
+-   Build strong muscle memory.
+-   Transition smoothly between chords.
+-   Play confidently and fluently.
+
+Mission
+
+Piano360 aims to become the most intuitive visual piano learning
+platform by replacing passive watching with active guided practice,
+enabling anyone to achieve piano touch fluency through repetition,
+visualization, and real-time feedback.
