@@ -249,7 +249,7 @@ export const PracticeScreen = () => {
   return (
     <div className="min-h-[100dvh] overflow-hidden bg-[#0b0b10] text-zinc-100">
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(139,92,246,0.18),transparent_34%),linear-gradient(135deg,rgba(255,255,255,0.05),transparent_30%)]" />
-      <div className="relative flex min-h-[100dvh] flex-col gap-6 pb-6">
+      <div className="relative flex min-h-[100dvh] flex-col gap-4 pb-4">
         <PracticeHeader
           songs={practiceSongs}
           selectedSongId={selectedSong.id}
@@ -264,7 +264,7 @@ export const PracticeScreen = () => {
           onNext={() => handleStep(1)}
           onTempoChange={setTempo}
         />
-        <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-5 px-4 md:px-6">
+        <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-2 px-4 md:gap-3 md:px-6">
           {mode === "practice" ? (
             <NoteHighway
               notes={selectedSong.notes}
