@@ -31,14 +31,14 @@ export const PracticeHeader = ({
   onNext,
   onTempoChange
 }: PracticeHeaderProps) => (
-  <header className="mx-auto grid w-full max-w-7xl gap-5 px-4 pt-5 md:px-6 lg:grid-cols-[1fr_auto] lg:items-center">
-    <div className="flex flex-wrap items-center gap-4">
+  <header className="practice-control-panel mx-auto grid w-full max-w-7xl gap-5 px-4 pt-5 md:px-6 lg:grid-cols-[1fr_auto] lg:items-center">
+    <div className="practice-control-brand flex flex-wrap items-center gap-4">
       <h1 className="text-2xl font-black text-white md:text-3xl">Piano360</h1>
       <ModeSwitch mode={mode} onModeChange={onModeChange} />
     </div>
-    <div className="flex flex-col gap-3 lg:items-end">
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        <label className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-zinc-300">
+    <div className="practice-control-stack flex flex-col gap-3 lg:items-end">
+      <div className="practice-select-row flex flex-wrap items-center justify-end gap-2">
+        <label className="practice-pill-control flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-zinc-300">
           <span className="font-semibold">Song</span>
           <select
             value={selectedSongId}
@@ -52,7 +52,7 @@ export const PracticeHeader = ({
             ))}
           </select>
         </label>
-        <label className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-zinc-300">
+        <label className="practice-pill-control flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-zinc-300">
           <span className="font-semibold">Key</span>
           <select value="A minor" disabled className="bg-transparent text-sm font-semibold text-zinc-300 outline-none">
             <option>A minor</option>
