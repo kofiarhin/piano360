@@ -81,10 +81,10 @@ export const PianoKey = ({ noteId, tone, keyboardKey, visualState, style, onPres
       {keyboardKey && (
         <span
           className={[
-            "absolute left-1/2 grid -translate-x-1/2 place-items-center rounded-md border px-1 font-mono text-[0.65rem] font-black shadow-sm",
+            "absolute left-1/2 grid -translate-x-1/2 place-items-center rounded-lg border px-2 font-mono text-sm font-black uppercase leading-none shadow-sm md:text-base",
             isBlack
-              ? "top-3 h-6 min-w-6 border-white/10 bg-white/10 text-zinc-300"
-              : "bottom-11 h-7 min-w-7 border-zinc-300 bg-zinc-100/90 text-zinc-500 md:bottom-12"
+              ? "top-3 h-7 min-w-7 border-white/15 bg-white/15 text-zinc-50"
+              : "bottom-10 h-8 min-w-8 border-zinc-300 bg-zinc-100/95 text-zinc-700 md:bottom-11"
           ].join(" ")}
         >
           {keyboardKey}
