@@ -74,184 +74,155 @@ select:disabled {
   background: rgba(167, 139, 250, 0.62);
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1024px) and (pointer: coarse) {
   html,
   body,
   #root {
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
+    width: 100% !important;
+    height: 100% !important;
+    overflow: hidden !important;
   }
 
   .practice-mobile-shell {
-    position: fixed;
-    inset: 0;
-    width: 100dvw;
-    height: 100dvh;
-    min-height: 0;
-    overflow: hidden;
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100dvw !important;
+    height: 100dvh !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
   }
 
   .practice-mobile-frame {
-    width: 100dvw;
-    height: 100dvh;
-    min-height: 0;
-    gap: 0;
-    padding: 0;
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: stretch !important;
+    width: 100dvh !important;
+    height: 100dvw !important;
+    min-height: 0 !important;
+    gap: 0.5rem !important;
+    padding: 0.5rem !important;
+    transform: translate(-50%, -50%) rotate(90deg) !important;
+    transform-origin: center center !important;
   }
 
   .practice-control-panel {
-    max-width: none;
-    padding: 0;
-  }
-
-  .practice-mobile-stage {
-    max-width: none;
-    min-height: 0;
-    padding: 0;
-  }
-
-  .practice-control-brand {
-    gap: 0.6rem;
-  }
-
-  .practice-control-brand h1 {
-    font-size: 1.25rem;
-    line-height: 1;
-  }
-
-  .practice-control-stack,
-  .practice-select-row,
-  .practice-playback-controls {
-    align-items: stretch;
-    justify-content: flex-start;
-  }
-
-  .practice-pill-control,
-  .practice-tempo-control {
-    width: 100%;
-    min-width: 0;
-    border-radius: 1rem;
-    padding: 0.55rem 0.7rem;
-  }
-
-  .practice-pill-control select {
-    min-width: 0;
-    width: 100%;
-  }
-
-  .practice-playback-controls button {
-    flex: 1 1 calc(50% - 0.25rem);
-    min-width: 0;
-    padding: 0.55rem 0.7rem;
-  }
-
-  .practice-tempo-control input {
-    width: 100%;
-  }
-
-  .practice-piano {
-    flex: 1 1 auto;
-    min-height: 0;
-    padding: 0.4rem;
-  }
-
-  .practice-piano > div {
-    height: 100%;
-    display: flex;
-    min-height: 0;
-    flex-direction: column;
-  }
-
-  .practice-piano-trim {
-    padding-block: 0.35rem;
-  }
-
-  .practice-piano-scroll {
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow-x: hidden;
-  }
-
-  .practice-piano-bed {
-    width: 100%;
-    min-width: 0;
-    height: 100%;
-    min-height: 10rem;
-  }
-}
-
-@media (max-width: 768px) and (orientation: portrait) {
-  .practice-mobile-frame {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    width: 100dvh;
-    height: 100dvw;
-    transform: translate(-50%, -50%) rotate(90deg);
-    transform-origin: center;
-  }
-}
-
-@media (max-width: 768px) and (max-height: 430px), (max-width: 768px) and (orientation: portrait) {
-  .practice-mobile-frame {
-    flex-direction: row;
-    align-items: stretch;
-  }
-
-  .practice-control-panel {
-    width: clamp(10.5rem, 24dvw, 14rem);
-    flex: 0 0 clamp(10.5rem, 24dvw, 14rem);
-    display: flex;
-    max-height: 100%;
-    flex-direction: column;
-    gap: 0.65rem;
-    overflow-y: auto;
-    border-radius: 1.25rem;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    background: rgba(9, 9, 11, 0.76);
-    padding: 0.65rem;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    display: flex !important;
+    flex: 0 0 clamp(10.5rem, 24dvw, 14rem) !important;
+    flex-direction: column !important;
+    width: clamp(10.5rem, 24dvw, 14rem) !important;
+    max-width: none !important;
+    max-height: 100% !important;
+    gap: 0.65rem !important;
+    overflow-y: auto !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 1.25rem !important;
+    background: rgba(9, 9, 11, 0.76) !important;
+    padding: 0.65rem !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
   }
 
   .practice-control-brand,
   .practice-control-stack,
   .practice-select-row,
   .practice-playback-controls {
-    display: flex;
-    flex-direction: column;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    justify-content: flex-start !important;
+    gap: 0.6rem !important;
+  }
+
+  .practice-control-brand h1 {
+    font-size: 1.25rem !important;
+    line-height: 1 !important;
+  }
+
+  .practice-pill-control,
+  .practice-tempo-control {
+    width: 100% !important;
+    min-width: 0 !important;
+    border-radius: 1rem !important;
+    padding: 0.55rem 0.7rem !important;
+  }
+
+  .practice-pill-control select,
+  .practice-tempo-control input {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .practice-playback-controls button {
+    width: 100% !important;
+    min-width: 0 !important;
+    padding: 0.55rem 0.7rem !important;
   }
 
   .practice-mobile-stage {
-    flex: 1 1 auto;
-    min-width: 0;
-    gap: 0.5rem;
+    display: flex !important;
+    flex: 1 1 auto !important;
+    flex-direction: column !important;
+    width: auto !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    gap: 0.5rem !important;
+    overflow: hidden !important;
+    padding: 0 !important;
   }
 
   .practice-mobile-stage > section:first-child {
-    flex: 0 0 auto;
-  }
-
-  .practice-mobile-stage > section:last-child {
-    display: none;
-  }
-}
-
-@media (max-width: 768px) and (max-height: 380px), (max-width: 768px) and (orientation: portrait) {
-  .practice-mobile-stage > section:first-child {
-    padding: 0.45rem;
+    flex: 0 0 auto !important;
+    padding: 0.45rem !important;
   }
 
   .practice-mobile-stage > section:first-child > div:nth-child(2) {
-    height: 5.8rem;
+    height: 5.8rem !important;
   }
 
   .practice-mobile-stage > section:first-child > div:last-child {
-    margin-top: 0.4rem;
+    margin-top: 0.4rem !important;
   }
 
   .practice-mobile-stage > section:first-child > div:last-child p {
-    font-size: 0.65rem;
+    font-size: 0.65rem !important;
+  }
+
+  .practice-mobile-stage > section:last-child {
+    display: none !important;
+  }
+
+  .practice-piano {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    padding: 0.4rem !important;
+  }
+
+  .practice-piano > div {
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100% !important;
+    min-height: 0 !important;
+  }
+
+  .practice-piano-trim {
+    flex: 0 0 auto !important;
+    padding-block: 0.35rem !important;
+  }
+
+  .practice-piano-scroll {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow-x: hidden !important;
+  }
+
+  .practice-piano-bed {
+    width: 100% !important;
+    min-width: 0 !important;
+    height: 100% !important;
+    min-height: 10rem !important;
   }
 }
 
