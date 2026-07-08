@@ -1,5 +1,6 @@
 type PlaybackControlsProps = {
   isPlaying: boolean;
+  canPlay: boolean;
   canStep: boolean;
   tempo: number;
   onPlayPause: () => void;
@@ -10,6 +11,7 @@ type PlaybackControlsProps = {
 
 export const PlaybackControls = ({
   isPlaying,
+  canPlay,
   canStep,
   tempo,
   onPlayPause,
@@ -30,7 +32,8 @@ export const PlaybackControls = ({
       type="button"
       aria-label={isPlaying ? "Pause" : "Play"}
       onClick={onPlayPause}
-      className="min-w-24 rounded-full bg-violet-500 px-5 py-2 text-sm font-bold text-white shadow-[0_16px_38px_-20px_rgba(139,92,246,0.95)] transition hover:bg-violet-400 active:scale-[0.98]"
+      disabled={!canPlay}
+      className="min-w-24 rounded-full bg-violet-500 px-5 py-2 text-sm font-bold text-white shadow-[0_16px_38px_-20px_rgba(139,92,246,0.95)] transition hover:bg-violet-400 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-35"
     >
       {isPlaying ? "Pause" : "Play"}
     </button>
