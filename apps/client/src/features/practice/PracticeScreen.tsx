@@ -15,6 +15,14 @@ const TICK_MS = 40;
 
 const createPendingResults = (length: number): NoteResult[] => Array.from({ length }, () => "pending");
 
+const isEditableTarget = (target: EventTarget | null) => {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+
+  return Boolean(target.closest("input, textarea, select, button, [contenteditable='true']"));
+};
+
 export const PracticeScreen = () => {
   const [mode, setMode] = useState<PracticeMode>("practice");
   const [selectedSongId, setSelectedSongId] = useState(practiceSongs[0].id);
@@ -47,11 +55,12 @@ export const PracticeScreen = () => {
     return subscribeToAudioStatus(setAudioStatus);
   }, []);
 
-  const resetPractice = useCallback(() => {
+  const resetPractice = useCallback((nextNoteCount = selectedSong.notes.length) => {
     setIsPlaying(false);
     setProgressBeats(0);
-    setResults(createPendingResults(selectedSong.notes.length));
+    setResults(createPendingResults(nextNoteCount));
     setFeedback("idle");
+    setPressedStates({});
     setIsComplete(false);
     previousIndexRef.current = 0;
     manualStepRef.current = false;
@@ -78,28 +87,37 @@ export const PracticeScreen = () => {
     }, 260);
   }, []);
 
-  const handleModeChange = useCallback((nextMode: PracticeMode) => {
-    setMode(nextMode);
-    setIsPlaying(false);
-    setFeedback("idle");
-  }, []);
+  const handleModeChange = useCallback(
+    (nextMode: PracticeMode) => {
+      setMode(nextMode);
+      setIsPlaying(false);
+      setFeedback("idle");
+
+      if (nextMode === "practice" && isComplete) {
+        resetPractice();
+      }
+    },
+    [isComplete, resetPractice]
+  );
 
   const handleSongChange = useCallback(
     (songId: string) => {
-      setSelectedSongId(songId);
-      resetPractice();
+      const nextSong = practiceSongs.find((song) => song.id === songId) ?? practiceSongs[0];
+
+      setSelectedSongId(nextSong.id);
+      resetPractice(nextSong.notes.length);
     },
     [resetPractice]
   );
 
   const handlePlayPause = useCallback(() => {
-    if (mode !== "practice") {
+    if (mode !== "practice" || isComplete) {
       return;
     }
 
     warmAudio();
     setIsPlaying((current) => !current);
-  }, [mode]);
+  }, [isComplete, mode]);
 
   const handleStep = useCallback(
     (direction: -1 | 1) => {
@@ -156,7 +174,7 @@ export const PracticeScreen = () => {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.repeat) {
+      if (event.repeat || isEditableTarget(event.target)) {
         return;
       }
 
@@ -237,6 +255,7 @@ export const PracticeScreen = () => {
           selectedSongId={selectedSong.id}
           mode={mode}
           isPlaying={isPlaying}
+          isComplete={isComplete}
           tempo={tempo}
           onSongChange={handleSongChange}
           onModeChange={handleModeChange}
