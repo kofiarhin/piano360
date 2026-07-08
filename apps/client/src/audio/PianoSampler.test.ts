@@ -23,6 +23,11 @@ const expectedSampleUrls: Record<NoteId, string> = {
   C5: "/audio/piano/C5.mp3"
 };
 
+const createMockFetchResponse = () => ({
+  ok: true,
+  arrayBuffer: async () => new ArrayBuffer(8)
+});
+
 const createMockAudioContext = (state: "running" | "suspended" = "running") => {
   const destination = {} as AudioDestinationNode;
   const gain = {
@@ -59,6 +64,7 @@ const createMockAudioContext = (state: "running" | "suspended" = "running") => {
 };
 
 type MockAudioContext = ReturnType<typeof createMockAudioContext>;
+type MockSource = MockAudioContext["sources"][number];
 
 const stubAudioContext = (mockAudioContext: MockAudioContext) => {
   const MockAudioContextConstructor = vi.fn(() => mockAudioContext);
@@ -70,6 +76,13 @@ const stubAudioContext = (mockAudioContext: MockAudioContext) => {
   });
 };
 
+const expectSingleStartedSource = (mockAudioContext: MockAudioContext) => {
+  expect(mockAudioContext.sources).toHaveLength(1);
+
+  const [source] = mockAudioContext.sources as [MockSource];
+  expect(source.start).toHaveBeenCalledWith(mockAudioContext.currentTime);
+};
+
 describe("PianoSampler", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -78,10 +91,10 @@ describe("PianoSampler", () => {
 
   it("preloads and decodes every bundled note sample", async () => {
     const mockAudioContext = createMockAudioContext();
-    const fetchMock = vi.fn(async (url: string) => ({
-      ok: Boolean(url),
-      arrayBuffer: async () => new ArrayBuffer(8)
-    }));
+    const fetchMock = vi.fn(async (url: string) => {
+      void url;
+      return createMockFetchResponse();
+    });
 
     vi.stubGlobal("fetch", fetchMock);
     stubAudioContext(mockAudioContext);
@@ -97,13 +110,7 @@ describe("PianoSampler", () => {
   it("starts an already decoded buffer immediately on key press", async () => {
     const mockAudioContext = createMockAudioContext();
 
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => ({
-        ok: true,
-        arrayBuffer: async () => new ArrayBuffer(8)
-      }))
-    );
+    vi.stubGlobal("fetch", vi.fn(async () => createMockFetchResponse()));
     stubAudioContext(mockAudioContext);
 
     const sampler = new PianoSampler();
@@ -113,20 +120,13 @@ describe("PianoSampler", () => {
     expect(mockAudioContext.createBufferSource).toHaveBeenCalledTimes(1);
     expect(mockAudioContext.createGain).toHaveBeenCalledTimes(1);
     expect(mockAudioContext.gain.gain.setValueAtTime).toHaveBeenCalledWith(0.7, mockAudioContext.currentTime);
-    expect(mockAudioContext.sources).toHaveLength(1);
-    expect(mockAudioContext.sources.at(0)?.start).toHaveBeenCalledWith(mockAudioContext.currentTime);
+    expectSingleStartedSource(mockAudioContext);
   });
 
   it("resumes a suspended AudioContext from the key press gesture", async () => {
     const mockAudioContext = createMockAudioContext("suspended");
 
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => ({
-        ok: true,
-        arrayBuffer: async () => new ArrayBuffer(8)
-      }))
-    );
+    vi.stubGlobal("fetch", vi.fn(async () => createMockFetchResponse()));
     stubAudioContext(mockAudioContext);
 
     const sampler = new PianoSampler();
@@ -134,18 +134,18 @@ describe("PianoSampler", () => {
 
     expect(sampler.play("E4")).toBe(true);
     expect(mockAudioContext.resume).toHaveBeenCalledTimes(1);
-    expect(mockAudioContext.sources).toHaveLength(1);
-    expect(mockAudioContext.sources.at(0)?.start).toHaveBeenCalledWith(mockAudioContext.currentTime);
+    expectSingleStartedSource(mockAudioContext);
   });
 
-  it("returns false when a note is requested before its buffer is ready", () => {
+  it("returns false when a note is requested before its buffer is ready", async () => {
     const mockAudioContext = createMockAudioContext();
 
-    vi.stubGlobal("fetch", vi.fn());
+    vi.stubGlobal("fetch", vi.fn(async () => createMockFetchResponse()));
     stubAudioContext(mockAudioContext);
 
     const sampler = new PianoSampler();
 
     expect(sampler.play("C4")).toBe(false);
+    await sampler.load();
   });
 });
