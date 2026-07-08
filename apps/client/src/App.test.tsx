@@ -70,11 +70,11 @@ describe("Piano360 MVP", () => {
     renderApp();
 
     fireEvent.click(screen.getByRole("button", { name: "Play" }));
-    fireEvent.click(screen.getByRole("button", { name: /^A3, white key/ }));
+    fireEvent.pointerDown(screen.getByRole("button", { name: /^A3, white key/ }));
     expect(screen.getByText(/Wrong key/)).toBeInTheDocument();
     expect(screen.getByTestId("current-note")).toHaveTextContent("E4");
 
-    fireEvent.click(screen.getByRole("button", { name: /^E4, white key/ }));
+    fireEvent.pointerDown(screen.getByRole("button", { name: /^E4, white key/ }));
     expect(screen.getByText(/Good/)).toBeInTheDocument();
     expect(screen.getByTestId("correct-count")).toHaveTextContent("1");
 
@@ -105,7 +105,7 @@ describe("Piano360 MVP", () => {
     expect(screen.getByRole("heading", { name: "Free Play" })).toBeInTheDocument();
   });
 
-  it("switches to Freestyle, plays clicked and mapped notes, and hides practice scoring", async () => {
+  it("switches to Freestyle, plays pointer and mapped keyboard notes, and hides practice scoring", async () => {
     renderApp();
 
     fireEvent.click(screen.getByRole("button", { name: "Freestyle mode" }));
@@ -114,7 +114,7 @@ describe("Piano360 MVP", () => {
     expect(screen.queryByText("PRESS NOW")).not.toBeInTheDocument();
     expect(screen.queryByText("Correct")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /^C4, white key/ }));
+    fireEvent.pointerDown(screen.getByRole("button", { name: /^C4, white key/ }));
     expect(playNote).toHaveBeenCalledWith("C4");
     expect(screen.getByTestId("last-played-note")).toHaveTextContent("C4");
 
