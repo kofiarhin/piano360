@@ -3,6 +3,18 @@ import prettier from "eslint-config-prettier";
 import globals from "globals";
 import tseslint from "typescript-eslint";
 
+const vitestGlobals = {
+  afterAll: "readonly",
+  afterEach: "readonly",
+  beforeAll: "readonly",
+  beforeEach: "readonly",
+  describe: "readonly",
+  expect: "readonly",
+  it: "readonly",
+  test: "readonly",
+  vi: "readonly"
+};
+
 export default [
   {
     ignores: ["**/coverage/**", "**/dist/**", "**/node_modules/**"]
@@ -34,7 +46,7 @@ export default [
       globals: {
         ...globals.browser,
         ...globals.es2024,
-        ...globals.vitest
+        ...vitestGlobals
       }
     }
   }
