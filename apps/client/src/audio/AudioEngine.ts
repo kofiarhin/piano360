@@ -3,7 +3,7 @@ import { PianoSampler } from "./PianoSampler";
 
 export type AudioStatus = "idle" | "loading" | "ready" | "unavailable";
 
-type PianoSamplerLike = Pick<PianoSampler, "load" | "play">;
+type PianoSamplerLike = Pick<PianoSampler, "load" | "play" | "unlock">;
 
 type AudioEngineOptions = {
   createSampler?: () => PianoSamplerLike;
@@ -42,6 +42,7 @@ export class AudioEngine {
       return false;
     }
 
+    void this.sampler.unlock().catch(() => undefined);
     return this.sampler.play(noteId, velocity);
   }
 
