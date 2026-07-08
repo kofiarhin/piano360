@@ -42,8 +42,8 @@ export class AudioEngine {
       return false;
     }
 
-    void this.sampler.unlock().catch(() => undefined);
-    return this.sampler.play(noteId, velocity);
+    void this.sampler.play(noteId, velocity);
+    return true;
   }
 
   private ensureReady() {
