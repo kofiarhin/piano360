@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import type { CSSProperties } from "react";
+import type { CSSProperties, PointerEvent } from "react";
 
 import type { NoteId, PianoKeyTone } from "../practiceTypes";
 
@@ -26,6 +26,18 @@ export const PianoKey = ({ noteId, tone, keyboardKey, visualState, style, onPres
   const isBlack = tone === "black";
   const aria = `${noteId}, ${tone} key${keyboardKey ? `, keyboard ${keyboardKey}` : ""}`;
 
+  const handlePointerDown = (event: PointerEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    onPress(noteId);
+  };
+
+  const handlePointerUp = (event: PointerEvent<HTMLButtonElement>) => {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  };
+
   return (
     <motion.button
       type="button"
@@ -34,10 +46,13 @@ export const PianoKey = ({ noteId, tone, keyboardKey, visualState, style, onPres
       whileTap={{ scale: 0.985, y: 2 }}
       animate={{ y: visualState === "pressed" || visualState === "correct" ? 2 : 0 }}
       transition={{ type: "spring", stiffness: 260, damping: 20 }}
-      onClick={() => onPress(noteId)}
+      onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
+      onContextMenu={(event) => event.preventDefault()}
       style={style}
       className={[
-        "select-none overflow-hidden border text-center font-black transition-colors focus-visible:z-20",
+        "touch-none select-none overflow-hidden border text-center font-black transition-colors focus-visible:z-20",
         isBlack
           ? "absolute top-0 z-[2] h-[58%] w-[7.2%] rounded-b-lg border-zinc-950 bg-zinc-950 pt-16 text-xs text-white shadow-[0_12px_24px_rgba(0,0,0,0.55)]"
           : "relative h-64 flex-1 rounded-b-xl border-zinc-300 bg-gradient-to-b from-white to-zinc-200 pt-44 text-sm text-zinc-900 shadow-[inset_0_-12px_18px_rgba(0,0,0,0.08)] md:h-72 md:pt-52",
