@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { getAudioStatus, playNote, subscribeToAudioStatus, warmAudio } from "../../audio/NotePlayer";
+import {
+  getAudioStatus,
+  playNote,
+  subscribeToAudioStatus,
+  warmAudio
+} from "../../audio/NotePlayer";
 import { keyboardMap, practiceSongs } from "./practiceData";
 import { FreePlayPanel } from "./components/FreePlayPanel";
 import { NoteHighway } from "./components/NoteHighway";
@@ -13,7 +18,8 @@ import type { KeyVisualState } from "./components/PianoKey";
 const INITIAL_TEMPO = 100;
 const TICK_MS = 40;
 
-const createPendingResults = (length: number): NoteResult[] => Array.from({ length }, () => "pending");
+const createPendingResults = (length: number): NoteResult[] =>
+  Array.from({ length }, () => "pending");
 
 const isEditableTarget = (target: EventTarget | null) => {
   if (!(target instanceof HTMLElement)) {
@@ -25,6 +31,7 @@ const isEditableTarget = (target: EventTarget | null) => {
 
 export const PracticeScreen = () => {
   const [mode, setMode] = useState<PracticeMode>("practice");
+  const [isControlRailExpanded, setIsControlRailExpanded] = useState(false);
   const [selectedSongId, setSelectedSongId] = useState(practiceSongs[0].id);
   const selectedSong = useMemo(
     () => practiceSongs.find((song) => song.id === selectedSongId) ?? practiceSongs[0],
@@ -34,7 +41,9 @@ export const PracticeScreen = () => {
   const [tempo, setTempo] = useState(INITIAL_TEMPO);
   const [isPlaying, setIsPlaying] = useState(false);
   const [progressBeats, setProgressBeats] = useState(0);
-  const [results, setResults] = useState<NoteResult[]>(() => createPendingResults(selectedSong.notes.length));
+  const [results, setResults] = useState<NoteResult[]>(() =>
+    createPendingResults(selectedSong.notes.length)
+  );
   const [feedback, setFeedback] = useState<FeedbackKind>("idle");
   const [lastPlayedNote, setLastPlayedNote] = useState<NoteId>();
   const [pressedStates, setPressedStates] = useState<Partial<Record<NoteId, KeyVisualState>>>({});
@@ -55,16 +64,19 @@ export const PracticeScreen = () => {
     return subscribeToAudioStatus(setAudioStatus);
   }, []);
 
-  const resetPractice = useCallback((nextNoteCount = selectedSong.notes.length) => {
-    setIsPlaying(false);
-    setProgressBeats(0);
-    setResults(createPendingResults(nextNoteCount));
-    setFeedback("idle");
-    setPressedStates({});
-    setIsComplete(false);
-    previousIndexRef.current = 0;
-    manualStepRef.current = false;
-  }, [selectedSong.notes.length]);
+  const resetPractice = useCallback(
+    (nextNoteCount = selectedSong.notes.length) => {
+      setIsPlaying(false);
+      setProgressBeats(0);
+      setResults(createPendingResults(nextNoteCount));
+      setFeedback("idle");
+      setPressedStates({});
+      setIsComplete(false);
+      previousIndexRef.current = 0;
+      manualStepRef.current = false;
+    },
+    [selectedSong.notes.length]
+  );
 
   const flashFeedback = useCallback((kind: FeedbackKind) => {
     setFeedback(kind);
@@ -249,7 +261,12 @@ export const PracticeScreen = () => {
   return (
     <div className="practice-mobile-shell min-h-[100dvh] overflow-hidden bg-[#0b0b10] text-zinc-100">
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(139,92,246,0.18),transparent_34%),linear-gradient(135deg,rgba(255,255,255,0.05),transparent_30%)]" />
-      <div className="practice-mobile-frame relative flex min-h-[100dvh] flex-col gap-4 pb-4">
+      <div
+        className={[
+          "practice-mobile-frame relative flex min-h-[100dvh] flex-col gap-4 pb-4",
+          isControlRailExpanded ? "is-control-rail-expanded" : "is-control-rail-collapsed"
+        ].join(" ")}
+      >
         <PracticeHeader
           songs={practiceSongs}
           selectedSongId={selectedSong.id}
@@ -257,6 +274,8 @@ export const PracticeScreen = () => {
           isPlaying={isPlaying}
           isComplete={isComplete}
           tempo={tempo}
+          isControlRailExpanded={isControlRailExpanded}
+          onToggleControlRail={() => setIsControlRailExpanded((current) => !current)}
           onSongChange={handleSongChange}
           onModeChange={handleModeChange}
           onPlayPause={handlePlayPause}
@@ -283,7 +302,11 @@ export const PracticeScreen = () => {
           ) : (
             <FreePlayPanel lastPlayedNote={lastPlayedNote} />
           )}
-          <VirtualPiano currentNote={mode === "practice" ? currentNote : undefined} pressedStates={pressedStates} onPress={handlePianoInput} />
+          <VirtualPiano
+            currentNote={mode === "practice" ? currentNote : undefined}
+            pressedStates={pressedStates}
+            onPress={handlePianoInput}
+          />
           <StatusBar
             mode={mode}
             feedback={feedback}

@@ -3,7 +3,12 @@ import { act, cleanup, fireEvent, render, screen, within } from "@testing-librar
 import { playNote } from "./audio/NotePlayer";
 import { sampleFileByNote } from "./audio/PianoSampler";
 import { App } from "./App";
-import { keyboardMap, pianoKeys, pianoNotes, practiceSongs } from "./features/practice/practiceData";
+import {
+  keyboardMap,
+  pianoKeys,
+  pianoNotes,
+  practiceSongs
+} from "./features/practice/practiceData";
 import type { NoteId } from "./features/practice/practiceTypes";
 
 const audioMock = vi.hoisted(() => ({
@@ -103,10 +108,32 @@ describe("Piano360 MVP", () => {
     renderApp();
 
     expect(screen.getByRole("heading", { name: "Piano360" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Practice mode" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Practice mode" })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
     expect(screen.getByText("PRESS NOW")).toBeInTheDocument();
     expect(screen.getByTestId("current-note")).toHaveTextContent("E4");
     expect(screen.getByLabelText("Virtual piano")).toBeInTheDocument();
+  });
+
+  it("defaults the mobile control rail to collapsed and toggles it", () => {
+    renderApp();
+
+    const expandButton = screen.getByRole("button", { name: "Expand controls" });
+    expect(expandButton).toHaveAttribute("aria-expanded", "false");
+
+    fireEvent.click(expandButton);
+
+    const collapseButton = screen.getByRole("button", { name: "Collapse controls" });
+    expect(collapseButton).toHaveAttribute("aria-expanded", "true");
+
+    fireEvent.click(collapseButton);
+
+    expect(screen.getByRole("button", { name: "Expand controls" })).toHaveAttribute(
+      "aria-expanded",
+      "false"
+    );
   });
 
   it("starts, pauses, and changes tempo for the system-paced highway", async () => {
