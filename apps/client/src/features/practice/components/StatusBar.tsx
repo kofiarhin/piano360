@@ -18,6 +18,13 @@ const feedbackText: Record<FeedbackKind, string> = {
   missed: "Missed note."
 };
 
+const audioStatusText: Record<AudioStatus, string> = {
+  idle: "Preparing audio",
+  loading: "Loading piano",
+  ready: "Listening",
+  unavailable: "Audio unavailable"
+};
+
 export const StatusBar = ({ mode, feedback, currentNote, lastPlayedNote, audioStatus, correct, missed }: StatusBarProps) => {
   const note = mode === "freestyle" ? lastPlayedNote : currentNote;
 
@@ -25,7 +32,7 @@ export const StatusBar = ({ mode, feedback, currentNote, lastPlayedNote, audioSt
     <section className="grid gap-3 md:grid-cols-[1fr_1.2fr_1fr]">
       <article className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
         <p className="text-xs font-black uppercase text-zinc-500">Input</p>
-        <p className="mt-2 text-lg font-black text-white">{audioStatus === "unavailable" ? "Audio unavailable" : "Listening"}</p>
+        <p className="mt-2 text-lg font-black text-white">{audioStatusText[audioStatus]}</p>
       </article>
       <article className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
         <p className="text-xs font-black uppercase text-zinc-500">{mode === "freestyle" ? "Mode" : "Feedback"}</p>
