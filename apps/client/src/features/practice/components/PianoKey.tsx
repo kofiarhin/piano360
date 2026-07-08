@@ -90,7 +90,7 @@ export const PianoKey = ({ noteId, tone, keyboardKey, visualState, style, onPres
           {keyboardKey}
         </span>
       )}
-      <span className={isBlack ? "relative z-10 text-base font-black leading-none text-zinc-100 md:text-lg" : "relative z-10 text-lg font-black leading-none tracking-tight md:text-xl"}>{noteId}</span>
+      <span className={isBlack ? "relative z-10 text-2xl font-black leading-none text-zinc-100 md:text-3xl" : "relative z-10 text-3xl font-black leading-none tracking-tight md:text-4xl"}>{noteId}</span>
     </motion.button>
   );
 };
