@@ -14,16 +14,25 @@ type PianoKeyProps = {
   onPress: (noteId: NoteId) => void;
 };
 
-const stateClass: Record<KeyVisualState, string> = {
+const whiteStateClass: Record<KeyVisualState, string> = {
   idle: "",
-  current: "ring-2 ring-violet-300 bg-violet-200 text-zinc-950 shadow-[0_18px_45px_-22px_rgba(139,92,246,0.9)]",
-  pressed: "ring-2 ring-violet-200 bg-violet-100 text-zinc-950",
-  correct: "ring-2 ring-emerald-300 bg-emerald-100 text-zinc-950",
-  wrong: "ring-2 ring-rose-300 bg-rose-200 text-zinc-950"
+  current: "ring-2 ring-violet-300/90 bg-[linear-gradient(180deg,#f8f4ff_0%,#eee7ff_48%,#d8ccff_100%)] text-zinc-950 shadow-[inset_0_-16px_22px_rgba(88,28,135,0.16),0_18px_45px_-24px_rgba(139,92,246,0.95)]",
+  pressed: "bg-[linear-gradient(180deg,#ede9fe_0%,#ddd6fe_55%,#c4b5fd_100%)] text-zinc-950 shadow-[inset_0_7px_16px_rgba(24,24,27,0.22)]",
+  correct: "ring-2 ring-emerald-300 bg-[linear-gradient(180deg,#ecfdf5_0%,#d1fae5_58%,#a7f3d0_100%)] text-zinc-950 shadow-[inset_0_7px_16px_rgba(6,78,59,0.14)]",
+  wrong: "ring-2 ring-rose-300 bg-[linear-gradient(180deg,#fff1f2_0%,#fecdd3_58%,#fda4af_100%)] text-zinc-950 shadow-[inset_0_7px_16px_rgba(136,19,55,0.16)]"
+};
+
+const blackStateClass: Record<KeyVisualState, string> = {
+  idle: "",
+  current: "ring-2 ring-violet-300 bg-[linear-gradient(180deg,#312e81_0%,#17112a_44%,#050507_100%)] text-violet-100 shadow-[0_18px_34px_rgba(0,0,0,0.7),0_0_22px_rgba(139,92,246,0.34)]",
+  pressed: "bg-[linear-gradient(180deg,#2e2648_0%,#111018_48%,#020203_100%)] text-violet-100 shadow-[0_8px_18px_rgba(0,0,0,0.72),inset_0_6px_12px_rgba(255,255,255,0.04)]",
+  correct: "ring-2 ring-emerald-300 bg-[linear-gradient(180deg,#064e3b_0%,#062d24_48%,#020403_100%)] text-emerald-100 shadow-[0_12px_28px_rgba(0,0,0,0.65),0_0_20px_rgba(52,211,153,0.25)]",
+  wrong: "ring-2 ring-rose-300 bg-[linear-gradient(180deg,#7f1d1d_0%,#351015_48%,#050203_100%)] text-rose-100 shadow-[0_12px_28px_rgba(0,0,0,0.65),0_0_20px_rgba(251,113,133,0.25)]"
 };
 
 export const PianoKey = ({ noteId, tone, keyboardKey, visualState, style, onPress }: PianoKeyProps) => {
   const isBlack = tone === "black";
+  const isPressed = visualState === "pressed" || visualState === "correct";
   const aria = `${noteId}, ${tone} key${keyboardKey ? `, keyboard ${keyboardKey}` : ""}`;
 
   const handlePointerDown = (event: PointerEvent<HTMLButtonElement>) => {
@@ -43,33 +52,43 @@ export const PianoKey = ({ noteId, tone, keyboardKey, visualState, style, onPres
       type="button"
       aria-label={aria}
       data-note-id={noteId}
-      whileTap={{ scale: 0.985, y: 2 }}
-      animate={{ y: visualState === "pressed" || visualState === "correct" ? 2 : 0 }}
-      transition={{ type: "spring", stiffness: 260, damping: 20 }}
+      data-tone={tone}
+      whileTap={isBlack ? { y: 3, scaleY: 0.985 } : { y: 6, scaleY: 0.982 }}
+      animate={isBlack ? { y: isPressed ? 3 : 0, scaleY: isPressed ? 0.99 : 1 } : { y: isPressed ? 6 : 0, scaleY: isPressed ? 0.985 : 1 }}
+      transition={{ type: "spring", stiffness: 460, damping: 28, mass: 0.62 }}
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
       onContextMenu={(event) => event.preventDefault()}
-      style={style}
+      style={{ ...style, transformOrigin: "top center" }}
       className={[
-        "touch-none select-none overflow-hidden border text-center font-black transition-colors focus-visible:z-20",
+        "group touch-none select-none overflow-hidden border text-center font-black outline-none transition-[background,box-shadow,border-color,color] duration-150 focus-visible:z-30",
         isBlack
-          ? "absolute top-0 z-[2] h-[58%] w-[7.2%] rounded-b-lg border-zinc-950 bg-zinc-950 pt-16 text-xs text-white shadow-[0_12px_24px_rgba(0,0,0,0.55)]"
-          : "relative h-64 flex-1 rounded-b-xl border-zinc-300 bg-gradient-to-b from-white to-zinc-200 pt-44 text-sm text-zinc-900 shadow-[inset_0_-12px_18px_rgba(0,0,0,0.08)] md:h-72 md:pt-52",
-        stateClass[visualState]
+          ? "absolute top-2 z-20 h-[61%] rounded-b-[0.8rem] border-x-black border-b-black border-t-zinc-700 bg-[linear-gradient(90deg,#050505_0%,#171717_16%,#050505_48%,#252525_68%,#030303_100%)] px-1 pt-12 text-xs text-zinc-100 shadow-[0_18px_24px_rgba(0,0,0,0.7),inset_4px_0_8px_rgba(255,255,255,0.04),inset_-6px_0_10px_rgba(0,0,0,0.62)] sm:pt-14 md:pt-16"
+          : "relative h-full flex-1 rounded-b-[1.05rem] border-x-zinc-300 border-b-zinc-400 border-t-zinc-100 bg-[linear-gradient(90deg,#d9d9dc_0%,#ffffff_8%,#f9fafb_52%,#e4e4e7_100%)] px-1 pb-5 pt-[11.75rem] text-sm text-zinc-900 shadow-[inset_5px_0_10px_rgba(255,255,255,0.9),inset_-7px_0_12px_rgba(0,0,0,0.08),inset_0_-18px_20px_rgba(0,0,0,0.10),0_10px_18px_rgba(0,0,0,0.18)] sm:pt-[12.8rem] md:pt-[15.25rem] lg:pt-[16.85rem]",
+        isBlack ? blackStateClass[visualState] : whiteStateClass[visualState]
       ].join(" ")}
     >
+      <span
+        aria-hidden="true"
+        className={[
+          "pointer-events-none absolute inset-x-1 top-2 rounded-full opacity-70 transition-opacity group-active:opacity-100",
+          isBlack ? "h-12 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.08),transparent)]" : "h-20 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.85),transparent)]"
+        ].join(" ")}
+      />
       {keyboardKey && (
         <span
           className={[
-            "absolute left-1/2 top-4 grid h-6 min-w-6 -translate-x-1/2 place-items-center rounded-md border px-1 font-mono text-[0.65rem]",
-            isBlack ? "border-white/10 bg-white/10 text-zinc-300" : "border-zinc-300 bg-zinc-100 text-zinc-500"
+            "absolute left-1/2 grid -translate-x-1/2 place-items-center rounded-md border px-1 font-mono text-[0.65rem] font-black shadow-sm",
+            isBlack
+              ? "top-4 h-6 min-w-6 border-white/10 bg-white/10 text-zinc-300"
+              : "bottom-14 h-7 min-w-7 border-zinc-300 bg-zinc-100/90 text-zinc-500 md:bottom-16"
           ].join(" ")}
         >
           {keyboardKey}
         </span>
       )}
-      <span>{noteId}</span>
+      <span className={isBlack ? "relative z-10 text-[0.72rem] text-zinc-200" : "relative z-10 tracking-tight"}>{noteId}</span>
     </motion.button>
   );
 };
