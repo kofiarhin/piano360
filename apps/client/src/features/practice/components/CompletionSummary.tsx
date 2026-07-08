@@ -15,7 +15,7 @@ export const CompletionSummary = ({
   onPracticeAgain,
   onFreestyle
 }: CompletionSummaryProps) => (
-  <div className="mx-auto flex max-w-3xl flex-col items-center gap-6 rounded-[2rem] border border-white/10 bg-zinc-900/80 p-8 text-center shadow-[0_30px_90px_-50px_rgba(0,0,0,0.95)]">
+  <div className="practice-completion-summary mx-auto flex max-w-3xl flex-col items-center gap-6 rounded-[2rem] border border-white/10 bg-zinc-900/80 p-8 text-center shadow-[0_30px_90px_-50px_rgba(0,0,0,0.95)]">
     <div className="grid h-12 w-12 place-items-center rounded-full border border-emerald-300/30 bg-emerald-400/15 text-lg font-black text-emerald-200">
       OK
     </div>

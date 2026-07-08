@@ -25,21 +25,34 @@ const audioStatusText: Record<AudioStatus, string> = {
   unavailable: "Audio unavailable"
 };
 
-export const StatusBar = ({ mode, feedback, currentNote, lastPlayedNote, audioStatus, correct, missed }: StatusBarProps) => {
+export const StatusBar = ({
+  mode,
+  feedback,
+  currentNote,
+  lastPlayedNote,
+  audioStatus,
+  correct,
+  missed
+}: StatusBarProps) => {
   const note = mode === "freestyle" ? lastPlayedNote : currentNote;
 
   return (
-    <section className="grid gap-3 md:grid-cols-[1fr_1.2fr_1fr]">
+    <section className="practice-status-bar grid gap-3 md:grid-cols-[1fr_1.2fr_1fr]">
       <article className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
         <p className="text-xs font-black uppercase text-zinc-500">Input</p>
         <p className="mt-2 text-lg font-black text-white">{audioStatusText[audioStatus]}</p>
       </article>
       <article className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
-        <p className="text-xs font-black uppercase text-zinc-500">{mode === "freestyle" ? "Mode" : "Feedback"}</p>
-        <p className="mt-2 text-lg font-black text-white">{mode === "freestyle" ? "Freestyle" : feedbackText[feedback]}</p>
+        <p className="text-xs font-black uppercase text-zinc-500">
+          {mode === "freestyle" ? "Mode" : "Feedback"}
+        </p>
+        <p className="mt-2 text-lg font-black text-white">
+          {mode === "freestyle" ? "Freestyle" : feedbackText[feedback]}
+        </p>
         {mode === "practice" && (
           <p className="mt-1 text-xs font-semibold text-zinc-500">
-            <span data-testid="correct-count">{correct}</span> correct / <span data-testid="missed-count">{missed}</span> missed
+            <span data-testid="correct-count">{correct}</span> correct /{" "}
+            <span data-testid="missed-count">{missed}</span> missed
           </p>
         )}
       </article>

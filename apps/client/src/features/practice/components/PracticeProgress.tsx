@@ -5,8 +5,13 @@ type PracticeProgressProps = {
   totalTime: string;
 };
 
-export const PracticeProgress = ({ progress, measure, currentTime, totalTime }: PracticeProgressProps) => (
-  <div className="mx-auto mt-1 w-full max-w-5xl">
+export const PracticeProgress = ({
+  progress,
+  measure,
+  currentTime,
+  totalTime
+}: PracticeProgressProps) => (
+  <div className="practice-progress mx-auto mt-1 w-full max-w-5xl">
     <div className="mb-1 flex items-center justify-between text-[0.65rem] font-bold uppercase text-zinc-500">
       <span>Measure {measure}</span>
       <span>
