@@ -74,6 +74,140 @@ select:disabled {
   background: rgba(167, 139, 250, 0.62);
 }
 
+@media (max-width: 768px) {
+  html,
+  body,
+  #root {
+    min-height: 100dvh;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .practice-mobile-shell {
+    position: static !important;
+    inset: auto !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 100dvh !important;
+    overflow: hidden !important;
+  }
+
+  .practice-mobile-frame {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 100dvh !important;
+    gap: 1rem !important;
+    padding: 0 0 1rem !important;
+    transform: none !important;
+  }
+
+  .practice-control-panel {
+    position: relative !important;
+    z-index: 10 !important;
+    display: grid !important;
+    width: 100% !important;
+    max-width: none !important;
+    height: auto !important;
+    min-width: 0 !important;
+    gap: 0.8rem !important;
+    overflow: visible !important;
+    border-right: 0 !important;
+    padding: 1rem 1rem 0 !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+  }
+
+  .practice-mobile-stage {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    max-width: none !important;
+    height: auto !important;
+    min-height: 0 !important;
+    gap: 0 !important;
+    overflow: visible !important;
+    padding: 0 1rem !important;
+  }
+
+  .practice-piano {
+    width: 100% !important;
+    min-height: auto !important;
+  }
+
+  .practice-piano-scroll {
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    padding-bottom: 0.25rem !important;
+  }
+
+  .practice-piano-bed {
+    width: auto !important;
+    min-width: 46rem !important;
+    height: 14.5rem !important;
+    min-height: 14.5rem !important;
+    max-height: none !important;
+  }
+}
+
+@media (max-width: 768px) and (orientation: landscape) {
+  .practice-mobile-frame {
+    display: grid !important;
+    grid-template-columns: minmax(12rem, 28dvw) minmax(0, 1fr) !important;
+    grid-template-rows: 100dvh !important;
+    min-height: 100dvh !important;
+    height: 100dvh !important;
+    gap: 0 !important;
+    padding: 0 !important;
+  }
+
+  .practice-control-panel {
+    align-content: start !important;
+    height: 100dvh !important;
+    overflow-y: auto !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.1) !important;
+    padding: 0.75rem !important;
+    background: rgba(9, 9, 13, 0.78) !important;
+  }
+
+  .practice-mobile-stage {
+    height: 100dvh !important;
+    overflow: hidden !important;
+    display: grid !important;
+    grid-template-rows: minmax(5rem, 24dvh) minmax(0, 1fr) auto !important;
+    gap: 0.5rem !important;
+    padding: 0.5rem !important;
+  }
+
+  .practice-mobile-stage > section:last-child {
+    display: none !important;
+  }
+
+  .practice-piano,
+  .practice-piano > div {
+    min-height: 0 !important;
+    height: 100% !important;
+  }
+
+  .practice-piano > div {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  .practice-piano-scroll {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow-x: auto !important;
+  }
+
+  .practice-piano-bed {
+    min-width: 46rem !important;
+    height: 100% !important;
+    min-height: 10rem !important;
+  }
+}
+
 :focus-visible {
   outline: 2px solid #a78bfa;
   outline-offset: 3px;
