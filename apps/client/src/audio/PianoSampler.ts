@@ -79,7 +79,7 @@ export class PianoSampler {
 
     this.audioContext = this.audioContext ?? createLowLatencyAudioContext();
 
-    this.loadPromise = Promise.all(
+    this.loadPromise = Promise.allSettled(
       pianoNotes.map(async (noteId) => {
         const response = await fetch(sampleUrlFor(noteId));
 
@@ -104,22 +104,19 @@ export class PianoSampler {
     }
   }
 
-  play(noteId: NoteId, velocity = 0.92) {
+  async play(noteId: NoteId, velocity = 0.92) {
+    await this.unlock();
+    void this.load().catch(() => undefined);
+
     const audioContext = this.audioContext;
 
-    if (!audioContext) {
-      void this.load().catch(() => undefined);
+    if (!audioContext || audioContext.state !== "running") {
       return false;
-    }
-
-    if (audioContext.state === "suspended") {
-      void audioContext.resume();
     }
 
     const buffer = this.buffers.get(noteId);
 
     if (!buffer) {
-      void this.load().catch(() => undefined);
       this.playFallbackTone(noteId, velocity);
       return true;
     }
