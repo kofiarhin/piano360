@@ -17,17 +17,17 @@ type PianoKeyProps = {
 const whiteStateClass: Record<KeyVisualState, string> = {
   idle: "",
   current: "ring-2 ring-violet-300/90 bg-[linear-gradient(180deg,#f8f4ff_0%,#eee7ff_48%,#d8ccff_100%)] text-zinc-950 shadow-[inset_0_-16px_22px_rgba(88,28,135,0.16),0_18px_45px_-24px_rgba(139,92,246,0.95)]",
-  pressed: "ring-2 ring-purple-300 bg-[linear-gradient(180deg,#7e22ce_0%,#581c87_48%,#2e1065_100%)] text-purple-50 shadow-[inset_0_8px_18px_rgba(17,24,39,0.34),0_0_28px_rgba(126,34,206,0.55)]",
-  correct: "ring-2 ring-purple-300 bg-[linear-gradient(180deg,#7e22ce_0%,#581c87_48%,#2e1065_100%)] text-purple-50 shadow-[inset_0_8px_18px_rgba(17,24,39,0.34),0_0_28px_rgba(126,34,206,0.55)]",
-  wrong: "ring-2 ring-purple-300 bg-[linear-gradient(180deg,#7e22ce_0%,#581c87_48%,#2e1065_100%)] text-purple-50 shadow-[inset_0_8px_18px_rgba(17,24,39,0.34),0_0_28px_rgba(126,34,206,0.55)]"
+  pressed: "ring-2 ring-purple-300 !bg-purple-900 !text-purple-50 !shadow-[inset_0_10px_22px_rgba(17,24,39,0.38),0_0_34px_rgba(126,34,206,0.62)]",
+  correct: "ring-2 ring-purple-300 !bg-purple-900 !text-purple-50 !shadow-[inset_0_10px_22px_rgba(17,24,39,0.38),0_0_34px_rgba(126,34,206,0.62)]",
+  wrong: "ring-2 ring-purple-300 !bg-purple-900 !text-purple-50 !shadow-[inset_0_10px_22px_rgba(17,24,39,0.38),0_0_34px_rgba(126,34,206,0.62)]"
 };
 
 const blackStateClass: Record<KeyVisualState, string> = {
   idle: "",
   current: "ring-2 ring-violet-300 bg-[linear-gradient(180deg,#312e81_0%,#17112a_44%,#050507_100%)] text-violet-100 shadow-[0_18px_34px_rgba(0,0,0,0.7),0_0_22px_rgba(139,92,246,0.34)]",
-  pressed: "ring-2 ring-purple-300 bg-[linear-gradient(180deg,#9333ea_0%,#581c87_46%,#1e103d_100%)] text-purple-50 shadow-[0_10px_24px_rgba(0,0,0,0.72),0_0_24px_rgba(147,51,234,0.45),inset_0_6px_14px_rgba(255,255,255,0.08)]",
-  correct: "ring-2 ring-purple-300 bg-[linear-gradient(180deg,#9333ea_0%,#581c87_46%,#1e103d_100%)] text-purple-50 shadow-[0_10px_24px_rgba(0,0,0,0.72),0_0_24px_rgba(147,51,234,0.45),inset_0_6px_14px_rgba(255,255,255,0.08)]",
-  wrong: "ring-2 ring-purple-300 bg-[linear-gradient(180deg,#9333ea_0%,#581c87_46%,#1e103d_100%)] text-purple-50 shadow-[0_10px_24px_rgba(0,0,0,0.72),0_0_24px_rgba(147,51,234,0.45),inset_0_6px_14px_rgba(255,255,255,0.08)]"
+  pressed: "ring-2 ring-purple-300 !bg-purple-900 !text-purple-50 !shadow-[0_10px_24px_rgba(0,0,0,0.72),0_0_28px_rgba(147,51,234,0.5)]",
+  correct: "ring-2 ring-purple-300 !bg-purple-900 !text-purple-50 !shadow-[0_10px_24px_rgba(0,0,0,0.72),0_0_28px_rgba(147,51,234,0.5)]",
+  wrong: "ring-2 ring-purple-300 !bg-purple-900 !text-purple-50 !shadow-[0_10px_24px_rgba(0,0,0,0.72),0_0_28px_rgba(147,51,234,0.5)]"
 };
 
 export const PianoKey = ({ noteId, tone, keyboardKey, visualState, style, onPress }: PianoKeyProps) => {
@@ -72,7 +72,8 @@ export const PianoKey = ({ noteId, tone, keyboardKey, visualState, style, onPres
       <span
         aria-hidden="true"
         className={[
-          "pointer-events-none absolute inset-x-1 top-2 rounded-full opacity-70 transition-opacity group-active:opacity-100",
+          "pointer-events-none absolute inset-x-1 top-2 rounded-full transition-opacity group-active:opacity-100",
+          isPressed ? "opacity-0" : "opacity-70",
           isBlack ? "h-12 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.08),transparent)]" : "h-20 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.85),transparent)]"
         ].join(" ")}
       />
