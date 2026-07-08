@@ -20,6 +20,25 @@ export const sampleFileByNote: Record<NoteId, string> = {
   C5: "C5.mp3"
 };
 
+const frequencyByNote: Record<NoteId, number> = {
+  A3: 220,
+  "A#3": 233.08,
+  B3: 246.94,
+  C4: 261.63,
+  "C#4": 277.18,
+  D4: 293.66,
+  "D#4": 311.13,
+  E4: 329.63,
+  F4: 349.23,
+  "F#4": 369.99,
+  G4: 392,
+  "G#4": 415.3,
+  A4: 440,
+  "A#4": 466.16,
+  B4: 493.88,
+  C5: 523.25
+};
+
 const sampleUrlFor = (note: NoteId) => `/audio/piano/${sampleFileByNote[note]}`;
 const clampVelocity = (velocity: number) => Math.min(1, Math.max(0, velocity));
 const getAudioContextConstructor = () => window.AudioContext ?? window.webkitAudioContext;
@@ -77,13 +96,32 @@ export class PianoSampler {
     return this.loadPromise;
   }
 
+  async unlock() {
+    this.audioContext = this.audioContext ?? createLowLatencyAudioContext();
+
+    if (this.audioContext.state === "suspended") {
+      await this.audioContext.resume();
+    }
+  }
+
   play(noteId: NoteId, velocity = 0.92) {
-    const buffer = this.buffers.get(noteId);
     const audioContext = this.audioContext;
 
-    if (!buffer || !audioContext) {
+    if (!audioContext) {
       void this.load().catch(() => undefined);
       return false;
+    }
+
+    if (audioContext.state === "suspended") {
+      void audioContext.resume();
+    }
+
+    const buffer = this.buffers.get(noteId);
+
+    if (!buffer) {
+      void this.load().catch(() => undefined);
+      this.playFallbackTone(noteId, velocity);
+      return true;
     }
 
     const source = audioContext.createBufferSource();
@@ -92,12 +130,29 @@ export class PianoSampler {
     source.buffer = buffer;
     gain.gain.setValueAtTime(clampVelocity(velocity), audioContext.currentTime);
     source.connect(gain).connect(audioContext.destination);
-
-    if (audioContext.state === "suspended") {
-      void audioContext.resume();
-    }
-
     source.start(audioContext.currentTime);
     return true;
+  }
+
+  private playFallbackTone(noteId: NoteId, velocity: number) {
+    const audioContext = this.audioContext;
+
+    if (!audioContext) {
+      return;
+    }
+
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    const now = audioContext.currentTime;
+
+    oscillator.type = "triangle";
+    oscillator.frequency.setValueAtTime(frequencyByNote[noteId], now);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, clampVelocity(velocity) * 0.18), now + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.42);
+
+    oscillator.connect(gain).connect(audioContext.destination);
+    oscillator.start(now);
+    oscillator.stop(now + 0.45);
   }
 }
