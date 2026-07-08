@@ -1,6 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 
 import { playNote } from "./audio/NotePlayer";
+import { sampleFileByNote } from "./audio/PianoSampler";
 import { App } from "./App";
 import { keyboardMap, pianoKeys, pianoNotes, practiceSongs } from "./features/practice/practiceData";
 import type { NoteId } from "./features/practice/practiceTypes";
@@ -35,6 +36,25 @@ const exactKeyboardMap: Record<string, NoteId> = {
   i: "A#4",
   l: "B4",
   ";": "C5"
+};
+
+const exactSampleMap: Record<NoteId, string> = {
+  A3: "A3.mp3",
+  "A#3": "Bb3.mp3",
+  B3: "B3.mp3",
+  C4: "C4.mp3",
+  "C#4": "Db4.mp3",
+  D4: "D4.mp3",
+  "D#4": "Eb4.mp3",
+  E4: "E4.mp3",
+  F4: "F4.mp3",
+  "F#4": "Gb4.mp3",
+  G4: "G4.mp3",
+  "G#4": "Ab4.mp3",
+  A4: "A4.mp3",
+  "A#4": "Bb4.mp3",
+  B4: "B4.mp3",
+  C5: "C5.mp3"
 };
 
 describe("Piano360 MVP", () => {
@@ -73,6 +93,10 @@ describe("Piano360 MVP", () => {
 
   it("maps computer keys to the exact notes under their physical piano positions", () => {
     expect(keyboardMap).toEqual(exactKeyboardMap);
+  });
+
+  it("maps every note to the exact bundled piano sample", () => {
+    expect(sampleFileByNote).toEqual(exactSampleMap);
   });
 
   it("renders the single practice screen with Practice mode as the default", () => {
