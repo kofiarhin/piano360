@@ -78,7 +78,7 @@ describe("PianoSampler", () => {
 
   it("preloads and decodes every bundled note sample", async () => {
     const mockAudioContext = createMockAudioContext();
-    const fetchMock = vi.fn(async () => ({
+    const fetchMock = vi.fn(async (_url: string) => ({
       ok: true,
       arrayBuffer: async () => new ArrayBuffer(8)
     }));
@@ -90,7 +90,7 @@ describe("PianoSampler", () => {
 
     await sampler.load();
 
-    expect(fetchMock.mock.calls.map((call) => call[0])).toEqual(pianoNotes.map((noteId) => expectedSampleUrls[noteId]));
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual(pianoNotes.map((noteId) => expectedSampleUrls[noteId]));
     expect(mockAudioContext.decodeAudioData).toHaveBeenCalledTimes(Object.keys(sampleFileByNote).length);
   });
 
