@@ -113,7 +113,8 @@ describe("PianoSampler", () => {
     expect(mockAudioContext.createBufferSource).toHaveBeenCalledTimes(1);
     expect(mockAudioContext.createGain).toHaveBeenCalledTimes(1);
     expect(mockAudioContext.gain.gain.setValueAtTime).toHaveBeenCalledWith(0.7, mockAudioContext.currentTime);
-    expect(mockAudioContext.sources[0].start).toHaveBeenCalledWith(mockAudioContext.currentTime);
+    expect(mockAudioContext.sources).toHaveLength(1);
+    expect(mockAudioContext.sources.at(0)?.start).toHaveBeenCalledWith(mockAudioContext.currentTime);
   });
 
   it("resumes a suspended AudioContext from the key press gesture", async () => {
@@ -133,7 +134,8 @@ describe("PianoSampler", () => {
 
     expect(sampler.play("E4")).toBe(true);
     expect(mockAudioContext.resume).toHaveBeenCalledTimes(1);
-    expect(mockAudioContext.sources[0].start).toHaveBeenCalledWith(mockAudioContext.currentTime);
+    expect(mockAudioContext.sources).toHaveLength(1);
+    expect(mockAudioContext.sources.at(0)?.start).toHaveBeenCalledWith(mockAudioContext.currentTime);
   });
 
   it("returns false when a note is requested before its buffer is ready", () => {
