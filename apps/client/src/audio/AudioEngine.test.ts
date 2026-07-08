@@ -1,8 +1,8 @@
-import { AudioEngine } from "./AudioEngine";
 import { pianoNotes } from "../features/practice/practiceData";
 import type { NoteId } from "../features/practice/practiceTypes";
+import { AudioEngine } from "./AudioEngine";
 
-const flushPromises = () => new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+const flushPromises = () => Promise.resolve();
 
 type FakeSampler = {
   load: ReturnType<typeof vi.fn>;
