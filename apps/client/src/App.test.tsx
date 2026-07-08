@@ -2,7 +2,8 @@ import { act, cleanup, fireEvent, render, screen, within } from "@testing-librar
 
 import { playNote } from "./audio/NotePlayer";
 import { App } from "./App";
-import { practiceSongs } from "./features/practice/practiceData";
+import { keyboardMap, pianoKeys, pianoNotes, practiceSongs } from "./features/practice/practiceData";
+import type { NoteId } from "./features/practice/practiceTypes";
 
 const audioMock = vi.hoisted(() => ({
   status: "ready"
@@ -17,6 +18,25 @@ vi.mock("./audio/NotePlayer", () => ({
 
 const renderApp = () => render(<App />);
 
+const exactKeyboardMap: Record<string, NoteId> = {
+  a: "A3",
+  w: "A#3",
+  s: "B3",
+  d: "C4",
+  e: "C#4",
+  f: "D4",
+  r: "D#4",
+  g: "E4",
+  h: "F4",
+  y: "F#4",
+  j: "G4",
+  u: "G#4",
+  k: "A4",
+  i: "A#4",
+  l: "B4",
+  ";": "C5"
+};
+
 describe("Piano360 MVP", () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -27,6 +47,32 @@ describe("Piano360 MVP", () => {
     vi.useRealTimers();
     vi.clearAllMocks();
     audioMock.status = "ready";
+  });
+
+  it("keeps the virtual keyboard in exact ascending piano-note order", () => {
+    expect(pianoNotes).toEqual([
+      "A3",
+      "A#3",
+      "B3",
+      "C4",
+      "C#4",
+      "D4",
+      "D#4",
+      "E4",
+      "F4",
+      "F#4",
+      "G4",
+      "G#4",
+      "A4",
+      "A#4",
+      "B4",
+      "C5"
+    ]);
+    expect(pianoKeys.map((key) => key.noteId)).toEqual(pianoNotes);
+  });
+
+  it("maps computer keys to the exact notes under their physical piano positions", () => {
+    expect(keyboardMap).toEqual(exactKeyboardMap);
   });
 
   it("renders the single practice screen with Practice mode as the default", () => {
@@ -118,9 +164,13 @@ describe("Piano360 MVP", () => {
     expect(playNote).toHaveBeenCalledWith("C4");
     expect(screen.getByTestId("last-played-note")).toHaveTextContent("C4");
 
-    fireEvent.keyDown(window, { key: "w" });
-    expect(playNote).toHaveBeenCalledWith("A#3");
-    expect(screen.getByTestId("last-played-note")).toHaveTextContent("A#3");
+    fireEvent.keyDown(window, { key: "r" });
+    expect(playNote).toHaveBeenCalledWith("D#4");
+    expect(screen.getByTestId("last-played-note")).toHaveTextContent("D#4");
+
+    fireEvent.keyDown(window, { key: "i" });
+    expect(playNote).toHaveBeenCalledWith("A#4");
+    expect(screen.getByTestId("last-played-note")).toHaveTextContent("A#4");
   });
 
   it("renders the keyboard range with labels and computer key hints", () => {
@@ -130,6 +180,8 @@ describe("Piano360 MVP", () => {
     expect(within(piano).getByRole("button", { name: /^A3, white key/ })).toBeInTheDocument();
     expect(within(piano).getByRole("button", { name: /^C5, white key/ })).toBeInTheDocument();
     expect(within(piano).getByText("A")).toBeInTheDocument();
+    expect(within(piano).getByText("R")).toBeInTheDocument();
+    expect(within(piano).getByText("I")).toBeInTheDocument();
     expect(within(piano).getByText(";")).toBeInTheDocument();
   });
 
