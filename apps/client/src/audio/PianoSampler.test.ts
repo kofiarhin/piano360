@@ -2,7 +2,7 @@ import { pianoNotes } from "../features/practice/practiceData";
 import type { NoteId } from "../features/practice/practiceTypes";
 import { PianoSampler, sampleFileByNote } from "./PianoSampler";
 
-class MockAudioBuffer {}
+const createMockAudioBuffer = () => ({}) as AudioBuffer;
 
 const expectedSampleUrls: Record<NoteId, string> = {
   A3: "/audio/piano/A3.mp3",
@@ -24,7 +24,7 @@ const expectedSampleUrls: Record<NoteId, string> = {
 };
 
 const createMockAudioContext = (state: "running" | "suspended" = "running") => {
-  const destination = {};
+  const destination = {} as AudioDestinationNode;
   const gain = {
     gain: {
       setValueAtTime: vi.fn()
@@ -32,7 +32,7 @@ const createMockAudioContext = (state: "running" | "suspended" = "running") => {
     connect: vi.fn(() => destination)
   };
   const sources: Array<{
-    buffer: MockAudioBuffer | undefined;
+    buffer: AudioBuffer | null;
     connect: ReturnType<typeof vi.fn>;
     start: ReturnType<typeof vi.fn>;
   }> = [];
@@ -41,10 +41,10 @@ const createMockAudioContext = (state: "running" | "suspended" = "running") => {
     currentTime: 12.5,
     destination,
     state,
-    decodeAudioData: vi.fn(async () => new MockAudioBuffer()),
+    decodeAudioData: vi.fn(async () => createMockAudioBuffer()),
     createBufferSource: vi.fn(() => {
       const source = {
-        buffer: undefined as MockAudioBuffer | undefined,
+        buffer: null as AudioBuffer | null,
         connect: vi.fn(() => gain),
         start: vi.fn()
       };
@@ -58,9 +58,22 @@ const createMockAudioContext = (state: "running" | "suspended" = "running") => {
   };
 };
 
+type MockAudioContext = ReturnType<typeof createMockAudioContext>;
+
+const stubAudioContext = (mockAudioContext: MockAudioContext) => {
+  const MockAudioContextConstructor = vi.fn(() => mockAudioContext);
+
+  vi.stubGlobal("AudioContext", MockAudioContextConstructor);
+  Object.defineProperty(window, "AudioContext", {
+    value: MockAudioContextConstructor,
+    configurable: true
+  });
+};
+
 describe("PianoSampler", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+    Reflect.deleteProperty(window, "AudioContext");
   });
 
   it("preloads and decodes every bundled note sample", async () => {
@@ -71,7 +84,7 @@ describe("PianoSampler", () => {
     }));
 
     vi.stubGlobal("fetch", fetchMock);
-    vi.stubGlobal("AudioContext", vi.fn(() => mockAudioContext));
+    stubAudioContext(mockAudioContext);
 
     const sampler = new PianoSampler();
 
@@ -91,7 +104,7 @@ describe("PianoSampler", () => {
         arrayBuffer: async () => new ArrayBuffer(8)
       }))
     );
-    vi.stubGlobal("AudioContext", vi.fn(() => mockAudioContext));
+    stubAudioContext(mockAudioContext);
 
     const sampler = new PianoSampler();
     await sampler.load();
@@ -113,7 +126,7 @@ describe("PianoSampler", () => {
         arrayBuffer: async () => new ArrayBuffer(8)
       }))
     );
-    vi.stubGlobal("AudioContext", vi.fn(() => mockAudioContext));
+    stubAudioContext(mockAudioContext);
 
     const sampler = new PianoSampler();
     await sampler.load();
@@ -127,7 +140,7 @@ describe("PianoSampler", () => {
     const mockAudioContext = createMockAudioContext();
 
     vi.stubGlobal("fetch", vi.fn());
-    vi.stubGlobal("AudioContext", vi.fn(() => mockAudioContext));
+    stubAudioContext(mockAudioContext);
 
     const sampler = new PianoSampler();
 
