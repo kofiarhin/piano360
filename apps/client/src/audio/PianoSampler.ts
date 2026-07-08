@@ -82,7 +82,7 @@ export class PianoSampler {
     const audioContext = this.audioContext;
 
     if (!buffer || !audioContext) {
-      void this.load();
+      void this.load().catch(() => undefined);
       return false;
     }
 
