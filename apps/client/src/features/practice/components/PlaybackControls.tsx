@@ -19,7 +19,7 @@ export const PlaybackControls = ({
   onNext,
   onTempoChange
 }: PlaybackControlsProps) => (
-  <div className="flex flex-wrap items-center justify-end gap-2">
+  <div className="practice-playback-controls flex flex-wrap items-center justify-end gap-2">
     <button
       type="button"
       onClick={onPrevious}
@@ -45,7 +45,7 @@ export const PlaybackControls = ({
     >
       Next
     </button>
-    <label className="ml-0 flex min-w-52 items-center gap-3 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-zinc-300 md:ml-2">
+    <label className="practice-tempo-control ml-0 flex min-w-52 items-center gap-3 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-zinc-300 md:ml-2">
       <span className="font-semibold">Tempo</span>
       <input
         aria-label="Tempo"
