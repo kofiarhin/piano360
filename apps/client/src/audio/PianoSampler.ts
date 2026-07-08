@@ -1,7 +1,7 @@
 import { pianoNotes } from "../features/practice/practiceData";
 import type { NoteId } from "../features/practice/practiceTypes";
 
-const sampleFileByNote: Record<NoteId, string> = {
+export const sampleFileByNote: Record<NoteId, string> = {
   A3: "A3.mp3",
   "A#3": "Bb3.mp3",
   B3: "B3.mp3",
