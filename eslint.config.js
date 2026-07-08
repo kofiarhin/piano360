@@ -27,5 +27,15 @@ export default [
         ...globals.es2024
       }
     }
+  },
+  {
+    files: ["apps/client/**/*.test.{ts,tsx}", "apps/client/vitest.setup.ts"],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+        ...globals.es2024,
+        ...globals.vitest
+      }
+    }
   }
 ];
