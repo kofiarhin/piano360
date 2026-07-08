@@ -35,10 +35,10 @@ export const whiteKeyMap: Record<string, NoteId> = {
 export const blackKeyMap: Record<string, NoteId> = {
   w: "A#3",
   e: "C#4",
-  t: "D#4",
+  r: "D#4",
   y: "F#4",
   u: "G#4",
-  o: "A#4"
+  i: "A#4"
 };
 
 export const keyboardMap: Record<string, NoteId> = {
