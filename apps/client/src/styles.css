@@ -3,8 +3,8 @@
 @tailwind utilities;
 
 :root {
-  color: #202522;
-  background: #f6f2ea;
+  color: #f4f4f5;
+  background: #0b0b10;
   font-family: "Aptos", "Segoe UI", system-ui, sans-serif;
   font-synthesis: none;
   line-height: 1.5;
@@ -17,14 +17,20 @@
   box-sizing: border-box;
 }
 
+html {
+  background: #0b0b10;
+}
+
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100dvh;
+  background: #0b0b10;
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -32,12 +38,23 @@ button {
   touch-action: manipulation;
 }
 
+button,
+select,
+input[type="range"] {
+  cursor: pointer;
+}
+
+button:disabled,
+select:disabled {
+  cursor: not-allowed;
+}
+
 :focus-visible {
-  outline: 3px solid #b8674f;
+  outline: 2px solid #a78bfa;
   outline-offset: 3px;
 }
 
-.piano-scrollbar {
-  scrollbar-color: #b8674f #e7ded1;
-  scrollbar-width: thin;
+::selection {
+  color: #ffffff;
+  background: rgba(139, 92, 246, 0.45);
 }

@@ -1,145 +1,143 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 
+import { playNote } from "./audio/NotePlayer";
 import { App } from "./App";
-import { CONTENT_VERSION } from "./content";
-import { PROGRESS_STORAGE_KEY, createEmptyProgress } from "./features/progress/storage";
+import { practiceSongs } from "./features/practice/practiceData";
 
-const renderAt = (path: string) => {
-  window.history.pushState({}, "", path);
-  return render(<App />);
-};
+const audioMock = vi.hoisted(() => ({
+  status: "ready"
+}));
 
-describe("Piano360 app", () => {
+vi.mock("./audio/NotePlayer", () => ({
+  getAudioStatus: vi.fn(() => audioMock.status),
+  playNote: vi.fn(),
+  subscribeToAudioStatus: vi.fn(() => vi.fn()),
+  warmAudio: vi.fn()
+}));
+
+const renderApp = () => render(<App />);
+
+describe("Piano360 MVP", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
   afterEach(() => {
     cleanup();
-    window.localStorage.clear();
-    window.history.pushState({}, "", "/");
-    vi.restoreAllMocks();
+    vi.useRealTimers();
+    vi.clearAllMocks();
+    audioMock.status = "ready";
   });
 
-  it.each([
-    ["/", "Start at the keyboard"],
-    ["/lessons", "Lessons"],
-    ["/practice/free", "Explore around middle C"],
-    ["/practice/middle-c-anchor", "Middle C anchor"],
-    ["/library", "Library"],
-    ["/progress", "Local device progress"]
-  ])("renders route %s", (path, expectedText) => {
-    renderAt(path);
+  it("renders the single practice screen with Practice mode as the default", () => {
+    renderApp();
 
-    expect(screen.getByRole("heading", { name: new RegExp(expectedText) })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Piano360" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Practice mode" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText("PRESS NOW")).toBeInTheDocument();
+    expect(screen.getByTestId("current-note")).toHaveTextContent("E4");
+    expect(screen.getByLabelText("Virtual piano")).toBeInTheDocument();
   });
 
-  it("renders the lesson catalog", () => {
-    renderAt("/lessons");
+  it("starts, pauses, and changes tempo for the system-paced highway", async () => {
+    renderApp();
 
-    expect(screen.getByText("Find the center")).toBeInTheDocument();
-    expect(screen.getByText("Right-hand five fingers")).toBeInTheDocument();
-    expect(screen.getByText("Basic I-IV-V-I")).toBeInTheDocument();
+    expect(screen.getByTestId("current-note")).toHaveTextContent("E4");
+
+    fireEvent.click(screen.getByRole("button", { name: "Play" }));
+    expect(screen.getByRole("button", { name: "Pause" })).toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(650);
+    });
+    expect(screen.getByTestId("current-note")).toHaveTextContent("D#4");
+
+    fireEvent.click(screen.getByRole("button", { name: "Pause" }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1200);
+    });
+    expect(screen.getByTestId("current-note")).toHaveTextContent("D#4");
+
+    fireEvent.change(screen.getByLabelText("Tempo"), { target: { value: "180" } });
+    fireEvent.click(screen.getByRole("button", { name: "Play" }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(360);
+    });
+    expect(screen.getByTestId("current-note")).toHaveTextContent("E4");
   });
 
-  it("loads a valid exercise and shows a recoverable state for an invalid exercise", () => {
-    renderAt("/practice/middle-c-anchor");
+  it("marks correct notes, allows wrong recovery, and misses notes after they pass", async () => {
+    renderApp();
 
-    expect(screen.getByRole("heading", { name: "Middle C anchor" })).toBeInTheDocument();
-    cleanup();
+    fireEvent.click(screen.getByRole("button", { name: "Play" }));
+    fireEvent.click(screen.getByRole("button", { name: /^A3, white key/ }));
+    expect(screen.getByText(/Wrong key/)).toBeInTheDocument();
+    expect(screen.getByTestId("current-note")).toHaveTextContent("E4");
 
-    renderAt("/practice/not-a-real-exercise");
+    fireEvent.click(screen.getByRole("button", { name: /^E4, white key/ }));
+    expect(screen.getByText(/Good/)).toBeInTheDocument();
+    expect(screen.getByTestId("correct-count")).toHaveTextContent("1");
 
-    expect(screen.getByRole("alert")).toHaveTextContent("This practice link is not available.");
-    expect(screen.getByRole("link", { name: "Back to lessons" })).toHaveAttribute("href", "/lessons");
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1350);
+    });
+    expect(screen.getByTestId("missed-count")).toHaveTextContent("1");
   });
 
-  it("renders target highlights and finger numbers on the virtual piano", () => {
-    renderAt("/practice/middle-c-anchor");
+  it("shows completion metrics and supports Practice Again and Freestyle actions", async () => {
+    renderApp();
 
-    const targetKey = screen.getByRole("button", {
-      name: /C4, white key, right hand finger 1, target note/
+    fireEvent.click(screen.getByRole("button", { name: "Play" }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(practiceSongs[0].notes.length * 640);
     });
 
-    expect(targetKey).toHaveAttribute("data-target", "true");
-    expect(screen.getByText("RH")).toBeInTheDocument();
-    expect(screen.getAllByText("1").length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: "Practice Complete" })).toBeInTheDocument();
+    expect(screen.getByText("Total Notes")).toBeInTheDocument();
+    expect(screen.getByText("Accuracy")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Freestyle" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Practice Again" }));
+    expect(screen.queryByRole("heading", { name: "Practice Complete" })).not.toBeInTheDocument();
+    expect(screen.getByTestId("current-note")).toHaveTextContent("E4");
+
+    fireEvent.click(screen.getByRole("button", { name: "Freestyle mode" }));
+    expect(screen.getByRole("heading", { name: "Free Play" })).toBeInTheDocument();
   });
 
-  it("advances on Correct, stays on Try Again, skips allowed steps, and restarts", async () => {
-    const user = userEvent.setup();
-    renderAt("/practice/middle-c-anchor");
+  it("switches to Freestyle, plays clicked and mapped notes, and hides practice scoring", async () => {
+    renderApp();
 
-    expect(screen.getByText("Step 1 of 3")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Freestyle mode" }));
 
-    await user.click(screen.getByRole("button", { name: "Try Again" }));
-    expect(screen.getByText("Step 1 of 3")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Free Play" })).toBeInTheDocument();
+    expect(screen.queryByText("PRESS NOW")).not.toBeInTheDocument();
+    expect(screen.queryByText("Correct")).not.toBeInTheDocument();
 
-    expect(screen.getByRole("button", { name: "Skip" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: /^C4, white key/ }));
+    expect(playNote).toHaveBeenCalledWith("C4");
+    expect(screen.getByTestId("last-played-note")).toHaveTextContent("C4");
 
-    await user.click(screen.getByRole("button", { name: "Correct" }));
-    expect(screen.getByText("Step 2 of 3")).toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "Skip" }));
-    expect(screen.getByText("Step 3 of 3")).toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "Restart" }));
-    expect(screen.getByText("Step 1 of 3")).toBeInTheDocument();
+    fireEvent.keyDown(window, { key: "w" });
+    expect(playNote).toHaveBeenCalledWith("A#3");
+    expect(screen.getByTestId("last-played-note")).toHaveTextContent("A#3");
   });
 
-  it("writes local progress when an exercise is completed", async () => {
-    const user = userEvent.setup();
-    renderAt("/practice/middle-c-anchor");
+  it("renders the keyboard range with labels and computer key hints", () => {
+    renderApp();
 
-    await user.click(screen.getByRole("button", { name: "Correct" }));
-    await user.click(screen.getByRole("button", { name: "Correct" }));
-    await user.click(screen.getByRole("button", { name: "Correct" }));
-
-    expect(await screen.findByRole("heading", { name: "Practice summary" })).toBeInTheDocument();
-
-    await waitFor(() => {
-      const raw = window.localStorage.getItem(PROGRESS_STORAGE_KEY);
-      expect(raw).toContain("middle-c-anchor");
-    });
+    const piano = screen.getByLabelText("Virtual piano");
+    expect(within(piano).getByRole("button", { name: /^A3, white key/ })).toBeInTheDocument();
+    expect(within(piano).getByRole("button", { name: /^C5, white key/ })).toBeInTheDocument();
+    expect(within(piano).getByText("A")).toBeInTheDocument();
+    expect(within(piano).getByText(";")).toBeInTheDocument();
   });
 
-  it("progress route reads completed local progress", () => {
-    const progress = createEmptyProgress();
-    progress.contentVersion = CONTENT_VERSION;
-    progress.completedExerciseIds = ["middle-c-anchor"];
-    progress.recentExerciseIds = ["middle-c-anchor"];
-    progress.exerciseStats["middle-c-anchor"] = {
-      exerciseId: "middle-c-anchor",
-      attempts: 3,
-      correctAttempts: 3,
-      retryAttempts: 0,
-      skippedSteps: 0,
-      completionCount: 1,
-      completedAt: "2026-07-07T12:00:00.000Z",
-      lastPracticedAt: "2026-07-07T12:00:00.000Z"
-    };
-    window.localStorage.setItem(PROGRESS_STORAGE_KEY, JSON.stringify(progress));
+  it("handles unavailable audio without crashing", async () => {
+    audioMock.status = "unavailable";
+    renderApp();
 
-    renderAt("/progress");
-
-    expect(screen.getByText("Middle C anchor")).toBeInTheDocument();
-    expect(screen.getByText("1")).toBeInTheDocument();
-  });
-
-  it("free practice renders and reports selected key details", async () => {
-    const user = userEvent.setup();
-    renderAt("/practice/free");
-
-    await user.click(screen.getByRole("button", { name: /^C4, white key/ }));
-
-    expect(screen.getByText("Selected key")).toBeInTheDocument();
-    expect(screen.getByText("white")).toBeInTheDocument();
-    expect(screen.getAllByText("C4").length).toBeGreaterThan(0);
-  });
-
-  it("corrupt localStorage does not crash the app", () => {
-    window.localStorage.setItem(PROGRESS_STORAGE_KEY, "{broken");
-
-    renderAt("/progress");
-
-    expect(screen.getByRole("heading", { name: "Local device progress" })).toBeInTheDocument();
-    expect(screen.getByText(/could not be read/)).toBeInTheDocument();
+    expect(screen.getByText("Audio unavailable")).toBeInTheDocument();
+    expect(screen.getByLabelText("Virtual piano")).toBeInTheDocument();
   });
 });
