@@ -24,6 +24,20 @@ const sampleUrlFor = (note: NoteId) => `/audio/piano/${sampleFileByNote[note]}`;
 const clampVelocity = (velocity: number) => Math.min(1, Math.max(0, velocity));
 const getAudioContextConstructor = () => window.AudioContext ?? window.webkitAudioContext;
 
+const createLowLatencyAudioContext = () => {
+  const AudioContextConstructor = getAudioContextConstructor();
+
+  if (!AudioContextConstructor) {
+    throw new Error("AudioContext is unavailable.");
+  }
+
+  try {
+    return new AudioContextConstructor({ latencyHint: "interactive" });
+  } catch {
+    return new AudioContextConstructor();
+  }
+};
+
 declare global {
   interface Window {
     webkitAudioContext?: typeof AudioContext;
@@ -44,13 +58,7 @@ export class PianoSampler {
       return this.loadPromise;
     }
 
-    const AudioContextConstructor = getAudioContextConstructor();
-
-    if (!AudioContextConstructor) {
-      return Promise.reject(new Error("AudioContext is unavailable."));
-    }
-
-    this.audioContext = this.audioContext ?? new AudioContextConstructor({ latencyHint: "interactive" });
+    this.audioContext = this.audioContext ?? createLowLatencyAudioContext();
 
     this.loadPromise = Promise.all(
       pianoNotes.map(async (noteId) => {
