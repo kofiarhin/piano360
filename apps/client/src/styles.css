@@ -19,12 +19,14 @@
 
 html {
   background: #0b0b10;
+  scroll-behavior: smooth;
 }
 
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100dvh;
+  overflow-x: hidden;
   background: #0b0b10;
 }
 
@@ -36,6 +38,7 @@ select {
 
 button {
   touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 button,
@@ -47,6 +50,28 @@ input[type="range"] {
 button:disabled,
 select:disabled {
   cursor: not-allowed;
+}
+
+.piano-scroll {
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(167, 139, 250, 0.55) rgba(255, 255, 255, 0.06);
+  -webkit-overflow-scrolling: touch;
+}
+
+.piano-scroll::-webkit-scrollbar {
+  height: 0.65rem;
+}
+
+.piano-scroll::-webkit-scrollbar-track {
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.piano-scroll::-webkit-scrollbar-thumb {
+  border: 2px solid rgba(17, 17, 17, 0.96);
+  border-radius: 999px;
+  background: rgba(167, 139, 250, 0.62);
 }
 
 :focus-visible {
