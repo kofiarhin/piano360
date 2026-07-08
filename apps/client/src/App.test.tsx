@@ -154,7 +154,7 @@ describe("Piano360 MVP", () => {
     expect(screen.getByTestId("missed-count")).toHaveTextContent("1");
   });
 
-  it("shows completion metrics and supports Practice Again and Freestyle actions", async () => {
+  it("shows completion metrics, disables stale playback, and supports reset actions", async () => {
     renderApp();
 
     fireEvent.click(screen.getByRole("button", { name: "Play" }));
@@ -166,10 +166,12 @@ describe("Piano360 MVP", () => {
     expect(screen.getByText("Total Notes")).toBeInTheDocument();
     expect(screen.getByText("Accuracy")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Freestyle" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Play" })).toBeDisabled();
 
     fireEvent.click(screen.getByRole("button", { name: "Practice Again" }));
     expect(screen.queryByRole("heading", { name: "Practice Complete" })).not.toBeInTheDocument();
     expect(screen.getByTestId("current-note")).toHaveTextContent("E4");
+    expect(screen.getByRole("button", { name: "Play" })).toBeEnabled();
 
     fireEvent.click(screen.getByRole("button", { name: "Freestyle mode" }));
     expect(screen.getByRole("heading", { name: "Free Play" })).toBeInTheDocument();
@@ -181,6 +183,7 @@ describe("Piano360 MVP", () => {
     fireEvent.click(screen.getByRole("button", { name: "Freestyle mode" }));
 
     expect(screen.getByRole("heading", { name: "Free Play" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Play" })).toBeDisabled();
     expect(screen.queryByText("PRESS NOW")).not.toBeInTheDocument();
     expect(screen.queryByText("Correct")).not.toBeInTheDocument();
 
@@ -197,7 +200,15 @@ describe("Piano360 MVP", () => {
     expect(screen.getByTestId("last-played-note")).toHaveTextContent("A#4");
   });
 
-  it("renders the keyboard range with labels and computer key hints", () => {
+  it("does not trigger piano shortcuts while editing controls", () => {
+    renderApp();
+
+    fireEvent.keyDown(screen.getByLabelText("Tempo"), { key: "d" });
+
+    expect(playNote).not.toHaveBeenCalled();
+  });
+
+  it("renders the keyboard range with labels and synced computer key hints", () => {
     renderApp();
 
     const piano = screen.getByLabelText("Virtual piano");
@@ -207,6 +218,20 @@ describe("Piano360 MVP", () => {
     expect(within(piano).getByText("R")).toBeInTheDocument();
     expect(within(piano).getByText("I")).toBeInTheDocument();
     expect(within(piano).getByText(";")).toBeInTheDocument();
+  });
+
+  it("renders the freestyle helper map from the playable keyboard layout", () => {
+    renderApp();
+
+    fireEvent.click(screen.getByRole("button", { name: "Freestyle mode" }));
+
+    const helperMap = screen.getByLabelText("Computer keyboard map");
+    expect(within(helperMap).getByText("W")).toBeInTheDocument();
+    expect(within(helperMap).getByText("E")).toBeInTheDocument();
+    expect(within(helperMap).getByText("R")).toBeInTheDocument();
+    expect(within(helperMap).getByText("I")).toBeInTheDocument();
+    expect(within(helperMap).queryByText("T")).not.toBeInTheDocument();
+    expect(within(helperMap).queryByText("O")).not.toBeInTheDocument();
   });
 
   it("handles unavailable audio without crashing", async () => {
