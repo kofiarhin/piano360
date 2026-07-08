@@ -78,8 +78,8 @@ describe("PianoSampler", () => {
 
   it("preloads and decodes every bundled note sample", async () => {
     const mockAudioContext = createMockAudioContext();
-    const fetchMock = vi.fn(async (_url: string) => ({
-      ok: true,
+    const fetchMock = vi.fn(async (url: string) => ({
+      ok: Boolean(url),
       arrayBuffer: async () => new ArrayBuffer(8)
     }));
 
