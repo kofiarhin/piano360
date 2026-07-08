@@ -9,6 +9,8 @@
   "scripts": {
     "dev": "concurrently -n api,client -c cyan,green \"npm run dev -w @piano360/api\" \"npm run dev -w @piano360/client\"",
     "build": "npm run build --workspaces",
+    "build:api": "npm run build -w @piano360/api",
+    "start": "node apps/api/dist/server.js",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
