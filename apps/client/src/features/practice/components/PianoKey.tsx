@@ -17,22 +17,22 @@ type PianoKeyProps = {
 const whiteStateClass: Record<KeyVisualState, string> = {
   idle: "",
   current: "ring-2 ring-violet-300/90 bg-[linear-gradient(180deg,#f8f4ff_0%,#eee7ff_48%,#d8ccff_100%)] text-zinc-950 shadow-[inset_0_-16px_22px_rgba(88,28,135,0.16),0_18px_45px_-24px_rgba(139,92,246,0.95)]",
-  pressed: "bg-[linear-gradient(180deg,#ede9fe_0%,#ddd6fe_55%,#c4b5fd_100%)] text-zinc-950 shadow-[inset_0_7px_16px_rgba(24,24,27,0.22)]",
-  correct: "ring-2 ring-emerald-300 bg-[linear-gradient(180deg,#ecfdf5_0%,#d1fae5_58%,#a7f3d0_100%)] text-zinc-950 shadow-[inset_0_7px_16px_rgba(6,78,59,0.14)]",
-  wrong: "ring-2 ring-rose-300 bg-[linear-gradient(180deg,#fff1f2_0%,#fecdd3_58%,#fda4af_100%)] text-zinc-950 shadow-[inset_0_7px_16px_rgba(136,19,55,0.16)]"
+  pressed: "ring-2 ring-purple-300 bg-[linear-gradient(180deg,#7e22ce_0%,#581c87_48%,#2e1065_100%)] text-purple-50 shadow-[inset_0_8px_18px_rgba(17,24,39,0.34),0_0_28px_rgba(126,34,206,0.55)]",
+  correct: "ring-2 ring-purple-300 bg-[linear-gradient(180deg,#7e22ce_0%,#581c87_48%,#2e1065_100%)] text-purple-50 shadow-[inset_0_8px_18px_rgba(17,24,39,0.34),0_0_28px_rgba(126,34,206,0.55)]",
+  wrong: "ring-2 ring-purple-300 bg-[linear-gradient(180deg,#7e22ce_0%,#581c87_48%,#2e1065_100%)] text-purple-50 shadow-[inset_0_8px_18px_rgba(17,24,39,0.34),0_0_28px_rgba(126,34,206,0.55)]"
 };
 
 const blackStateClass: Record<KeyVisualState, string> = {
   idle: "",
   current: "ring-2 ring-violet-300 bg-[linear-gradient(180deg,#312e81_0%,#17112a_44%,#050507_100%)] text-violet-100 shadow-[0_18px_34px_rgba(0,0,0,0.7),0_0_22px_rgba(139,92,246,0.34)]",
-  pressed: "bg-[linear-gradient(180deg,#2e2648_0%,#111018_48%,#020203_100%)] text-violet-100 shadow-[0_8px_18px_rgba(0,0,0,0.72),inset_0_6px_12px_rgba(255,255,255,0.04)]",
-  correct: "ring-2 ring-emerald-300 bg-[linear-gradient(180deg,#064e3b_0%,#062d24_48%,#020403_100%)] text-emerald-100 shadow-[0_12px_28px_rgba(0,0,0,0.65),0_0_20px_rgba(52,211,153,0.25)]",
-  wrong: "ring-2 ring-rose-300 bg-[linear-gradient(180deg,#7f1d1d_0%,#351015_48%,#050203_100%)] text-rose-100 shadow-[0_12px_28px_rgba(0,0,0,0.65),0_0_20px_rgba(251,113,133,0.25)]"
+  pressed: "ring-2 ring-purple-300 bg-[linear-gradient(180deg,#9333ea_0%,#581c87_46%,#1e103d_100%)] text-purple-50 shadow-[0_10px_24px_rgba(0,0,0,0.72),0_0_24px_rgba(147,51,234,0.45),inset_0_6px_14px_rgba(255,255,255,0.08)]",
+  correct: "ring-2 ring-purple-300 bg-[linear-gradient(180deg,#9333ea_0%,#581c87_46%,#1e103d_100%)] text-purple-50 shadow-[0_10px_24px_rgba(0,0,0,0.72),0_0_24px_rgba(147,51,234,0.45),inset_0_6px_14px_rgba(255,255,255,0.08)]",
+  wrong: "ring-2 ring-purple-300 bg-[linear-gradient(180deg,#9333ea_0%,#581c87_46%,#1e103d_100%)] text-purple-50 shadow-[0_10px_24px_rgba(0,0,0,0.72),0_0_24px_rgba(147,51,234,0.45),inset_0_6px_14px_rgba(255,255,255,0.08)]"
 };
 
 export const PianoKey = ({ noteId, tone, keyboardKey, visualState, style, onPress }: PianoKeyProps) => {
   const isBlack = tone === "black";
-  const isPressed = visualState === "pressed" || visualState === "correct";
+  const isPressed = visualState === "pressed" || visualState === "correct" || visualState === "wrong";
   const aria = `${noteId}, ${tone} key${keyboardKey ? `, keyboard ${keyboardKey}` : ""}`;
 
   const handlePointerDown = (event: PointerEvent<HTMLButtonElement>) => {
