@@ -82,5 +82,53 @@ export const practiceSongs: PracticeSong[] = [
       "B4",
       "C5"
     ]
+  },
+  {
+    id: "twinkle-twinkle",
+    title: "Twinkle Twinkle Little Star",
+    artist: "Traditional",
+    key: "C major",
+    measureCount: 4,
+    notes: ["C4", "C4", "G4", "G4", "A4", "A4", "G4", "F4", "F4", "E4", "E4", "D4", "D4", "C4"]
+  },
+  {
+    id: "mary-had-a-little-lamb",
+    title: "Mary Had a Little Lamb",
+    artist: "Traditional",
+    key: "C major",
+    measureCount: 4,
+    notes: ["E4", "D4", "C4", "D4", "E4", "E4", "E4", "D4", "D4", "D4", "E4", "G4", "G4"]
+  },
+  {
+    id: "ode-to-joy",
+    title: "Ode to Joy",
+    artist: "Ludwig van Beethoven",
+    key: "C major",
+    measureCount: 4,
+    notes: ["E4", "E4", "F4", "G4", "G4", "F4", "E4", "D4", "C4", "C4", "D4", "E4", "E4", "D4", "D4"]
+  },
+  {
+    id: "jingle-bells",
+    title: "Jingle Bells",
+    artist: "Traditional",
+    key: "C major",
+    measureCount: 4,
+    notes: ["E4", "E4", "E4", "E4", "E4", "E4", "E4", "G4", "C4", "D4", "E4"]
+  },
+  {
+    id: "happy-birthday",
+    title: "Happy Birthday",
+    artist: "Traditional",
+    key: "C major",
+    measureCount: 4,
+    notes: ["C4", "C4", "D4", "C4", "F4", "E4", "C4", "C4", "D4", "C4", "G4", "F4"]
+  },
+  {
+    id: "amazing-grace",
+    title: "Amazing Grace",
+    artist: "Traditional",
+    key: "C major",
+    measureCount: 4,
+    notes: ["C4", "F4", "A4", "F4", "A4", "G4", "F4", "D4", "C4"]
   }
 ];
