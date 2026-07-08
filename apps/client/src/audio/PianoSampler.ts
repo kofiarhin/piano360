@@ -22,45 +22,74 @@ export const sampleFileByNote: Record<NoteId, string> = {
 
 const sampleUrlFor = (note: NoteId) => `/audio/piano/${sampleFileByNote[note]}`;
 const clampVelocity = (velocity: number) => Math.min(1, Math.max(0, velocity));
+const getAudioContextConstructor = () => window.AudioContext ?? window.webkitAudioContext;
+
+declare global {
+  interface Window {
+    webkitAudioContext?: typeof AudioContext;
+  }
+}
 
 export class PianoSampler {
-  private sampleUrls = new Map<NoteId, string>();
-  private activePlayers = new Set<HTMLAudioElement>();
+  private audioContext: AudioContext | undefined;
+  private buffers = new Map<NoteId, AudioBuffer>();
+  private loadPromise: Promise<void> | undefined;
 
   load() {
-    if (typeof Audio === "undefined") {
-      return;
+    if (typeof window === "undefined" || typeof fetch === "undefined") {
+      return Promise.reject(new Error("Web Audio is unavailable."));
     }
 
-    pianoNotes.forEach((noteId) => {
-      const sampleUrl = sampleUrlFor(noteId);
-      const sample = new Audio(sampleUrl);
-      sample.preload = "auto";
-      sample.load();
-      this.sampleUrls.set(noteId, sampleUrl);
-    });
+    if (this.loadPromise) {
+      return this.loadPromise;
+    }
+
+    const AudioContextConstructor = getAudioContextConstructor();
+
+    if (!AudioContextConstructor) {
+      return Promise.reject(new Error("AudioContext is unavailable."));
+    }
+
+    this.audioContext = this.audioContext ?? new AudioContextConstructor({ latencyHint: "interactive" });
+
+    this.loadPromise = Promise.all(
+      pianoNotes.map(async (noteId) => {
+        const response = await fetch(sampleUrlFor(noteId));
+
+        if (!response.ok) {
+          throw new Error(`Could not load piano sample: ${sampleFileByNote[noteId]}`);
+        }
+
+        const sampleBytes = await response.arrayBuffer();
+        const buffer = await this.audioContext!.decodeAudioData(sampleBytes.slice(0));
+        this.buffers.set(noteId, buffer);
+      })
+    ).then(() => undefined);
+
+    return this.loadPromise;
   }
 
-  play(noteId: NoteId, velocity = 0.86) {
-    if (typeof Audio === "undefined") {
+  play(noteId: NoteId, velocity = 0.92) {
+    const buffer = this.buffers.get(noteId);
+    const audioContext = this.audioContext;
+
+    if (!buffer || !audioContext) {
+      void this.load();
       return false;
     }
 
-    const player = new Audio(this.sampleUrls.get(noteId) ?? sampleUrlFor(noteId));
-    const cleanup = () => {
-      this.activePlayers.delete(player);
-    };
+    const source = audioContext.createBufferSource();
+    const gain = audioContext.createGain();
 
-    try {
-      player.volume = clampVelocity(velocity);
-      player.addEventListener("ended", cleanup, { once: true });
-      player.addEventListener("error", cleanup, { once: true });
-      this.activePlayers.add(player);
-      void player.play().catch(cleanup);
-      return true;
-    } catch {
-      cleanup();
-      return false;
+    source.buffer = buffer;
+    gain.gain.setValueAtTime(clampVelocity(velocity), audioContext.currentTime);
+    source.connect(gain).connect(audioContext.destination);
+
+    if (audioContext.state === "suspended") {
+      void audioContext.resume();
     }
+
+    source.start(audioContext.currentTime);
+    return true;
   }
 }
