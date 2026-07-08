@@ -14,6 +14,7 @@ export class AudioEngine {
   private sampler: PianoSamplerLike | undefined;
   private status: AudioStatus = "idle";
   private listeners = new Set<(status: AudioStatus) => void>();
+  private loadPromise: Promise<void> | undefined;
 
   constructor(options: AudioEngineOptions = {}) {
     this.createSampler = options.createSampler ?? (() => new PianoSampler());
@@ -31,41 +32,46 @@ export class AudioEngine {
   }
 
   warm() {
-    return this.ensureReady();
+    this.ensureReady();
   }
 
   playNote(noteId: NoteId, velocity?: number) {
-    const status = this.ensureReady();
+    this.ensureReady();
 
-    if (status !== "ready") {
+    if (!this.sampler || this.status === "unavailable") {
       return false;
     }
 
-    const played = this.sampler?.play(noteId, velocity) ?? false;
-    return played;
+    return this.sampler.play(noteId, velocity);
   }
 
   private ensureReady() {
-    if (this.status === "ready" || this.status === "unavailable") {
-      return this.status;
+    if (this.status === "ready" || this.status === "unavailable" || this.loadPromise) {
+      return;
     }
 
-    return this.initialize();
+    this.initialize();
   }
 
-  private initialize(): AudioStatus {
+  private initialize() {
     try {
       this.setStatus("loading");
 
       const sampler = this.createSampler();
-      sampler.load();
       this.sampler = sampler;
-      this.setStatus("ready");
+      this.loadPromise = Promise.resolve(sampler.load())
+        .then(() => {
+          this.setStatus("ready");
+        })
+        .catch(() => {
+          this.setStatus("unavailable");
+        })
+        .finally(() => {
+          this.loadPromise = undefined;
+        });
     } catch {
       this.setStatus("unavailable");
     }
-
-    return this.status;
   }
 
   private setStatus(status: AudioStatus) {
