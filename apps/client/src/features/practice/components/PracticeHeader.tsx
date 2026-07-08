@@ -1,13 +1,13 @@
-import type { PracticeSong } from "../practiceTypes";
+import type { PracticeMode, PracticeSong } from "../practiceTypes";
 import { ModeSwitch } from "./ModeSwitch";
 import { PlaybackControls } from "./PlaybackControls";
-import type { PracticeMode } from "../practiceTypes";
 
 type PracticeHeaderProps = {
   songs: PracticeSong[];
   selectedSongId: string;
   mode: PracticeMode;
   isPlaying: boolean;
+  isComplete: boolean;
   tempo: number;
   onSongChange: (songId: string) => void;
   onModeChange: (mode: PracticeMode) => void;
@@ -22,6 +22,7 @@ export const PracticeHeader = ({
   selectedSongId,
   mode,
   isPlaying,
+  isComplete,
   tempo,
   onSongChange,
   onModeChange,
@@ -60,6 +61,7 @@ export const PracticeHeader = ({
       </div>
       <PlaybackControls
         isPlaying={isPlaying}
+        canPlay={mode === "practice" && !isComplete}
         canStep={mode === "practice"}
         tempo={tempo}
         onPlayPause={onPlayPause}
