@@ -1,8 +1,13 @@
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
+
 import { pianoNotes } from "../features/practice/practiceData";
 import type { NoteId } from "../features/practice/practiceTypes";
-import { PianoSampler, sampleFileByNote } from "./PianoSampler";
+import { PianoSampler, sampleFileByNote, sampleUrlFor } from "./PianoSampler";
 
 const createMockAudioBuffer = () => ({}) as AudioBuffer;
+type AudioDecodeSuccess = (buffer: AudioBuffer) => void;
+type AudioDecodeFailure = (error: DOMException) => void;
 
 const expectedSampleUrls: Record<NoteId, string> = {
   A3: "/audio/piano/A3.mp3",
@@ -56,7 +61,11 @@ const createMockAudioContext = (state: "running" | "suspended" = "running") => {
     currentTime: 12.5,
     destination,
     state,
-    decodeAudioData: vi.fn(async () => createMockAudioBuffer()),
+    decodeAudioData: vi.fn((_bytes: ArrayBuffer, onSuccess?: AudioDecodeSuccess) => {
+      const buffer = createMockAudioBuffer();
+      onSuccess?.(buffer);
+      return Promise.resolve(buffer);
+    }),
     createBufferSource: vi.fn(() => {
       const source = {
         buffer: null as AudioBuffer | null,
@@ -119,6 +128,36 @@ describe("PianoSampler", () => {
     expect(mockAudioContext.decodeAudioData).toHaveBeenCalledTimes(Object.keys(sampleFileByNote).length);
   });
 
+  it("builds Vercel public asset URLs for every piano sample", () => {
+    expect(pianoNotes.map((noteId) => sampleUrlFor(noteId))).toEqual(pianoNotes.map((noteId) => expectedSampleUrls[noteId]));
+  });
+
+  it("ships every sample file referenced by the virtual piano", () => {
+    for (const noteId of pianoNotes) {
+      expect(existsSync(resolve(process.cwd(), "public", "audio", "piano", sampleFileByNote[noteId]))).toBe(true);
+    }
+  });
+
+  it("supports Safari callback-style decodeAudioData implementations", async () => {
+    const mockAudioContext = createMockAudioContext();
+    const decodedBuffer = createMockAudioBuffer();
+
+    mockAudioContext.decodeAudioData.mockImplementation((_bytes: ArrayBuffer, onSuccess?: AudioDecodeSuccess) => {
+      onSuccess?.(decodedBuffer);
+      return undefined as unknown as Promise<AudioBuffer>;
+    });
+
+    vi.stubGlobal("fetch", vi.fn(async () => createMockFetchResponse()));
+    stubAudioContext(mockAudioContext);
+
+    const sampler = new PianoSampler();
+    await sampler.load();
+
+    await expect(sampler.play("C4" satisfies NoteId)).resolves.toBe(true);
+    expect(mockAudioContext.createBufferSource).toHaveBeenCalledTimes(1);
+    expectSingleStartedSource(mockAudioContext);
+  });
+
   it("starts an already decoded buffer immediately on key press", async () => {
     const mockAudioContext = createMockAudioContext();
 
@@ -164,6 +203,38 @@ describe("PianoSampler", () => {
     expect(mockAudioContext.createOscillator).toHaveBeenCalledTimes(1);
     expect(mockAudioContext.oscillator.start).toHaveBeenCalledWith(mockAudioContext.currentTime);
     await sampler.load();
+  });
+
+  it("uses fallback tones for decode failures and retries missing samples later", async () => {
+    const mockAudioContext = createMockAudioContext();
+    let shouldDecodeFail = true;
+
+    mockAudioContext.decodeAudioData.mockImplementation((_bytes: ArrayBuffer, onSuccess?: AudioDecodeSuccess, onFailure?: AudioDecodeFailure) => {
+      if (shouldDecodeFail) {
+        onFailure?.(new DOMException("Unable to decode audio data"));
+        return Promise.reject(new DOMException("Unable to decode audio data"));
+      }
+
+      const buffer = createMockAudioBuffer();
+      onSuccess?.(buffer);
+      return Promise.resolve(buffer);
+    });
+
+    vi.stubGlobal("fetch", vi.fn(async () => createMockFetchResponse()));
+    stubAudioContext(mockAudioContext);
+
+    const sampler = new PianoSampler();
+    await sampler.load();
+
+    await expect(sampler.play("C4")).resolves.toBe(true);
+    expect(mockAudioContext.createOscillator).toHaveBeenCalledTimes(1);
+
+    shouldDecodeFail = false;
+    await sampler.load();
+    await expect(sampler.play("C4")).resolves.toBe(true);
+
+    expect(mockAudioContext.createBufferSource).toHaveBeenCalledTimes(1);
+    expectSingleStartedSource(mockAudioContext);
   });
 
   it("resumes and plays a fallback tone for the first cold mobile tap while samples load", async () => {

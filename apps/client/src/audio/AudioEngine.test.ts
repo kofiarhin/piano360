@@ -121,19 +121,49 @@ describe("AudioEngine", () => {
     expect(sampler.play.mock.calls.map((call) => call[0] as NoteId)).toEqual(pianoNotes);
   });
 
-  it("marks audio unavailable when sampler preload fails", async () => {
-    const engine = new AudioEngine({
-      createSampler: () => ({
-        load: vi.fn(() => Promise.reject(new Error("decode failed"))),
-        play: vi.fn().mockResolvedValue(false),
-        unlock: vi.fn().mockResolvedValue(undefined)
-      })
-    });
+  it("marks audio unavailable when sampler preload fails but retries on a later play gesture", async () => {
+    const failedSampler: FakeSampler = {
+      load: vi.fn(() => Promise.reject(new Error("decode failed"))),
+      play: vi.fn().mockResolvedValue(false),
+      unlock: vi.fn().mockResolvedValue(undefined)
+    };
+    const recoveredSampler: FakeSampler = {
+      load: vi.fn().mockResolvedValue(undefined),
+      play: vi.fn(() => true),
+      unlock: vi.fn().mockResolvedValue(undefined)
+    };
+    const createSampler = vi.fn().mockReturnValueOnce(failedSampler).mockReturnValueOnce(recoveredSampler);
+    const engine = new AudioEngine({ createSampler });
 
     engine.warm();
     await flushPromises();
 
     expect(engine.getStatus()).toBe("unavailable");
-    expect(engine.playNote("C4")).toBe(false);
+    expect(engine.playNote("C4")).toBe(true);
+
+    await flushPromises();
+
+    expect(createSampler).toHaveBeenCalledTimes(2);
+    expect(recoveredSampler.load).toHaveBeenCalledTimes(1);
+    expect(recoveredSampler.play).toHaveBeenCalledWith("C4" satisfies NoteId, undefined);
+    expect(engine.getStatus()).toBe("ready");
+  });
+
+  it("contains asynchronous playback failures so later notes can still retry", async () => {
+    const failingSampler: FakeSampler = {
+      load: vi.fn().mockResolvedValue(undefined),
+      play: vi.fn().mockRejectedValue(new Error("play blocked")),
+      unlock: vi.fn().mockResolvedValue(undefined)
+    };
+    const engine = new AudioEngine({ createSampler: () => failingSampler });
+
+    engine.warm();
+    await flushPromises();
+
+    expect(engine.playNote("C4")).toBe(true);
+    await flushPromises();
+
+    expect(engine.playNote("D4")).toBe(true);
+    expect(failingSampler.play.mock.calls.map((call) => call[0] as NoteId)).toEqual(["C4", "D4"]);
   });
 });

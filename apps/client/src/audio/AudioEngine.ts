@@ -38,16 +38,16 @@ export class AudioEngine {
   playNote(noteId: NoteId, velocity?: number) {
     this.ensureReady();
 
-    if (!this.sampler || this.status === "unavailable") {
+    if (!this.sampler) {
       return false;
     }
 
-    void this.sampler.play(noteId, velocity);
+    void Promise.resolve(this.sampler.play(noteId, velocity)).catch(() => undefined);
     return true;
   }
 
   private ensureReady() {
-    if (this.status === "ready" || this.status === "unavailable" || this.loadPromise) {
+    if (this.status === "ready" || this.status === "loading" || this.loadPromise) {
       return;
     }
 

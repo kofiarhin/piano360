@@ -39,7 +39,11 @@ const frequencyByNote: Record<NoteId, number> = {
   C5: 523.25
 };
 
-const sampleUrlFor = (note: NoteId) => `/audio/piano/${sampleFileByNote[note]}`;
+const publicBaseUrl = import.meta.env.BASE_URL || "/";
+const publicAssetBaseUrl = publicBaseUrl.endsWith("/") ? publicBaseUrl : `${publicBaseUrl}/`;
+
+export const sampleUrlFor = (note: NoteId) => `${publicAssetBaseUrl}audio/piano/${sampleFileByNote[note]}`;
+
 const clampVelocity = (velocity: number) => Math.min(1, Math.max(0, velocity));
 const getAudioContextConstructor = () => window.AudioContext ?? window.webkitAudioContext;
 
@@ -56,6 +60,30 @@ const createLowLatencyAudioContext = () => {
     return new AudioContextConstructor();
   }
 };
+
+const decodeAudioBuffer = (audioContext: AudioContext, sampleBytes: ArrayBuffer) =>
+  new Promise<AudioBuffer>((resolve, reject) => {
+    let settled = false;
+    const finish = (buffer: AudioBuffer) => {
+      if (!settled) {
+        settled = true;
+        resolve(buffer);
+      }
+    };
+    const fail = (error: unknown) => {
+      if (!settled) {
+        settled = true;
+        reject(error);
+      }
+    };
+
+    try {
+      const decodePromise = audioContext.decodeAudioData(sampleBytes.slice(0), finish, fail);
+      void decodePromise?.then(finish, fail);
+    } catch (error) {
+      fail(error);
+    }
+  });
 
 declare global {
   interface Window {
@@ -78,9 +106,14 @@ export class PianoSampler {
     }
 
     this.audioContext = this.audioContext ?? createLowLatencyAudioContext();
+    const missingNotes = pianoNotes.filter((noteId) => !this.buffers.has(noteId));
+
+    if (missingNotes.length === 0) {
+      return Promise.resolve();
+    }
 
     this.loadPromise = Promise.allSettled(
-      pianoNotes.map(async (noteId) => {
+      missingNotes.map(async (noteId) => {
         const response = await fetch(sampleUrlFor(noteId));
 
         if (!response.ok) {
@@ -88,10 +121,14 @@ export class PianoSampler {
         }
 
         const sampleBytes = await response.arrayBuffer();
-        const buffer = await this.audioContext!.decodeAudioData(sampleBytes.slice(0));
+        const buffer = await decodeAudioBuffer(this.audioContext!, sampleBytes);
         this.buffers.set(noteId, buffer);
       })
-    ).then(() => undefined);
+    )
+      .then(() => undefined)
+      .finally(() => {
+        this.loadPromise = undefined;
+      });
 
     return this.loadPromise;
   }
