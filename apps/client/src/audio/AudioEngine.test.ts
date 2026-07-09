@@ -63,6 +63,14 @@ describe("AudioEngine", () => {
     expect(sampler.load).toHaveBeenCalledTimes(1);
   });
 
+  it("warms audio by unlocking from the gesture path", () => {
+    const { engine, sampler } = createAudioHarness();
+
+    engine.warm();
+
+    expect(sampler.unlock).toHaveBeenCalledTimes(1);
+  });
+
   it("keeps the sampler instance warm and sends notes directly to it", async () => {
     const { engine, sampler } = createAudioHarness();
 
@@ -165,5 +173,18 @@ describe("AudioEngine", () => {
 
     expect(engine.playNote("D4")).toBe(true);
     expect(failingSampler.play.mock.calls.map((call) => call[0] as NoteId)).toEqual(["C4", "D4"]);
+  });
+
+  it("contains asynchronous unlock failures so later notes can still retry", async () => {
+    const { engine, sampler } = createAudioHarness();
+    sampler.unlock.mockRejectedValueOnce(new Error("resume blocked"));
+
+    engine.warm();
+    await flushPromises();
+
+    expect(engine.playNote("C4")).toBe(true);
+
+    expect(sampler.unlock).toHaveBeenCalledTimes(1);
+    expect(sampler.play).toHaveBeenCalledWith("C4" satisfies NoteId, undefined);
   });
 });

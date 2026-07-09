@@ -32,34 +32,52 @@ export class AudioEngine {
   }
 
   warm() {
-    this.ensureReady();
+    const sampler = this.ensureSampler();
+
+    if (!sampler) {
+      return;
+    }
+
+    void Promise.resolve(sampler.unlock()).catch(() => undefined);
+    this.startLoading(sampler);
   }
 
   playNote(noteId: NoteId, velocity?: number) {
-    this.ensureReady();
+    const sampler = this.ensureSampler();
 
-    if (!this.sampler) {
+    if (!sampler) {
       return false;
     }
 
-    void Promise.resolve(this.sampler.play(noteId, velocity)).catch(() => undefined);
+    this.startLoading(sampler);
+    void Promise.resolve(sampler.play(noteId, velocity)).catch(() => undefined);
     return true;
   }
 
-  private ensureReady() {
+  private ensureSampler() {
+    if (this.sampler && this.status !== "unavailable") {
+      return this.sampler;
+    }
+
+    try {
+      this.sampler = this.createSampler();
+      return this.sampler;
+    } catch {
+      this.sampler = undefined;
+      this.loadPromise = undefined;
+      this.setStatus("unavailable");
+      return undefined;
+    }
+  }
+
+  private startLoading(sampler: PianoSamplerLike) {
     if (this.status === "ready" || this.status === "loading" || this.loadPromise) {
       return;
     }
 
-    this.initialize();
-  }
-
-  private initialize() {
     try {
       this.setStatus("loading");
 
-      const sampler = this.createSampler();
-      this.sampler = sampler;
       this.loadPromise = Promise.resolve(sampler.load())
         .then(() => {
           this.setStatus("ready");
@@ -71,6 +89,7 @@ export class AudioEngine {
           this.loadPromise = undefined;
         });
     } catch {
+      this.loadPromise = undefined;
       this.setStatus("unavailable");
     }
   }
