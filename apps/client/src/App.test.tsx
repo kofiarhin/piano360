@@ -244,6 +244,27 @@ describe("Piano360 MVP", () => {
     expect(screen.getByText(/Good/)).toBeInTheDocument();
   });
 
+  it("plays a note from the iOS touch-start path without double-playing the compatibility pointer event", () => {
+    renderApp();
+
+    fireEvent.click(screen.getByRole("button", { name: "Freestyle mode" }));
+
+    const c4Key = screen.getByRole("button", { name: /^C4, white key/ });
+
+    fireEvent.touchStart(c4Key, {
+      changedTouches: [{ identifier: 1 }],
+      touches: [{ identifier: 1 }]
+    });
+
+    expect(playNote).toHaveBeenCalledTimes(1);
+    expect(playNote).toHaveBeenCalledWith("C4");
+    expect(screen.getByTestId("last-played-note")).toHaveTextContent("C4");
+
+    fireEvent.pointerDown(c4Key, { pointerId: 1, pointerType: "touch" });
+
+    expect(playNote).toHaveBeenCalledTimes(1);
+  });
+
   it("does not trigger piano shortcuts while editing controls", () => {
     renderApp();
 

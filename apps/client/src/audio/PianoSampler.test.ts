@@ -64,7 +64,11 @@ const createMockAudioContext = (state: "running" | "suspended" | "interrupted" =
   return {
     currentTime: 12.5,
     destination,
+<<<<<<< HEAD
     sampleRate: 44_100,
+=======
+    sampleRate: 48000,
+>>>>>>> 86e77e0 (fix: audio not playing on ios/mobile)
     state,
     createBuffer: vi.fn(() => createMockAudioBuffer()),
     decodeAudioData: vi.fn((_bytes: ArrayBuffer, onSuccess?: AudioDecodeSuccess) => {
@@ -84,6 +88,7 @@ const createMockAudioContext = (state: "running" | "suspended" | "interrupted" =
       sources.push(source);
       return source;
     }),
+    createBuffer: vi.fn(() => createMockAudioBuffer()),
     createOscillator: vi.fn(() => oscillator),
     createGain: vi.fn(() => gain),
     resume: vi.fn(async () => undefined),
@@ -94,7 +99,6 @@ const createMockAudioContext = (state: "running" | "suspended" | "interrupted" =
 };
 
 type MockAudioContext = ReturnType<typeof createMockAudioContext>;
-type MockSource = MockAudioContext["sources"][number];
 
 const stubAudioContext = (mockAudioContext: MockAudioContext) => {
   const MockAudioContextConstructor = vi.fn(() => mockAudioContext);
@@ -106,10 +110,16 @@ const stubAudioContext = (mockAudioContext: MockAudioContext) => {
   });
 };
 
+<<<<<<< HEAD
 const expectLatestStartedSource = (mockAudioContext: MockAudioContext) => {
   expect(mockAudioContext.sources.length).toBeGreaterThan(0);
 
   const source = mockAudioContext.sources.at(-1) as MockSource;
+=======
+const expectStartedSource = (mockAudioContext: MockAudioContext, sourceIndex: number) => {
+  const source = mockAudioContext.sources[sourceIndex];
+
+>>>>>>> 86e77e0 (fix: audio not playing on ios/mobile)
   expect(source.start).toHaveBeenCalledWith(mockAudioContext.currentTime);
 };
 
@@ -173,8 +183,13 @@ describe("PianoSampler", () => {
 
     await expect(sampler.play("C4" satisfies NoteId)).resolves.toBe(true);
     expect(mockAudioContext.createBufferSource).toHaveBeenCalledTimes(2);
+<<<<<<< HEAD
     expectMobileUnlockPrimer(mockAudioContext);
     expectLatestStartedSource(mockAudioContext);
+=======
+    expectStartedSource(mockAudioContext, 0);
+    expectStartedSource(mockAudioContext, 1);
+>>>>>>> 86e77e0 (fix: audio not playing on ios/mobile)
   });
 
   it("starts an already decoded buffer immediately on key press", async () => {
@@ -190,8 +205,46 @@ describe("PianoSampler", () => {
     expect(mockAudioContext.createBufferSource).toHaveBeenCalledTimes(2);
     expect(mockAudioContext.createGain).toHaveBeenCalledTimes(2);
     expect(mockAudioContext.gain.gain.setValueAtTime).toHaveBeenCalledWith(0.7, mockAudioContext.currentTime);
+<<<<<<< HEAD
     expectMobileUnlockPrimer(mockAudioContext);
     expectLatestStartedSource(mockAudioContext);
+=======
+    expectStartedSource(mockAudioContext, 0);
+    expectStartedSource(mockAudioContext, 1);
+  });
+
+  it("starts a silent buffer before a suspended AudioContext resume resolves", async () => {
+    const mockAudioContext = createMockAudioContext("suspended");
+    let finishResume!: () => void;
+    mockAudioContext.resume.mockImplementation(
+      () =>
+        new Promise<undefined>((resolve) => {
+          finishResume = () => {
+            mockAudioContext.state = "running";
+            resolve(undefined);
+          };
+        })
+    );
+
+    vi.stubGlobal("fetch", vi.fn(async () => createMockFetchResponse()));
+    stubAudioContext(mockAudioContext);
+
+    const sampler = new PianoSampler();
+    await sampler.load();
+
+    const playPromise = sampler.play("E4");
+
+    expect(mockAudioContext.resume).toHaveBeenCalledTimes(1);
+    expect(mockAudioContext.createBuffer).toHaveBeenCalledWith(1, 2400, mockAudioContext.sampleRate);
+    expect(mockAudioContext.createBufferSource).toHaveBeenCalledTimes(1);
+    expectStartedSource(mockAudioContext, 0);
+
+    finishResume();
+
+    await expect(playPromise).resolves.toBe(true);
+    expect(mockAudioContext.createBufferSource).toHaveBeenCalledTimes(2);
+    expectStartedSource(mockAudioContext, 1);
+>>>>>>> 86e77e0 (fix: audio not playing on ios/mobile)
   });
 
   it("resumes a suspended AudioContext from the key press gesture", async () => {
@@ -208,6 +261,7 @@ describe("PianoSampler", () => {
 
     await expect(sampler.play("E4")).resolves.toBe(true);
     expect(mockAudioContext.resume).toHaveBeenCalledTimes(1);
+<<<<<<< HEAD
     expectMobileUnlockPrimer(mockAudioContext);
     expectLatestStartedSource(mockAudioContext);
   });
@@ -227,6 +281,11 @@ describe("PianoSampler", () => {
     await expect(sampler.play("E4")).resolves.toBe(true);
     expect(mockAudioContext.resume).toHaveBeenCalledTimes(1);
     expectMobileUnlockPrimer(mockAudioContext);
+=======
+    expect(mockAudioContext.createBufferSource).toHaveBeenCalledTimes(2);
+    expectStartedSource(mockAudioContext, 0);
+    expectStartedSource(mockAudioContext, 1);
+>>>>>>> 86e77e0 (fix: audio not playing on ios/mobile)
   });
 
   it("plays a fallback tone when a note is requested before its buffer is ready", async () => {
@@ -238,7 +297,12 @@ describe("PianoSampler", () => {
     const sampler = new PianoSampler();
 
     await expect(sampler.play("C4")).resolves.toBe(true);
+<<<<<<< HEAD
     expectMobileUnlockPrimer(mockAudioContext);
+=======
+    expect(mockAudioContext.createBufferSource).toHaveBeenCalledTimes(1);
+    expectStartedSource(mockAudioContext, 0);
+>>>>>>> 86e77e0 (fix: audio not playing on ios/mobile)
     expect(mockAudioContext.createOscillator).toHaveBeenCalledTimes(1);
     expect(mockAudioContext.oscillator.start).toHaveBeenCalledWith(mockAudioContext.currentTime);
     await sampler.load();
@@ -272,8 +336,14 @@ describe("PianoSampler", () => {
     await sampler.load();
     await expect(sampler.play("C4")).resolves.toBe(true);
 
+<<<<<<< HEAD
     expect(mockAudioContext.createBufferSource).toHaveBeenCalledTimes(3);
     expectLatestStartedSource(mockAudioContext);
+=======
+    expect(mockAudioContext.createBufferSource).toHaveBeenCalledTimes(2);
+    expectStartedSource(mockAudioContext, 0);
+    expectStartedSource(mockAudioContext, 1);
+>>>>>>> 86e77e0 (fix: audio not playing on ios/mobile)
   });
 
   it("resumes and plays a fallback tone for the first cold mobile tap while samples load", async () => {
@@ -289,7 +359,12 @@ describe("PianoSampler", () => {
 
     await expect(sampler.play("C4")).resolves.toBe(true);
     expect(mockAudioContext.resume).toHaveBeenCalledTimes(1);
+<<<<<<< HEAD
     expectMobileUnlockPrimer(mockAudioContext);
+=======
+    expect(mockAudioContext.createBufferSource).toHaveBeenCalledTimes(1);
+    expectStartedSource(mockAudioContext, 0);
+>>>>>>> 86e77e0 (fix: audio not playing on ios/mobile)
     expect(mockAudioContext.createOscillator).toHaveBeenCalledTimes(1);
     expect(mockAudioContext.oscillator.start).toHaveBeenCalledWith(mockAudioContext.currentTime);
   });

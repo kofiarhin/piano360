@@ -94,6 +94,8 @@ describe("AudioEngine", () => {
 
     expect(engine.getStatus()).toBe("loading");
     expect(sampler.load).toHaveBeenCalledTimes(1);
+    expect(sampler.unlock).toHaveBeenCalledTimes(1);
+    expect(sampler.unlock.mock.invocationCallOrder[0]).toBeLessThan(sampler.play.mock.invocationCallOrder[0]);
     expect(sampler.play).toHaveBeenCalledWith("C4" satisfies NoteId, undefined);
   });
 
@@ -184,7 +186,7 @@ describe("AudioEngine", () => {
 
     expect(engine.playNote("C4")).toBe(true);
 
-    expect(sampler.unlock).toHaveBeenCalledTimes(1);
+    expect(sampler.unlock).toHaveBeenCalledTimes(2);
     expect(sampler.play).toHaveBeenCalledWith("C4" satisfies NoteId, undefined);
   });
 });

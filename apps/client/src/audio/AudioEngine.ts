@@ -50,6 +50,8 @@ export class AudioEngine {
     }
 
     this.startLoading(sampler);
+    // Kick Web Audio from the gesture path; PianoSampler.play still awaits its own unlock.
+    void Promise.resolve(sampler.unlock()).catch(() => undefined);
     void Promise.resolve(sampler.play(noteId, velocity)).catch(() => undefined);
     return true;
   }

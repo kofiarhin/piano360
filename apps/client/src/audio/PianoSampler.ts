@@ -97,6 +97,8 @@ export class PianoSampler {
   private audioContext: AudioContext | undefined;
   private buffers = new Map<NoteId, AudioBuffer>();
   private loadPromise: Promise<void> | undefined;
+  private unlockPromise: Promise<void> | undefined;
+  private hasCompletedGestureUnlock = false;
 
   load() {
     if (typeof window === "undefined" || typeof fetch === "undefined") {
@@ -137,12 +139,32 @@ export class PianoSampler {
 
   async unlock() {
     this.audioContext = this.audioContext ?? createLowLatencyAudioContext();
-    this.primeMobileAudioUnlock();
 
+<<<<<<< HEAD
     const audioState = this.audioContext.state as SafariAudioContextState;
     if (audioState === "suspended" || audioState === "interrupted") {
       await this.audioContext.resume();
+=======
+    if (this.hasCompletedGestureUnlock && this.audioContext.state === "running") {
+      return;
+>>>>>>> 86e77e0 (fix: audio not playing on ios/mobile)
     }
+
+    if (!this.unlockPromise) {
+      this.unlockPromise = this.forceGestureUnlock()
+        .then(() => {
+          this.hasCompletedGestureUnlock = this.audioContext?.state === "running";
+        })
+        .catch((error) => {
+          this.hasCompletedGestureUnlock = false;
+          throw error;
+        })
+        .finally(() => {
+          this.unlockPromise = undefined;
+        });
+    }
+
+    await this.unlockPromise;
   }
 
   async play(noteId: NoteId, velocity = 0.92) {
@@ -170,6 +192,45 @@ export class PianoSampler {
     source.connect(gain).connect(audioContext.destination);
     source.start(audioContext.currentTime);
     return true;
+  }
+
+  private async forceGestureUnlock() {
+    const audioContext = this.audioContext;
+
+    if (!audioContext || audioContext.state === "closed") {
+      return;
+    }
+
+    const resumePromise =
+      audioContext.state === "suspended" || audioContext.state === "interrupted" ? audioContext.resume() : undefined;
+
+    try {
+      const source = audioContext.createBufferSource();
+      const gain = audioContext.createGain();
+      const durationSeconds = 0.05;
+      const frameCount = Math.max(1, Math.ceil(audioContext.sampleRate * durationSeconds));
+      const silentBuffer = audioContext.createBuffer(1, frameCount, audioContext.sampleRate);
+
+      source.buffer = silentBuffer;
+      gain.gain.setValueAtTime(0.0001, audioContext.currentTime);
+      source.connect(gain).connect(audioContext.destination);
+      // iOS Safari needs a real source.start() while the user gesture is still on the stack.
+      source.start(audioContext.currentTime);
+      source.stop(audioContext.currentTime + durationSeconds);
+      source.onended = () => {
+        try {
+          source.disconnect();
+          gain.disconnect();
+        } catch {
+          // Some mobile Web Audio implementations throw if a node is already disconnected.
+        }
+      };
+    } catch {
+      // Keep the older priming path as a best-effort fallback for partial Web Audio implementations.
+      this.primeMobileAudioUnlock();
+    }
+
+    await resumePromise;
   }
 
   private primeMobileAudioUnlock() {

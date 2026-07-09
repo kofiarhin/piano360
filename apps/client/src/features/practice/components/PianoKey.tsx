@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import type { CSSProperties, PointerEvent } from "react";
+import { useRef, type CSSProperties, type PointerEvent, type TouchEvent } from "react";
 
 import type { NoteId, PianoKeyTone } from "../practiceTypes";
 
@@ -13,6 +13,8 @@ type PianoKeyProps = {
   style?: CSSProperties;
   onPress: (noteId: NoteId) => void;
 };
+
+const TOUCH_POINTER_DEDUPE_MS = 700;
 
 const whiteStateClass: Record<KeyVisualState, string> = {
   idle: "",
@@ -34,10 +36,25 @@ export const PianoKey = ({ noteId, tone, keyboardKey, visualState, style, onPres
   const isBlack = tone === "black";
   const isPressed = visualState === "pressed" || visualState === "correct" || visualState === "wrong";
   const aria = `${noteId}, ${tone} key${keyboardKey ? `, keyboard ${keyboardKey}` : ""}`;
+  const ignoreNextTouchPointerUntilRef = useRef<number>(-Infinity);
+
+  const handleTouchStart = (event: TouchEvent<HTMLButtonElement>) => {
+    const now = performance.now();
+
+    event.preventDefault();
+    ignoreNextTouchPointerUntilRef.current = now + TOUCH_POINTER_DEDUPE_MS;
+    onPress(noteId);
+  };
 
   const handlePointerDown = (event: PointerEvent<HTMLButtonElement>) => {
     event.preventDefault();
     event.currentTarget.setPointerCapture?.(event.pointerId);
+
+    if (performance.now() <= ignoreNextTouchPointerUntilRef.current) {
+      ignoreNextTouchPointerUntilRef.current = -Infinity;
+      return;
+    }
+
     onPress(noteId);
   };
 
@@ -59,6 +76,7 @@ export const PianoKey = ({ noteId, tone, keyboardKey, visualState, style, onPres
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
+      onTouchStart={handleTouchStart}
       onContextMenu={(event) => event.preventDefault()}
       style={{ ...style, transformOrigin: "top center" }}
       className={[
