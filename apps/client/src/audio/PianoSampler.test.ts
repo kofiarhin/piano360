@@ -165,4 +165,37 @@ describe("PianoSampler", () => {
     expect(mockAudioContext.oscillator.start).toHaveBeenCalledWith(mockAudioContext.currentTime);
     await sampler.load();
   });
+
+  it("resumes and plays a fallback tone for the first cold mobile tap while samples load", async () => {
+    const mockAudioContext = createMockAudioContext("suspended");
+    mockAudioContext.resume.mockImplementation(async () => {
+      mockAudioContext.state = "running";
+    });
+
+    vi.stubGlobal("fetch", vi.fn(() => new Promise(() => undefined)));
+    stubAudioContext(mockAudioContext);
+
+    const sampler = new PianoSampler();
+
+    await expect(sampler.play("C4")).resolves.toBe(true);
+    expect(mockAudioContext.resume).toHaveBeenCalledTimes(1);
+    expect(mockAudioContext.createOscillator).toHaveBeenCalledTimes(1);
+    expect(mockAudioContext.oscillator.start).toHaveBeenCalledWith(mockAudioContext.currentTime);
+  });
+
+  it("does not resume the AudioContext again after the first successful unlock", async () => {
+    const mockAudioContext = createMockAudioContext("suspended");
+    mockAudioContext.resume.mockImplementation(async () => {
+      mockAudioContext.state = "running";
+    });
+
+    vi.stubGlobal("fetch", vi.fn(async () => createMockFetchResponse()));
+    stubAudioContext(mockAudioContext);
+
+    const sampler = new PianoSampler();
+
+    await expect(sampler.play("C4")).resolves.toBe(true);
+    await expect(sampler.play("D4")).resolves.toBe(true);
+    expect(mockAudioContext.resume).toHaveBeenCalledTimes(1);
+  });
 });

@@ -1,6 +1,6 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 
-import { playNote } from "./audio/NotePlayer";
+import { playNote, warmAudio } from "./audio/NotePlayer";
 import { sampleFileByNote } from "./audio/PianoSampler";
 import { App } from "./App";
 import {
@@ -117,6 +117,13 @@ describe("Piano360 MVP", () => {
     expect(screen.getByLabelText("Virtual piano")).toBeInTheDocument();
   });
 
+  it("does not warm or unlock audio during initial render", () => {
+    renderApp();
+
+    expect(warmAudio).not.toHaveBeenCalled();
+    expect(playNote).not.toHaveBeenCalled();
+  });
+
   it("defaults the mobile control rail to collapsed and toggles it", () => {
     renderApp();
 
@@ -142,6 +149,7 @@ describe("Piano360 MVP", () => {
     expect(screen.getByTestId("current-note")).toHaveTextContent("E4");
 
     fireEvent.click(screen.getByRole("button", { name: "Play" }));
+    expect(warmAudio).toHaveBeenCalledTimes(1);
     expect(screen.getByRole("button", { name: "Pause" })).toBeInTheDocument();
 
     await act(async () => {
@@ -225,6 +233,15 @@ describe("Piano360 MVP", () => {
     fireEvent.keyDown(window, { key: "i" });
     expect(playNote).toHaveBeenCalledWith("A#4");
     expect(screen.getByTestId("last-played-note")).toHaveTextContent("A#4");
+  });
+
+  it("plays a practice note from the desktop keyboard shortcut path", () => {
+    renderApp();
+
+    fireEvent.keyDown(window, { key: "g" });
+
+    expect(playNote).toHaveBeenCalledWith("E4");
+    expect(screen.getByText(/Good/)).toBeInTheDocument();
   });
 
   it("does not trigger piano shortcuts while editing controls", () => {

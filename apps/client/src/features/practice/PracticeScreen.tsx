@@ -60,7 +60,6 @@ export const PracticeScreen = () => {
   const missed = results.filter((result) => result === "missed").length;
 
   useEffect(() => {
-    warmAudio();
     return subscribeToAudioStatus(setAudioStatus);
   }, []);
 

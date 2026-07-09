@@ -74,6 +74,39 @@ describe("AudioEngine", () => {
     expect(sampler.play).toHaveBeenCalledWith("C4" satisfies NoteId, 0.75);
   });
 
+  it("plays the first requested note immediately while samples are still loading", () => {
+    const sampler: FakeSampler = {
+      load: vi.fn(() => new Promise<void>(() => undefined)),
+      play: vi.fn(() => true),
+      unlock: vi.fn().mockResolvedValue(undefined)
+    };
+    const engine = new AudioEngine({ createSampler: () => sampler });
+
+    expect(engine.playNote("C4")).toBe(true);
+
+    expect(engine.getStatus()).toBe("loading");
+    expect(sampler.load).toHaveBeenCalledTimes(1);
+    expect(sampler.play).toHaveBeenCalledWith("C4" satisfies NoteId, undefined);
+  });
+
+  it("does not recreate the sampler for subsequent plays", async () => {
+    const sampler: FakeSampler = {
+      load: vi.fn().mockResolvedValue(undefined),
+      play: vi.fn(() => true),
+      unlock: vi.fn().mockResolvedValue(undefined)
+    };
+    const createSampler = vi.fn(() => sampler);
+    const engine = new AudioEngine({ createSampler });
+
+    engine.playNote("C4");
+    await flushPromises();
+    engine.playNote("D4");
+
+    expect(createSampler).toHaveBeenCalledTimes(1);
+    expect(sampler.load).toHaveBeenCalledTimes(1);
+    expect(sampler.play.mock.calls.map((call) => call[0] as NoteId)).toEqual(["C4", "D4"]);
+  });
+
   it("plays every note defined for the virtual piano", async () => {
     const { engine, sampler } = createAudioHarness();
 
