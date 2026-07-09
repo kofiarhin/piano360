@@ -135,8 +135,9 @@ export class PianoSampler {
 
   async unlock() {
     this.audioContext = this.audioContext ?? createLowLatencyAudioContext();
+    this.primeMobileAudioUnlock();
 
-    if (this.audioContext.state === "suspended") {
+    if (this.audioContext.state === "suspended" || this.audioContext.state === "interrupted") {
       await this.audioContext.resume();
     }
   }
@@ -166,6 +167,36 @@ export class PianoSampler {
     source.connect(gain).connect(audioContext.destination);
     source.start(audioContext.currentTime);
     return true;
+  }
+
+  private primeMobileAudioUnlock() {
+    const audioContext = this.audioContext;
+
+    if (!audioContext || audioContext.state === "closed") {
+      return;
+    }
+
+    try {
+      const source = audioContext.createBufferSource();
+      const gain = audioContext.createGain();
+      const silentBuffer = audioContext.createBuffer(1, 1, Math.max(1, audioContext.sampleRate));
+
+      source.buffer = silentBuffer;
+      gain.gain.setValueAtTime(0.0001, audioContext.currentTime);
+      source.connect(gain).connect(audioContext.destination);
+      source.start(audioContext.currentTime);
+      source.stop(audioContext.currentTime + 0.03);
+      source.onended = () => {
+        try {
+          source.disconnect();
+          gain.disconnect();
+        } catch {
+          // Some mobile Web Audio implementations throw if a node is already disconnected.
+        }
+      };
+    } catch {
+      // The fallback note path can still play if the browser allows resume without priming.
+    }
   }
 
   private playFallbackTone(noteId: NoteId, velocity: number) {
