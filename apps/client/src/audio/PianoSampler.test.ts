@@ -32,9 +32,19 @@ const createMockAudioContext = (state: "running" | "suspended" = "running") => {
   const destination = {} as AudioDestinationNode;
   const gain = {
     gain: {
-      setValueAtTime: vi.fn()
+      setValueAtTime: vi.fn(),
+      exponentialRampToValueAtTime: vi.fn()
     },
     connect: vi.fn(() => destination)
+  };
+  const oscillator = {
+    type: "sine",
+    frequency: {
+      setValueAtTime: vi.fn()
+    },
+    connect: vi.fn(() => gain),
+    start: vi.fn(),
+    stop: vi.fn()
   };
   const sources: Array<{
     buffer: AudioBuffer | null;
@@ -56,9 +66,11 @@ const createMockAudioContext = (state: "running" | "suspended" = "running") => {
       sources.push(source);
       return source;
     }),
+    createOscillator: vi.fn(() => oscillator),
     createGain: vi.fn(() => gain),
     resume: vi.fn(async () => undefined),
     gain,
+    oscillator,
     sources
   };
 };
@@ -116,7 +128,7 @@ describe("PianoSampler", () => {
     const sampler = new PianoSampler();
     await sampler.load();
 
-    expect(sampler.play("C4" satisfies NoteId, 0.7)).toBe(true);
+    await expect(sampler.play("C4" satisfies NoteId, 0.7)).resolves.toBe(true);
     expect(mockAudioContext.createBufferSource).toHaveBeenCalledTimes(1);
     expect(mockAudioContext.createGain).toHaveBeenCalledTimes(1);
     expect(mockAudioContext.gain.gain.setValueAtTime).toHaveBeenCalledWith(0.7, mockAudioContext.currentTime);
@@ -125,6 +137,9 @@ describe("PianoSampler", () => {
 
   it("resumes a suspended AudioContext from the key press gesture", async () => {
     const mockAudioContext = createMockAudioContext("suspended");
+    mockAudioContext.resume.mockImplementation(async () => {
+      mockAudioContext.state = "running";
+    });
 
     vi.stubGlobal("fetch", vi.fn(async () => createMockFetchResponse()));
     stubAudioContext(mockAudioContext);
@@ -132,12 +147,12 @@ describe("PianoSampler", () => {
     const sampler = new PianoSampler();
     await sampler.load();
 
-    expect(sampler.play("E4")).toBe(true);
+    await expect(sampler.play("E4")).resolves.toBe(true);
     expect(mockAudioContext.resume).toHaveBeenCalledTimes(1);
     expectSingleStartedSource(mockAudioContext);
   });
 
-  it("returns false when a note is requested before its buffer is ready", async () => {
+  it("plays a fallback tone when a note is requested before its buffer is ready", async () => {
     const mockAudioContext = createMockAudioContext();
 
     vi.stubGlobal("fetch", vi.fn(async () => createMockFetchResponse()));
@@ -145,7 +160,9 @@ describe("PianoSampler", () => {
 
     const sampler = new PianoSampler();
 
-    expect(sampler.play("C4")).toBe(false);
+    await expect(sampler.play("C4")).resolves.toBe(true);
+    expect(mockAudioContext.createOscillator).toHaveBeenCalledTimes(1);
+    expect(mockAudioContext.oscillator.start).toHaveBeenCalledWith(mockAudioContext.currentTime);
     await sampler.load();
   });
 });

@@ -2,17 +2,19 @@ import { pianoNotes } from "../features/practice/practiceData";
 import type { NoteId } from "../features/practice/practiceTypes";
 import { AudioEngine } from "./AudioEngine";
 
-const flushPromises = () => Promise.resolve();
+const flushPromises = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
 type FakeSampler = {
   load: ReturnType<typeof vi.fn>;
   play: ReturnType<typeof vi.fn>;
+  unlock: ReturnType<typeof vi.fn>;
 };
 
 const createAudioHarness = () => {
   const sampler: FakeSampler = {
     load: vi.fn().mockResolvedValue(undefined),
-    play: vi.fn(() => true)
+    play: vi.fn(() => true),
+    unlock: vi.fn().mockResolvedValue(undefined)
   };
   const engine = new AudioEngine({
     createSampler: () => sampler
@@ -32,7 +34,8 @@ describe("AudioEngine", () => {
             finishLoad = resolve;
           })
       ),
-      play: vi.fn(() => true)
+      play: vi.fn(() => true),
+      unlock: vi.fn().mockResolvedValue(undefined)
     };
     const engine = new AudioEngine({ createSampler: () => sampler });
 
@@ -89,7 +92,8 @@ describe("AudioEngine", () => {
     const engine = new AudioEngine({
       createSampler: () => ({
         load: vi.fn(() => Promise.reject(new Error("decode failed"))),
-        play: vi.fn(() => false)
+        play: vi.fn().mockResolvedValue(false),
+        unlock: vi.fn().mockResolvedValue(undefined)
       })
     });
 
