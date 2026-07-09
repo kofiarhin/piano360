@@ -44,7 +44,8 @@ type SafariAudioContextState = AudioContextState | "interrupted";
 const publicBaseUrl = import.meta.env.BASE_URL || "/";
 const publicAssetBaseUrl = publicBaseUrl.endsWith("/") ? publicBaseUrl : `${publicBaseUrl}/`;
 
-export const sampleUrlFor = (note: NoteId) => `${publicAssetBaseUrl}audio/piano/${sampleFileByNote[note]}`;
+export const sampleUrlFor = (note: NoteId) =>
+  `${publicAssetBaseUrl}audio/piano/${sampleFileByNote[note]}`;
 
 const clampVelocity = (velocity: number) => Math.min(1, Math.max(0, velocity));
 const getAudioContextConstructor = () => window.AudioContext ?? window.webkitAudioContext;
@@ -140,14 +141,8 @@ export class PianoSampler {
   async unlock() {
     this.audioContext = this.audioContext ?? createLowLatencyAudioContext();
 
-<<<<<<< HEAD
-    const audioState = this.audioContext.state as SafariAudioContextState;
-    if (audioState === "suspended" || audioState === "interrupted") {
-      await this.audioContext.resume();
-=======
     if (this.hasCompletedGestureUnlock && this.audioContext.state === "running") {
       return;
->>>>>>> 86e77e0 (fix: audio not playing on ios/mobile)
     }
 
     if (!this.unlockPromise) {
@@ -201,8 +196,11 @@ export class PianoSampler {
       return;
     }
 
+    const audioState = audioContext.state as SafariAudioContextState;
     const resumePromise =
-      audioContext.state === "suspended" || audioContext.state === "interrupted" ? audioContext.resume() : undefined;
+      audioState === "suspended" || audioState === "interrupted"
+        ? audioContext.resume()
+        : undefined;
 
     try {
       const source = audioContext.createBufferSource();
@@ -277,7 +275,10 @@ export class PianoSampler {
     oscillator.type = "triangle";
     oscillator.frequency.setValueAtTime(frequencyByNote[noteId], now);
     gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, clampVelocity(velocity) * 0.18), now + 0.01);
+    gain.gain.exponentialRampToValueAtTime(
+      Math.max(0.0001, clampVelocity(velocity) * 0.18),
+      now + 0.01
+    );
     gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.42);
 
     oscillator.connect(gain).connect(audioContext.destination);

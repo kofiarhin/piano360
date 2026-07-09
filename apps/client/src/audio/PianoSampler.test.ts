@@ -8,6 +8,15 @@ import { PianoSampler, sampleFileByNote, sampleUrlFor } from "./PianoSampler";
 const createMockAudioBuffer = () => ({}) as AudioBuffer;
 type AudioDecodeSuccess = (buffer: AudioBuffer) => void;
 type AudioDecodeFailure = (error: DOMException) => void;
+type MockAudioState = "running" | "suspended" | "interrupted";
+type MockSource = {
+  buffer: AudioBuffer | null;
+  connect: ReturnType<typeof vi.fn>;
+  disconnect: ReturnType<typeof vi.fn>;
+  start: ReturnType<typeof vi.fn>;
+  stop: ReturnType<typeof vi.fn>;
+  onended: (() => void) | null;
+};
 
 const expectedSampleUrls: Record<NoteId, string> = {
   A3: "/audio/piano/A3.mp3",
@@ -33,7 +42,7 @@ const createMockFetchResponse = () => ({
   arrayBuffer: async () => new ArrayBuffer(8)
 });
 
-const createMockAudioContext = (state: "running" | "suspended" | "interrupted" = "running") => {
+const createMockAudioContext = (state: MockAudioState = "running") => {
   const destination = {} as AudioDestinationNode;
   const gain = {
     gain: {
@@ -52,23 +61,12 @@ const createMockAudioContext = (state: "running" | "suspended" | "interrupted" =
     start: vi.fn(),
     stop: vi.fn()
   };
-  const sources: Array<{
-    buffer: AudioBuffer | null;
-    connect: ReturnType<typeof vi.fn>;
-    disconnect: ReturnType<typeof vi.fn>;
-    start: ReturnType<typeof vi.fn>;
-    stop: ReturnType<typeof vi.fn>;
-    onended: (() => void) | null;
-  }> = [];
+  const sources: MockSource[] = [];
 
   return {
     currentTime: 12.5,
     destination,
-<<<<<<< HEAD
-    sampleRate: 44_100,
-=======
-    sampleRate: 48000,
->>>>>>> 86e77e0 (fix: audio not playing on ios/mobile)
+    sampleRate: 48_000,
     state,
     createBuffer: vi.fn(() => createMockAudioBuffer()),
     decodeAudioData: vi.fn((_bytes: ArrayBuffer, onSuccess?: AudioDecodeSuccess) => {
@@ -88,7 +86,6 @@ const createMockAudioContext = (state: "running" | "suspended" | "interrupted" =
       sources.push(source);
       return source;
     }),
-    createBuffer: vi.fn(() => createMockAudioBuffer()),
     createOscillator: vi.fn(() => oscillator),
     createGain: vi.fn(() => gain),
     resume: vi.fn(async () => undefined),
@@ -110,26 +107,19 @@ const stubAudioContext = (mockAudioContext: MockAudioContext) => {
   });
 };
 
-<<<<<<< HEAD
-const expectLatestStartedSource = (mockAudioContext: MockAudioContext) => {
-  expect(mockAudioContext.sources.length).toBeGreaterThan(0);
-
-  const source = mockAudioContext.sources.at(-1) as MockSource;
-=======
 const expectStartedSource = (mockAudioContext: MockAudioContext, sourceIndex: number) => {
   const source = mockAudioContext.sources[sourceIndex];
 
->>>>>>> 86e77e0 (fix: audio not playing on ios/mobile)
   expect(source.start).toHaveBeenCalledWith(mockAudioContext.currentTime);
 };
 
-const expectMobileUnlockPrimer = (mockAudioContext: MockAudioContext) => {
+const expectGestureUnlockPrimer = (mockAudioContext: MockAudioContext) => {
   expect(mockAudioContext.sources.length).toBeGreaterThan(0);
 
-  const source = mockAudioContext.sources[0] as MockSource;
-  expect(mockAudioContext.createBuffer).toHaveBeenCalledWith(1, 1, mockAudioContext.sampleRate);
+  const source = mockAudioContext.sources[0];
+  expect(mockAudioContext.createBuffer).toHaveBeenCalledWith(1, 2_400, mockAudioContext.sampleRate);
   expect(source.start).toHaveBeenCalledWith(mockAudioContext.currentTime);
-  expect(source.stop).toHaveBeenCalledWith(mockAudioContext.currentTime + 0.03);
+  expect(source.stop).toHaveBeenCalledWith(mockAudioContext.currentTime + 0.05);
 };
 
 describe("PianoSampler", () => {
@@ -152,17 +142,25 @@ describe("PianoSampler", () => {
 
     await sampler.load();
 
-    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual(pianoNotes.map((noteId) => expectedSampleUrls[noteId]));
-    expect(mockAudioContext.decodeAudioData).toHaveBeenCalledTimes(Object.keys(sampleFileByNote).length);
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual(
+      pianoNotes.map((noteId) => expectedSampleUrls[noteId])
+    );
+    expect(mockAudioContext.decodeAudioData).toHaveBeenCalledTimes(
+      Object.keys(sampleFileByNote).length
+    );
   });
 
   it("builds Vercel public asset URLs for every piano sample", () => {
-    expect(pianoNotes.map((noteId) => sampleUrlFor(noteId))).toEqual(pianoNotes.map((noteId) => expectedSampleUrls[noteId]));
+    expect(pianoNotes.map((noteId) => sampleUrlFor(noteId))).toEqual(
+      pianoNotes.map((noteId) => expectedSampleUrls[noteId])
+    );
   });
 
   it("ships every sample file referenced by the virtual piano", () => {
     for (const noteId of pianoNotes) {
-      expect(existsSync(resolve(process.cwd(), "public", "audio", "piano", sampleFileByNote[noteId]))).toBe(true);
+      expect(
+        existsSync(resolve(process.cwd(), "public", "audio", "piano", sampleFileByNote[noteId]))
+      ).toBe(true);
     }
   });
 
@@ -170,12 +168,17 @@ describe("PianoSampler", () => {
     const mockAudioContext = createMockAudioContext();
     const decodedBuffer = createMockAudioBuffer();
 
-    mockAudioContext.decodeAudioData.mockImplementation((_bytes: ArrayBuffer, onSuccess?: AudioDecodeSuccess) => {
-      onSuccess?.(decodedBuffer);
-      return undefined as unknown as Promise<AudioBuffer>;
-    });
+    mockAudioContext.decodeAudioData.mockImplementation(
+      (_bytes: ArrayBuffer, onSuccess?: AudioDecodeSuccess) => {
+        onSuccess?.(decodedBuffer);
+        return undefined as unknown as Promise<AudioBuffer>;
+      }
+    );
 
-    vi.stubGlobal("fetch", vi.fn(async () => createMockFetchResponse()));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => createMockFetchResponse())
+    );
     stubAudioContext(mockAudioContext);
 
     const sampler = new PianoSampler();
@@ -183,19 +186,18 @@ describe("PianoSampler", () => {
 
     await expect(sampler.play("C4" satisfies NoteId)).resolves.toBe(true);
     expect(mockAudioContext.createBufferSource).toHaveBeenCalledTimes(2);
-<<<<<<< HEAD
-    expectMobileUnlockPrimer(mockAudioContext);
-    expectLatestStartedSource(mockAudioContext);
-=======
+    expectGestureUnlockPrimer(mockAudioContext);
     expectStartedSource(mockAudioContext, 0);
     expectStartedSource(mockAudioContext, 1);
->>>>>>> 86e77e0 (fix: audio not playing on ios/mobile)
   });
 
   it("starts an already decoded buffer immediately on key press", async () => {
     const mockAudioContext = createMockAudioContext();
 
-    vi.stubGlobal("fetch", vi.fn(async () => createMockFetchResponse()));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => createMockFetchResponse())
+    );
     stubAudioContext(mockAudioContext);
 
     const sampler = new PianoSampler();
@@ -204,11 +206,11 @@ describe("PianoSampler", () => {
     await expect(sampler.play("C4" satisfies NoteId, 0.7)).resolves.toBe(true);
     expect(mockAudioContext.createBufferSource).toHaveBeenCalledTimes(2);
     expect(mockAudioContext.createGain).toHaveBeenCalledTimes(2);
-    expect(mockAudioContext.gain.gain.setValueAtTime).toHaveBeenCalledWith(0.7, mockAudioContext.currentTime);
-<<<<<<< HEAD
-    expectMobileUnlockPrimer(mockAudioContext);
-    expectLatestStartedSource(mockAudioContext);
-=======
+    expect(mockAudioContext.gain.gain.setValueAtTime).toHaveBeenCalledWith(
+      0.7,
+      mockAudioContext.currentTime
+    );
+    expectGestureUnlockPrimer(mockAudioContext);
     expectStartedSource(mockAudioContext, 0);
     expectStartedSource(mockAudioContext, 1);
   });
@@ -226,7 +228,10 @@ describe("PianoSampler", () => {
         })
     );
 
-    vi.stubGlobal("fetch", vi.fn(async () => createMockFetchResponse()));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => createMockFetchResponse())
+    );
     stubAudioContext(mockAudioContext);
 
     const sampler = new PianoSampler();
@@ -235,8 +240,13 @@ describe("PianoSampler", () => {
     const playPromise = sampler.play("E4");
 
     expect(mockAudioContext.resume).toHaveBeenCalledTimes(1);
-    expect(mockAudioContext.createBuffer).toHaveBeenCalledWith(1, 2400, mockAudioContext.sampleRate);
+    expect(mockAudioContext.createBuffer).toHaveBeenCalledWith(
+      1,
+      2_400,
+      mockAudioContext.sampleRate
+    );
     expect(mockAudioContext.createBufferSource).toHaveBeenCalledTimes(1);
+    expectGestureUnlockPrimer(mockAudioContext);
     expectStartedSource(mockAudioContext, 0);
 
     finishResume();
@@ -244,7 +254,6 @@ describe("PianoSampler", () => {
     await expect(playPromise).resolves.toBe(true);
     expect(mockAudioContext.createBufferSource).toHaveBeenCalledTimes(2);
     expectStartedSource(mockAudioContext, 1);
->>>>>>> 86e77e0 (fix: audio not playing on ios/mobile)
   });
 
   it("resumes a suspended AudioContext from the key press gesture", async () => {
@@ -253,7 +262,10 @@ describe("PianoSampler", () => {
       mockAudioContext.state = "running";
     });
 
-    vi.stubGlobal("fetch", vi.fn(async () => createMockFetchResponse()));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => createMockFetchResponse())
+    );
     stubAudioContext(mockAudioContext);
 
     const sampler = new PianoSampler();
@@ -261,9 +273,10 @@ describe("PianoSampler", () => {
 
     await expect(sampler.play("E4")).resolves.toBe(true);
     expect(mockAudioContext.resume).toHaveBeenCalledTimes(1);
-<<<<<<< HEAD
-    expectMobileUnlockPrimer(mockAudioContext);
-    expectLatestStartedSource(mockAudioContext);
+    expect(mockAudioContext.createBufferSource).toHaveBeenCalledTimes(2);
+    expectGestureUnlockPrimer(mockAudioContext);
+    expectStartedSource(mockAudioContext, 0);
+    expectStartedSource(mockAudioContext, 1);
   });
 
   it("treats Safari interrupted AudioContexts as resumable", async () => {
@@ -272,7 +285,10 @@ describe("PianoSampler", () => {
       mockAudioContext.state = "running";
     });
 
-    vi.stubGlobal("fetch", vi.fn(async () => createMockFetchResponse()));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => createMockFetchResponse())
+    );
     stubAudioContext(mockAudioContext);
 
     const sampler = new PianoSampler();
@@ -280,29 +296,27 @@ describe("PianoSampler", () => {
 
     await expect(sampler.play("E4")).resolves.toBe(true);
     expect(mockAudioContext.resume).toHaveBeenCalledTimes(1);
-    expectMobileUnlockPrimer(mockAudioContext);
-=======
     expect(mockAudioContext.createBufferSource).toHaveBeenCalledTimes(2);
+    expectGestureUnlockPrimer(mockAudioContext);
     expectStartedSource(mockAudioContext, 0);
     expectStartedSource(mockAudioContext, 1);
->>>>>>> 86e77e0 (fix: audio not playing on ios/mobile)
   });
 
   it("plays a fallback tone when a note is requested before its buffer is ready", async () => {
     const mockAudioContext = createMockAudioContext();
 
-    vi.stubGlobal("fetch", vi.fn(async () => createMockFetchResponse()));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => createMockFetchResponse())
+    );
     stubAudioContext(mockAudioContext);
 
     const sampler = new PianoSampler();
 
     await expect(sampler.play("C4")).resolves.toBe(true);
-<<<<<<< HEAD
-    expectMobileUnlockPrimer(mockAudioContext);
-=======
     expect(mockAudioContext.createBufferSource).toHaveBeenCalledTimes(1);
+    expectGestureUnlockPrimer(mockAudioContext);
     expectStartedSource(mockAudioContext, 0);
->>>>>>> 86e77e0 (fix: audio not playing on ios/mobile)
     expect(mockAudioContext.createOscillator).toHaveBeenCalledTimes(1);
     expect(mockAudioContext.oscillator.start).toHaveBeenCalledWith(mockAudioContext.currentTime);
     await sampler.load();
@@ -312,18 +326,23 @@ describe("PianoSampler", () => {
     const mockAudioContext = createMockAudioContext();
     let shouldDecodeFail = true;
 
-    mockAudioContext.decodeAudioData.mockImplementation((_bytes: ArrayBuffer, onSuccess?: AudioDecodeSuccess, onFailure?: AudioDecodeFailure) => {
-      if (shouldDecodeFail) {
-        onFailure?.(new DOMException("Unable to decode audio data"));
-        return Promise.reject(new DOMException("Unable to decode audio data"));
+    mockAudioContext.decodeAudioData.mockImplementation(
+      (_bytes: ArrayBuffer, onSuccess?: AudioDecodeSuccess, onFailure?: AudioDecodeFailure) => {
+        if (shouldDecodeFail) {
+          onFailure?.(new DOMException("Unable to decode audio data"));
+          return Promise.reject(new DOMException("Unable to decode audio data"));
+        }
+
+        const buffer = createMockAudioBuffer();
+        onSuccess?.(buffer);
+        return Promise.resolve(buffer);
       }
+    );
 
-      const buffer = createMockAudioBuffer();
-      onSuccess?.(buffer);
-      return Promise.resolve(buffer);
-    });
-
-    vi.stubGlobal("fetch", vi.fn(async () => createMockFetchResponse()));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => createMockFetchResponse())
+    );
     stubAudioContext(mockAudioContext);
 
     const sampler = new PianoSampler();
@@ -336,14 +355,10 @@ describe("PianoSampler", () => {
     await sampler.load();
     await expect(sampler.play("C4")).resolves.toBe(true);
 
-<<<<<<< HEAD
-    expect(mockAudioContext.createBufferSource).toHaveBeenCalledTimes(3);
-    expectLatestStartedSource(mockAudioContext);
-=======
     expect(mockAudioContext.createBufferSource).toHaveBeenCalledTimes(2);
+    expectGestureUnlockPrimer(mockAudioContext);
     expectStartedSource(mockAudioContext, 0);
     expectStartedSource(mockAudioContext, 1);
->>>>>>> 86e77e0 (fix: audio not playing on ios/mobile)
   });
 
   it("resumes and plays a fallback tone for the first cold mobile tap while samples load", async () => {
@@ -352,19 +367,19 @@ describe("PianoSampler", () => {
       mockAudioContext.state = "running";
     });
 
-    vi.stubGlobal("fetch", vi.fn(() => new Promise(() => undefined)));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => new Promise(() => undefined))
+    );
     stubAudioContext(mockAudioContext);
 
     const sampler = new PianoSampler();
 
     await expect(sampler.play("C4")).resolves.toBe(true);
     expect(mockAudioContext.resume).toHaveBeenCalledTimes(1);
-<<<<<<< HEAD
-    expectMobileUnlockPrimer(mockAudioContext);
-=======
     expect(mockAudioContext.createBufferSource).toHaveBeenCalledTimes(1);
+    expectGestureUnlockPrimer(mockAudioContext);
     expectStartedSource(mockAudioContext, 0);
->>>>>>> 86e77e0 (fix: audio not playing on ios/mobile)
     expect(mockAudioContext.createOscillator).toHaveBeenCalledTimes(1);
     expect(mockAudioContext.oscillator.start).toHaveBeenCalledWith(mockAudioContext.currentTime);
   });
@@ -375,7 +390,10 @@ describe("PianoSampler", () => {
       mockAudioContext.state = "running";
     });
 
-    vi.stubGlobal("fetch", vi.fn(async () => createMockFetchResponse()));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => createMockFetchResponse())
+    );
     stubAudioContext(mockAudioContext);
 
     const sampler = new PianoSampler();
