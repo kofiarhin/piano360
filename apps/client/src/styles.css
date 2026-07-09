@@ -74,7 +74,7 @@ select:disabled {
   background: rgba(167, 139, 250, 0.62);
 }
 
-@media (max-width: 1024px) and (pointer: coarse) and (orientation: portrait) {
+@media (max-width: 1024px) and (orientation: portrait) {
   html,
   body,
   #root {
