@@ -33,14 +33,15 @@ const createMockFetchResponse = () => ({
   arrayBuffer: async () => new ArrayBuffer(8)
 });
 
-const createMockAudioContext = (state: "running" | "suspended" = "running") => {
+const createMockAudioContext = (state: "running" | "suspended" | "interrupted" = "running") => {
   const destination = {} as AudioDestinationNode;
   const gain = {
     gain: {
       setValueAtTime: vi.fn(),
       exponentialRampToValueAtTime: vi.fn()
     },
-    connect: vi.fn(() => destination)
+    connect: vi.fn(() => destination),
+    disconnect: vi.fn()
   };
   const oscillator = {
     type: "sine",
@@ -54,13 +55,18 @@ const createMockAudioContext = (state: "running" | "suspended" = "running") => {
   const sources: Array<{
     buffer: AudioBuffer | null;
     connect: ReturnType<typeof vi.fn>;
+    disconnect: ReturnType<typeof vi.fn>;
     start: ReturnType<typeof vi.fn>;
+    stop: ReturnType<typeof vi.fn>;
+    onended: (() => void) | null;
   }> = [];
 
   return {
     currentTime: 12.5,
     destination,
+    sampleRate: 44_100,
     state,
+    createBuffer: vi.fn(() => createMockAudioBuffer()),
     decodeAudioData: vi.fn((_bytes: ArrayBuffer, onSuccess?: AudioDecodeSuccess) => {
       const buffer = createMockAudioBuffer();
       onSuccess?.(buffer);
@@ -70,7 +76,10 @@ const createMockAudioContext = (state: "running" | "suspended" = "running") => {
       const source = {
         buffer: null as AudioBuffer | null,
         connect: vi.fn(() => gain),
-        start: vi.fn()
+        disconnect: vi.fn(),
+        start: vi.fn(),
+        stop: vi.fn(),
+        onended: null as (() => void) | null
       };
       sources.push(source);
       return source;
@@ -97,11 +106,20 @@ const stubAudioContext = (mockAudioContext: MockAudioContext) => {
   });
 };
 
-const expectSingleStartedSource = (mockAudioContext: MockAudioContext) => {
-  expect(mockAudioContext.sources).toHaveLength(1);
+const expectLatestStartedSource = (mockAudioContext: MockAudioContext) => {
+  expect(mockAudioContext.sources.length).toBeGreaterThan(0);
 
-  const [source] = mockAudioContext.sources as [MockSource];
+  const source = mockAudioContext.sources.at(-1) as MockSource;
   expect(source.start).toHaveBeenCalledWith(mockAudioContext.currentTime);
+};
+
+const expectMobileUnlockPrimer = (mockAudioContext: MockAudioContext) => {
+  expect(mockAudioContext.sources.length).toBeGreaterThan(0);
+
+  const source = mockAudioContext.sources[0] as MockSource;
+  expect(mockAudioContext.createBuffer).toHaveBeenCalledWith(1, 1, mockAudioContext.sampleRate);
+  expect(source.start).toHaveBeenCalledWith(mockAudioContext.currentTime);
+  expect(source.stop).toHaveBeenCalledWith(mockAudioContext.currentTime + 0.03);
 };
 
 describe("PianoSampler", () => {
@@ -154,8 +172,9 @@ describe("PianoSampler", () => {
     await sampler.load();
 
     await expect(sampler.play("C4" satisfies NoteId)).resolves.toBe(true);
-    expect(mockAudioContext.createBufferSource).toHaveBeenCalledTimes(1);
-    expectSingleStartedSource(mockAudioContext);
+    expect(mockAudioContext.createBufferSource).toHaveBeenCalledTimes(2);
+    expectMobileUnlockPrimer(mockAudioContext);
+    expectLatestStartedSource(mockAudioContext);
   });
 
   it("starts an already decoded buffer immediately on key press", async () => {
@@ -168,10 +187,11 @@ describe("PianoSampler", () => {
     await sampler.load();
 
     await expect(sampler.play("C4" satisfies NoteId, 0.7)).resolves.toBe(true);
-    expect(mockAudioContext.createBufferSource).toHaveBeenCalledTimes(1);
-    expect(mockAudioContext.createGain).toHaveBeenCalledTimes(1);
+    expect(mockAudioContext.createBufferSource).toHaveBeenCalledTimes(2);
+    expect(mockAudioContext.createGain).toHaveBeenCalledTimes(2);
     expect(mockAudioContext.gain.gain.setValueAtTime).toHaveBeenCalledWith(0.7, mockAudioContext.currentTime);
-    expectSingleStartedSource(mockAudioContext);
+    expectMobileUnlockPrimer(mockAudioContext);
+    expectLatestStartedSource(mockAudioContext);
   });
 
   it("resumes a suspended AudioContext from the key press gesture", async () => {
@@ -188,7 +208,25 @@ describe("PianoSampler", () => {
 
     await expect(sampler.play("E4")).resolves.toBe(true);
     expect(mockAudioContext.resume).toHaveBeenCalledTimes(1);
-    expectSingleStartedSource(mockAudioContext);
+    expectMobileUnlockPrimer(mockAudioContext);
+    expectLatestStartedSource(mockAudioContext);
+  });
+
+  it("treats Safari interrupted AudioContexts as resumable", async () => {
+    const mockAudioContext = createMockAudioContext("interrupted");
+    mockAudioContext.resume.mockImplementation(async () => {
+      mockAudioContext.state = "running";
+    });
+
+    vi.stubGlobal("fetch", vi.fn(async () => createMockFetchResponse()));
+    stubAudioContext(mockAudioContext);
+
+    const sampler = new PianoSampler();
+    await sampler.load();
+
+    await expect(sampler.play("E4")).resolves.toBe(true);
+    expect(mockAudioContext.resume).toHaveBeenCalledTimes(1);
+    expectMobileUnlockPrimer(mockAudioContext);
   });
 
   it("plays a fallback tone when a note is requested before its buffer is ready", async () => {
@@ -200,6 +238,7 @@ describe("PianoSampler", () => {
     const sampler = new PianoSampler();
 
     await expect(sampler.play("C4")).resolves.toBe(true);
+    expectMobileUnlockPrimer(mockAudioContext);
     expect(mockAudioContext.createOscillator).toHaveBeenCalledTimes(1);
     expect(mockAudioContext.oscillator.start).toHaveBeenCalledWith(mockAudioContext.currentTime);
     await sampler.load();
@@ -233,8 +272,8 @@ describe("PianoSampler", () => {
     await sampler.load();
     await expect(sampler.play("C4")).resolves.toBe(true);
 
-    expect(mockAudioContext.createBufferSource).toHaveBeenCalledTimes(1);
-    expectSingleStartedSource(mockAudioContext);
+    expect(mockAudioContext.createBufferSource).toHaveBeenCalledTimes(3);
+    expectLatestStartedSource(mockAudioContext);
   });
 
   it("resumes and plays a fallback tone for the first cold mobile tap while samples load", async () => {
@@ -250,6 +289,7 @@ describe("PianoSampler", () => {
 
     await expect(sampler.play("C4")).resolves.toBe(true);
     expect(mockAudioContext.resume).toHaveBeenCalledTimes(1);
+    expectMobileUnlockPrimer(mockAudioContext);
     expect(mockAudioContext.createOscillator).toHaveBeenCalledTimes(1);
     expect(mockAudioContext.oscillator.start).toHaveBeenCalledWith(mockAudioContext.currentTime);
   });
