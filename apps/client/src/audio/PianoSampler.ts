@@ -39,6 +39,8 @@ const frequencyByNote: Record<NoteId, number> = {
   C5: 523.25
 };
 
+type SafariAudioContextState = AudioContextState | "interrupted";
+
 const publicBaseUrl = import.meta.env.BASE_URL || "/";
 const publicAssetBaseUrl = publicBaseUrl.endsWith("/") ? publicBaseUrl : `${publicBaseUrl}/`;
 
@@ -137,7 +139,8 @@ export class PianoSampler {
     this.audioContext = this.audioContext ?? createLowLatencyAudioContext();
     this.primeMobileAudioUnlock();
 
-    if (this.audioContext.state === "suspended" || this.audioContext.state === "interrupted") {
+    const audioState = this.audioContext.state as SafariAudioContextState;
+    if (audioState === "suspended" || audioState === "interrupted") {
       await this.audioContext.resume();
     }
   }
