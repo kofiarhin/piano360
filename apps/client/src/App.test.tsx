@@ -59,7 +59,9 @@ describe("Piano360 lesson experience", () => {
     await renderLessonApp();
 
     expect(screen.getByLabelText("Lesson")).toBeInTheDocument();
-    expect(screen.getByText("Find the first three white keys around middle C.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Find the first three white keys around middle C.")
+    ).toBeInTheDocument();
     expect(screen.getByLabelText("Virtual piano")).toBeInTheDocument();
     expect(screen.queryByText("PRESS NOW")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Play" })).not.toBeInTheDocument();
@@ -86,6 +88,17 @@ describe("Piano360 lesson experience", () => {
 
     expect(promptLabel).toBe("C4");
     expect(within(pianoKey).getByText("C4")).toBeInTheDocument();
+  });
+
+  it("renders the lesson panel before the virtual piano in document order", async () => {
+    await renderLessonApp();
+
+    const lessonHeading = screen.getByRole("heading", { name: "Lesson 1" });
+    const virtualPiano = screen.getByLabelText("Virtual piano");
+
+    expect(lessonHeading.compareDocumentPosition(virtualPiano)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING
+    );
   });
 
   it("advances after correct computer keyboard input", async () => {
@@ -145,7 +158,12 @@ describe("Piano360 lesson experience", () => {
     expect(screen.getByText("Lesson complete")).toBeInTheDocument();
     expect(screen.queryByTestId("current-note")).not.toBeInTheDocument();
     expect(screen.getByTestId("lesson-progress")).toHaveTextContent("3 / 3");
-    expect(screen.getByRole("button", { name: "Next lesson" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Next lesson" }));
+
+    expect(screen.getByRole("heading", { name: "Lesson 2" })).toBeInTheDocument();
+    expect(screen.getByTestId("current-note")).toHaveTextContent("F4");
+    expect(screen.getByTestId("lesson-progress")).toHaveTextContent("1 / 5");
   });
 
   it("restarts the active lesson", async () => {

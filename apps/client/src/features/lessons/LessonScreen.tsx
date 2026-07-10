@@ -49,7 +49,8 @@ const LessonWorkspace = ({ lessons }: LessonWorkspaceProps) => {
   const flashTimerRef = useRef<number | undefined>(undefined);
 
   const currentNote = getCurrentLessonNote(selectedLesson, session);
-  const progressValue = session.status === "complete" ? selectedLesson.notes.length : session.currentIndex + 1;
+  const progressValue =
+    session.status === "complete" ? selectedLesson.notes.length : session.currentIndex + 1;
   const currentLessonIndex = lessons.findIndex((lesson) => lesson.id === selectedLesson.id);
   const nextLesson = lessons[currentLessonIndex + 1];
 
@@ -133,13 +134,13 @@ const LessonWorkspace = ({ lessons }: LessonWorkspaceProps) => {
   }, [handleNoteInput]);
 
   return (
-    <main className="relative mx-auto flex min-h-[100dvh] w-full max-w-7xl flex-col gap-6 px-4 py-5 text-zinc-100 md:px-6 md:py-8">
-      <header className="grid gap-5 border-b border-white/10 pb-5 md:grid-cols-[1fr_minmax(17rem,22rem)] md:items-end">
+    <main className="lesson-screen relative mx-auto flex min-h-[100dvh] w-full max-w-7xl flex-col px-4 py-4 text-zinc-100 md:px-6 md:py-5 lg:py-6">
+      <header className="grid gap-4 border-b border-white/10 pb-4 md:grid-cols-[1fr_minmax(16rem,20rem)] md:items-end">
         <div>
           <p className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-cyan-200/80">
             Note recognition
           </p>
-          <h1 className="mt-2 text-4xl font-black leading-none tracking-tight text-white md:text-5xl">
+          <h1 className="mt-2 text-3xl font-black leading-none tracking-tight text-white md:text-4xl">
             Piano360
           </h1>
         </div>
@@ -160,75 +161,84 @@ const LessonWorkspace = ({ lessons }: LessonWorkspaceProps) => {
         </label>
       </header>
 
-      <section className="grid flex-1 gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(34rem,1.35fr)] lg:items-stretch">
-        <div className="flex flex-col justify-between gap-6 rounded-[1.5rem] border border-white/10 bg-zinc-950/78 p-5 shadow-[0_24px_80px_-56px_rgba(0,0,0,0.95)] md:p-7">
-          <div>
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-2xl font-black leading-tight text-white">{selectedLesson.title}</h2>
-                {selectedLesson.description && (
-                  <p className="mt-2 max-w-[42ch] text-base leading-relaxed text-zinc-300">
-                    {selectedLesson.description}
-                  </p>
-                )}
-              </div>
-              <div className="shrink-0 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-right">
-                <p className="font-mono text-xs font-bold uppercase text-zinc-400">Progress</p>
-                <p className="font-mono text-lg font-black text-white" data-testid="lesson-progress">
-                  {progressValue} / {selectedLesson.notes.length}
+      <section className="flex flex-1 flex-col justify-end gap-2 pt-4 md:gap-3 md:pt-5">
+        <section
+          aria-labelledby="lesson-title"
+          className="rounded-[1.25rem] border border-white/10 bg-zinc-950/78 p-4 shadow-[0_18px_70px_-52px_rgba(0,0,0,0.95)] md:p-5"
+        >
+          <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-center xl:grid-cols-[minmax(0,1.35fr)_auto_auto_minmax(14rem,0.9fr)] xl:gap-5">
+            <div>
+              <h2
+                id="lesson-title"
+                className="text-xl font-black leading-tight text-white md:text-2xl"
+              >
+                {selectedLesson.title}
+              </h2>
+              {selectedLesson.description && (
+                <p className="mt-1.5 max-w-[54ch] text-sm leading-relaxed text-zinc-300 md:text-base">
+                  {selectedLesson.description}
                 </p>
-              </div>
+              )}
             </div>
 
-            <div className="mt-10">
-              <p className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-zinc-400">
+            <div className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 lg:min-w-[7.75rem]">
+              <p className="font-mono text-xs font-bold uppercase text-zinc-400">Progress</p>
+              <p className="font-mono text-lg font-black text-white" data-testid="lesson-progress">
+                {progressValue} / {selectedLesson.notes.length}
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 lg:min-w-[9rem]">
+              <p className="font-mono text-xs font-bold uppercase tracking-[0.16em] text-zinc-400">
                 Current note
               </p>
               {currentNote ? (
                 <NoteLabel
                   noteId={currentNote}
                   testId="current-note"
-                  className="mt-3 block text-8xl font-black leading-none tracking-normal text-white md:text-9xl"
+                  className="mt-1 block text-5xl font-black leading-none tracking-normal text-white md:text-6xl"
                 />
               ) : (
-                <p className="mt-3 text-5xl font-black text-white">Complete</p>
+                <p className="mt-1 text-3xl font-black text-white md:text-4xl">Complete</p>
               )}
             </div>
-          </div>
 
-          <div className="grid gap-4">
-            <div
-              aria-live="polite"
-              className={[
-                "rounded-xl border px-4 py-3 text-lg font-black",
-                feedback === "correct" ? "border-emerald-300/50 bg-emerald-400/12 text-emerald-100" : "",
-                feedback === "incorrect" ? "border-rose-300/50 bg-rose-400/12 text-rose-100" : "",
-                feedback === "complete" ? "border-cyan-200/50 bg-cyan-300/12 text-cyan-50" : "",
-                feedback === "idle" ? "border-white/10 bg-white/[0.04] text-zinc-200" : ""
-              ].join(" ")}
-            >
-              {feedbackText[feedback]}
-            </div>
-            <div className="flex flex-wrap gap-3">
-              <button
-                type="button"
-                onClick={() => resetLesson()}
-                className="rounded-xl border border-white/15 bg-white px-4 py-3 font-black text-zinc-950 transition active:translate-y-0.5"
+            <div className="grid gap-3 md:col-span-3 md:grid-cols-[minmax(12rem,1fr)_auto] md:items-center xl:col-span-1 xl:grid-cols-1">
+              <div
+                aria-live="polite"
+                className={[
+                  "rounded-xl border px-3 py-2 text-base font-black",
+                  feedback === "correct"
+                    ? "border-emerald-300/50 bg-emerald-400/12 text-emerald-100"
+                    : "",
+                  feedback === "incorrect" ? "border-rose-300/50 bg-rose-400/12 text-rose-100" : "",
+                  feedback === "complete" ? "border-cyan-200/50 bg-cyan-300/12 text-cyan-50" : "",
+                  feedback === "idle" ? "border-white/10 bg-white/[0.04] text-zinc-200" : ""
+                ].join(" ")}
               >
-                Restart lesson
-              </button>
-              {session.status === "complete" && nextLesson && (
+                {feedbackText[feedback]}
+              </div>
+              <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
-                  onClick={() => setSelectedLessonId(nextLesson.id)}
-                  className="rounded-xl border border-cyan-200/40 bg-cyan-200 px-4 py-3 font-black text-zinc-950 transition active:translate-y-0.5"
+                  onClick={() => resetLesson()}
+                  className="rounded-xl border border-white/15 bg-white px-4 py-2.5 font-black text-zinc-950 transition active:translate-y-0.5"
                 >
-                  Next lesson
+                  Restart lesson
                 </button>
-              )}
+                {session.status === "complete" && nextLesson && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedLessonId(nextLesson.id)}
+                    className="rounded-xl border border-cyan-200/40 bg-cyan-200 px-4 py-2.5 font-black text-zinc-950 transition active:translate-y-0.5"
+                  >
+                    Next lesson
+                  </button>
+                )}
+              </div>
             </div>
           </div>
-        </div>
+        </section>
 
         <div className="flex min-w-0 flex-col justify-end">
           <VirtualPiano
