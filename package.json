@@ -11,6 +11,7 @@
     "build": "npm run build --workspaces",
     "build:api": "npm run build -w @piano360/api",
     "heroku-postbuild": "npm run build:api",
+    "seed:courses": "npm run seed:courses -w @piano360/api",
     "start": "node apps/api/dist/server.js",
     "lint": "eslint .",
     "format": "prettier --write .",

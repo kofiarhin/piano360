@@ -1,16 +1,17 @@
 # piano360
 
-TypeScript fullstack boilerplate with a React + Vite client and an Express API in an npm workspaces monorepo.
+Piano360 is a MongoDB-backed course MVP for guided piano learning. The app uses a Course -> Lesson -> Step content model, an Express API, and a React/Vite client with local-only learner progress.
 
 ## Requirements
 
 - Node.js 20 or newer
 - npm 10 or newer
+- MongoDB available locally or through `MONGODB_URI`
 
 ## Apps
 
+- `apps/api`: Node.js + Express + Mongoose API
 - `apps/client`: React + Vite frontend
-- `apps/api`: Node.js + Express backend
 
 ## Setup
 
@@ -25,12 +26,57 @@ cp apps/api/.env.example apps/api/.env
 cp apps/client/.env.example apps/client/.env
 ```
 
-The default API port is `4000`. The client runs on Vite's default port, `5173`, and proxies `/api` requests to the API during development.
+Default API settings:
+
+```txt
+PORT=4000
+MONGODB_URI=mongodb://127.0.0.1:27017/piano360
+```
+
+Reset and seed course content:
+
+```bash
+npm run seed:courses
+```
+
+The seed script replaces only MongoDB course content. Learner progress is never stored in MongoDB; the browser stores it under `piano360.progress.v1`.
+
+## Development
+
+```bash
+npm run dev
+```
+
+The client runs on Vite's default port, `5173`, and proxies `/api` requests to the API on port `4000`.
+
+## API
+
+Health:
+
+```http
+GET /health
+GET /api/health
+```
+
+Course content:
+
+```http
+GET /api/courses
+GET /api/courses/:courseSlug
+GET /api/courses/:courseSlug/lessons/:lessonSlug
+```
+
+Seeded courses:
+
+- Finger Placement
+- Beginner Chords
+- Ode to Joy
 
 ## Scripts
 
 ```bash
 npm run dev
+npm run seed:courses
 npm run lint
 npm run typecheck
 npm test
@@ -38,29 +84,7 @@ npm run build
 npm run format
 ```
 
-## API
-
-Health check:
-
-```http
-GET /health
-```
-
-Example response:
-
-```json
-{
-  "service": "piano360-api",
-  "status": "ok",
-  "timestamp": "2026-07-07T12:00:00.000Z"
-}
-```
-
 ## Testing
 
 - Client tests use Vitest and React Testing Library.
-- API tests use Jest and Supertest.
-
-## CI
-
-GitHub Actions runs install, lint, typecheck, test, and build on pull requests and pushes to `main`.
+- API tests use Jest, Supertest, and `mongodb-memory-server`.

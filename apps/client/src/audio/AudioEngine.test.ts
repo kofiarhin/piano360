@@ -1,5 +1,4 @@
-import { pianoNotes } from "../features/practice/practiceData";
-import type { NoteId } from "../features/practice/practiceTypes";
+import { pianoNotes, type NoteId } from "../features/notes";
 import { AudioEngine } from "./AudioEngine";
 
 const flushPromises = () => new Promise<void>((resolve) => setTimeout(resolve, 0));

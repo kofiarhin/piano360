@@ -1,8 +1,7 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { pianoNotes } from "../features/practice/practiceData";
-import type { NoteId } from "../features/practice/practiceTypes";
+import { pianoNotes, type NoteId } from "../features/notes";
 import { PianoSampler, sampleFileByNote, sampleUrlFor } from "./PianoSampler";
 
 const createMockAudioBuffer = () => ({}) as AudioBuffer;

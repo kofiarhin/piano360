@@ -1,4 +1,4 @@
-import type { NoteId } from "../features/practice/practiceTypes";
+import type { NoteId } from "../features/notes";
 import { PianoSampler } from "./PianoSampler";
 
 export type AudioStatus = "idle" | "loading" | "ready" | "unavailable";

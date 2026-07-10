@@ -1,15 +1,9 @@
+import type { Course, CourseFilters, CourseSummary, LessonDetail } from "./features/courses/courseTypes";
+
 export type ApiHealth = {
   service: string;
   status: string;
   timestamp: string;
-};
-
-export type Lesson = {
-  id: string;
-  title: string;
-  description?: string;
-  notes: string[];
-  order: number;
 };
 
 const trimTrailingSlash = (value: string): string => value.replace(/\/$/, "");
@@ -37,14 +31,35 @@ const parseJsonResponse = async <T>(response: Response, label: string): Promise<
   return (await response.json()) as T;
 };
 
-export const fetchLessons = async (): Promise<Lesson[]> => {
-  const response = await fetch(`${getApiBaseUrl()}/lessons`);
+const filtersToQuery = (filters: CourseFilters = {}) => {
+  const params = new URLSearchParams();
 
-  return parseJsonResponse<Lesson[]>(response, "Lessons");
+  for (const [key, value] of Object.entries(filters)) {
+    if (value) {
+      params.set(key, value);
+    }
+  }
+
+  const query = params.toString();
+  return query ? `?${query}` : "";
 };
 
-export const fetchLesson = async (id: string): Promise<Lesson> => {
-  const response = await fetch(`${getApiBaseUrl()}/lessons/${encodeURIComponent(id)}`);
+export const fetchCourses = async (filters?: CourseFilters): Promise<CourseSummary[]> => {
+  const response = await fetch(`${getApiBaseUrl()}/courses${filtersToQuery(filters)}`);
 
-  return parseJsonResponse<Lesson>(response, "Lesson detail");
+  return parseJsonResponse<CourseSummary[]>(response, "Courses");
+};
+
+export const fetchCourse = async (courseSlug: string): Promise<Course> => {
+  const response = await fetch(`${getApiBaseUrl()}/courses/${encodeURIComponent(courseSlug)}`);
+
+  return parseJsonResponse<Course>(response, "Course detail");
+};
+
+export const fetchLesson = async (courseSlug: string, lessonSlug: string): Promise<LessonDetail> => {
+  const response = await fetch(
+    `${getApiBaseUrl()}/courses/${encodeURIComponent(courseSlug)}/lessons/${encodeURIComponent(lessonSlug)}`
+  );
+
+  return parseJsonResponse<LessonDetail>(response, "Lesson detail");
 };
