@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 
+import { NoteLabel } from "../../notes";
 import type { FeedbackKind, NoteId, NoteResult } from "../practiceTypes";
 
 type NoteCardProps = {
@@ -10,18 +11,9 @@ type NoteCardProps = {
   feedback: FeedbackKind;
 };
 
-const noteParts = (noteId: NoteId) => {
-  const match = noteId.match(/^([A-G]#?)(\d)$/);
-  return {
-    name: match?.[1] ?? noteId,
-    octave: match?.[2] ?? ""
-  };
-};
-
 export const NoteCard = ({ noteId, index, currentIndex, result, feedback }: NoteCardProps) => {
   const isCurrent = index === currentIndex;
   const isPast = index < currentIndex;
-  const { name, octave } = noteParts(noteId);
   const activeWrong = isCurrent && feedback === "wrong";
   const activeCorrect = isCurrent && result === "correct";
   const missed = result === "missed";
@@ -52,12 +44,10 @@ export const NoteCard = ({ noteId, index, currentIndex, result, feedback }: Note
       {missed && (
         <span className="absolute right-3 top-3 h-2.5 w-2.5 rounded-full bg-rose-400/80" />
       )}
-      <span className="practice-note-name text-5xl font-black leading-none text-white md:text-6xl">
-        {name}
-      </span>
-      <span className="practice-note-octave -mt-1 font-mono text-lg font-bold text-zinc-400">
-        {octave}
-      </span>
+      <NoteLabel
+        noteId={noteId}
+        className="practice-note-name text-5xl font-black leading-none text-white md:text-6xl"
+      />
       {isCurrent && (
         <motion.span
           animate={{ opacity: [0.55, 1, 0.55] }}

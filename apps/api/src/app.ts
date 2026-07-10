@@ -2,6 +2,7 @@ import cors from "cors";
 import express, { type Express } from "express";
 
 import { config } from "./config";
+import { createLessonRouter } from "./lessons/lessonRoutes";
 
 export type HealthResponse = {
   service: "piano360-api";
@@ -28,6 +29,10 @@ export const createApp = (): Express => {
 
     response.status(200).json(payload);
   });
+
+  const lessonRouter = createLessonRouter();
+  app.use("/lessons", lessonRouter);
+  app.use("/api/lessons", lessonRouter);
 
   return app;
 };

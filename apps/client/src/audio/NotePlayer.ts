@@ -1,4 +1,4 @@
-import type { NoteId } from "../features/practice/practiceTypes";
+import type { NoteId } from "../features/notes";
 import { AudioEngine, type AudioStatus } from "./AudioEngine";
 
 const audioEngine = new AudioEngine();

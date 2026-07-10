@@ -1,5 +1,4 @@
-import { pianoNotes } from "../features/practice/practiceData";
-import type { NoteId } from "../features/practice/practiceTypes";
+import { pianoNotes, type NoteId } from "../features/notes";
 
 export const sampleFileByNote: Record<NoteId, string> = {
   A3: "A3.mp3",
@@ -257,9 +256,11 @@ export class PianoSampler {
         try {
           source.disconnect();
           gain.disconnect();
-        } catch {}
+        } catch {
+          // Some mobile Web Audio implementations throw if a node is already disconnected.
+        }
       };
-    } catch (e) {
+    } catch {
       this.primeMobileAudioUnlock();
     }
 
@@ -267,7 +268,6 @@ export class PianoSampler {
   }
 
   private primeMobileAudioUnlock() {
-    // ... (existing)
     const audioContext = this.audioContext;
 
     if (!audioContext || audioContext.state === "closed") {
@@ -288,13 +288,16 @@ export class PianoSampler {
         try {
           source.disconnect();
           gain.disconnect();
-        } catch {}
+        } catch {
+          // Some mobile Web Audio implementations throw if a node is already disconnected.
+        }
       };
-    } catch {}
+    } catch {
+      // The fallback note path can still play if the browser allows resume without priming.
+    }
   }
 
   private playFallbackTone(noteId: NoteId, velocity: number) {
-    // existing unchanged
     const audioContext = this.audioContext;
 
     if (!audioContext) {

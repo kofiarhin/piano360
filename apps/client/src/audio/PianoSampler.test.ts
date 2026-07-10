@@ -307,7 +307,7 @@ describe("PianoSampler", () => {
 
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => createMockFetchResponse())
+      vi.fn(() => new Promise(() => undefined))
     );
     stubAudioContext(mockAudioContext);
 
@@ -319,7 +319,6 @@ describe("PianoSampler", () => {
     expectStartedSource(mockAudioContext, 0);
     expect(mockAudioContext.createOscillator).toHaveBeenCalledTimes(1);
     expect(mockAudioContext.oscillator.start).toHaveBeenCalledWith(mockAudioContext.currentTime);
-    await sampler.load();
   });
 
   it("uses fallback tones for decode failures and retries missing samples later", async () => {

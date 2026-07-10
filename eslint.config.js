@@ -17,7 +17,7 @@ const vitestGlobals = {
 
 export default [
   {
-    ignores: ["**/coverage/**", "**/dist/**", "**/node_modules/**"]
+    ignores: ["**/.agents/**", "**/.codex/**", "**/coverage/**", "**/dist/**", "**/node_modules/**"]
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
