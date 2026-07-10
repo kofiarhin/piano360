@@ -100,6 +100,32 @@ export class PianoSampler {
   private loadPromise: Promise<void> | undefined;
   private unlockPromise: Promise<void> | undefined;
   private hasCompletedGestureUnlock = false;
+  private unlockListeners: Array<() => void> = [];
+
+  private setupGlobalUnlockListeners() {
+    if (this.unlockListeners.length > 0) return;
+
+    const unlockHandler = () => {
+      void this.unlock();
+      // Cleanup after successful unlock
+      if (this.audioContext?.state === "running") {
+        this.unlockListeners.forEach((cleanup) => cleanup());
+        this.unlockListeners = [];
+      }
+    };
+
+    const events = ['touchstart', 'touchend', 'pointerdown', 'mousedown', 'keydown'] as const;
+    events.forEach((eventType) => {
+      const handler = (e: Event) => {
+        // Only act on primary gestures
+        if (eventType === 'pointerdown' && (e as PointerEvent).pointerType === 'mouse' || eventType !== 'pointerdown') {
+          unlockHandler();
+        }
+      };
+      document.addEventListener(eventType, handler, { once: false, passive: true });
+      this.unlockListeners.push(() => document.removeEventListener(eventType, handler));
+    });
+  }
 
   load() {
     if (typeof window === "undefined" || typeof fetch === "undefined") {
@@ -111,6 +137,8 @@ export class PianoSampler {
     }
 
     this.audioContext = this.audioContext ?? createLowLatencyAudioContext();
+    this.setupGlobalUnlockListeners();
+
     const missingNotes = pianoNotes.filter((noteId) => !this.buffers.has(noteId));
 
     if (missingNotes.length === 0) {
@@ -140,6 +168,7 @@ export class PianoSampler {
 
   async unlock() {
     this.audioContext = this.audioContext ?? createLowLatencyAudioContext();
+    this.setupGlobalUnlockListeners();
 
     if (this.hasCompletedGestureUnlock && this.audioContext.state === "running") {
       return;
@@ -152,6 +181,7 @@ export class PianoSampler {
         })
         .catch((error) => {
           this.hasCompletedGestureUnlock = false;
+          console.warn("Audio unlock failed:", error);
           throw error;
         })
         .finally(() => {
@@ -163,13 +193,18 @@ export class PianoSampler {
   }
 
   async play(noteId: NoteId, velocity = 0.92) {
-    await this.unlock();
+    // Ensure unlock attempt within this gesture
+    const unlockPromise = this.unlock();
     void this.load().catch(() => undefined);
 
     const audioContext = this.audioContext;
 
+    await unlockPromise;
+
     if (!audioContext || audioContext.state !== "running") {
-      return false;
+      console.warn(`AudioContext not running for note ${noteId}: ${audioContext?.state}`);
+      this.playFallbackTone(noteId, velocity);
+      return true;
     }
 
     const buffer = this.buffers.get(noteId);
@@ -198,11 +233,15 @@ export class PianoSampler {
 
     const audioState = audioContext.state as SafariAudioContextState;
     const resumePromise =
-      audioState === "suspended" || audioState === "interrupted"
-        ? audioContext.resume()
-        : undefined;
+      (audioState === "suspended" || audioState === "interrupted")
+        ? audioContext.resume().catch((e) => {
+            console.warn("Resume failed:", e);
+            return undefined;
+          })
+        : Promise.resolve();
 
     try {
+      // Silent priming buffer - must be inside user gesture stack
       const source = audioContext.createBufferSource();
       const gain = audioContext.createGain();
       const durationSeconds = 0.05;
@@ -212,19 +251,15 @@ export class PianoSampler {
       source.buffer = silentBuffer;
       gain.gain.setValueAtTime(0.0001, audioContext.currentTime);
       source.connect(gain).connect(audioContext.destination);
-      // iOS Safari needs a real source.start() while the user gesture is still on the stack.
       source.start(audioContext.currentTime);
       source.stop(audioContext.currentTime + durationSeconds);
       source.onended = () => {
         try {
           source.disconnect();
           gain.disconnect();
-        } catch {
-          // Some mobile Web Audio implementations throw if a node is already disconnected.
-        }
+        } catch {}
       };
-    } catch {
-      // Keep the older priming path as a best-effort fallback for partial Web Audio implementations.
+    } catch (e) {
       this.primeMobileAudioUnlock();
     }
 
@@ -232,6 +267,7 @@ export class PianoSampler {
   }
 
   private primeMobileAudioUnlock() {
+    // ... (existing)
     const audioContext = this.audioContext;
 
     if (!audioContext || audioContext.state === "closed") {
@@ -252,16 +288,13 @@ export class PianoSampler {
         try {
           source.disconnect();
           gain.disconnect();
-        } catch {
-          // Some mobile Web Audio implementations throw if a node is already disconnected.
-        }
+        } catch {}
       };
-    } catch {
-      // The fallback note path can still play if the browser allows resume without priming.
-    }
+    } catch {}
   }
 
   private playFallbackTone(noteId: NoteId, velocity: number) {
+    // existing unchanged
     const audioContext = this.audioContext;
 
     if (!audioContext) {
