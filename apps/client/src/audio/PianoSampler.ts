@@ -209,34 +209,29 @@ export class PianoSampler {
     void this.load().catch(() => undefined);
 
     const audioContext = this.audioContext;
-    const buffer = this.buffers.get(noteId);
 
     if (!audioContext || audioContext.state === "closed") {
       await unlockPromise;
       return false;
     }
 
-    if (!buffer) {
-      this.playFallbackTone(noteId, velocity);
+    if (!isAudioContextRunning(audioContext)) {
       await unlockPromise;
-      return true;
     }
-
-    if (isAudioContextRunning(audioContext)) {
-      this.playSampleBuffer(audioContext, buffer, velocity);
-      await unlockPromise;
-      return true;
-    }
-
-    await unlockPromise;
 
     if (!isAudioContextRunning(audioContext)) {
-      console.warn(`AudioContext not running for note ${noteId}: ${audioContext?.state}`);
-      this.playFallbackTone(noteId, velocity);
-      return true;
+      console.warn(`AudioContext not running for note ${noteId}: ${audioContext.state}`);
+      return false;
     }
 
-    this.playSampleBuffer(audioContext, buffer, velocity);
+    const buffer = this.buffers.get(noteId);
+
+    if (buffer) {
+      this.playSampleBuffer(audioContext, buffer, velocity);
+    } else {
+      this.playFallbackTone(noteId, velocity);
+    }
+
     return true;
   }
 
@@ -268,7 +263,7 @@ export class PianoSampler {
 
     const audioState = audioContext.state as SafariAudioContextState;
     const resumePromise =
-      (audioState === "suspended" || audioState === "interrupted")
+      audioState === "suspended" || audioState === "interrupted"
         ? audioContext.resume().catch((e) => {
             console.warn("Resume failed:", e);
             return undefined;
@@ -276,7 +271,6 @@ export class PianoSampler {
         : Promise.resolve();
 
     try {
-      // Silent priming buffer - must be inside user gesture stack
       const source = audioContext.createBufferSource();
       const gain = audioContext.createGain();
       const durationSeconds = 0.05;
