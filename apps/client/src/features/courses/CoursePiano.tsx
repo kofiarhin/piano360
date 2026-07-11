@@ -4,14 +4,18 @@ import { keyboardKeys } from "./courseKeyboard";
 import type { NoteId } from "./courseTypes";
 
 export type KeyVisualState = "idle" | "target" | "active" | "correct" | "wrong";
+export type PianoInputSource = `pointer:${number}`;
 
 type CoursePianoProps = {
   targetNotes: NoteId[];
   activeNotes?: NoteId[];
   correctNotes?: NoteId[];
   wrongNotes?: NoteId[];
+  activeVariant?: "lesson" | "freestyle";
   disabled?: boolean;
   onInput: (noteId: NoteId) => void;
+  onPress?: (noteId: NoteId, source: PianoInputSource) => void;
+  onRelease?: (noteId: NoteId, source: PianoInputSource) => void;
   onPrepareAudio?: () => void;
 };
 
@@ -75,14 +79,35 @@ const blackStateClasses: Record<KeyVisualState, string> = {
     "bg-[#EF4444] text-zinc-950 ring-4 ring-[#EF4444]/70 outline outline-2 outline-offset-2 outline-red-100 shadow-[0_0_0_2px_rgba(24,24,27,0.95),0_0_22px_rgba(239,68,68,0.55)]"
 };
 
+const freestyleWhiteActiveClass =
+  "bg-[#8B5CF6] text-zinc-950 ring-4 ring-[#8B5CF6]/60 outline outline-2 outline-offset-[-5px] outline-violet-100 shadow-[inset_0_0_0_2px_rgba(255,255,255,0.62)]";
+
+const freestyleBlackActiveClass =
+  "bg-[#8B5CF6] text-zinc-950 ring-4 ring-[#8B5CF6]/70 outline outline-2 outline-offset-2 outline-violet-100 shadow-[0_0_0_2px_rgba(24,24,27,0.95),0_0_22px_rgba(139,92,246,0.48)]";
+
+const stateClassFor = (
+  tone: "white" | "black",
+  visualState: KeyVisualState,
+  activeVariant: CoursePianoProps["activeVariant"]
+) => {
+  if (visualState === "active" && activeVariant === "freestyle") {
+    return tone === "black" ? freestyleBlackActiveClass : freestyleWhiteActiveClass;
+  }
+
+  return tone === "black" ? blackStateClasses[visualState] : whiteStateClasses[visualState];
+};
+
 type PianoKeyButtonProps = {
   noteId: NoteId;
   tone: "white" | "black";
   keyboardKey: string;
   visualState: KeyVisualState;
+  activeVariant: CoursePianoProps["activeVariant"];
   disabled: boolean;
   style?: CSSProperties;
   onInput: (noteId: NoteId) => void;
+  onPress?: (noteId: NoteId, source: PianoInputSource) => void;
+  onRelease?: (noteId: NoteId, source: PianoInputSource) => void;
 };
 
 const PianoKeyButton = ({
@@ -90,11 +115,16 @@ const PianoKeyButton = ({
   tone,
   keyboardKey,
   visualState,
+  activeVariant,
   disabled,
   style,
-  onInput
+  onInput,
+  onPress,
+  onRelease
 }: PianoKeyButtonProps) => {
   const isBlack = tone === "black";
+  const sourceForPointer = (event: PointerEvent<HTMLButtonElement>): PianoInputSource =>
+    `pointer:${event.pointerId ?? 1}`;
 
   const handlePointerDown = (event: PointerEvent<HTMLButtonElement>) => {
     event.preventDefault();
@@ -105,11 +135,16 @@ const PianoKeyButton = ({
 
     event.currentTarget.setPointerCapture?.(event.pointerId);
     onInput(noteId);
+    onPress?.(noteId, sourceForPointer(event));
   };
 
   const handlePointerUp = (event: PointerEvent<HTMLButtonElement>) => {
     if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+
+    if (!disabled) {
+      onRelease?.(noteId, sourceForPointer(event));
     }
   };
 
@@ -131,7 +166,7 @@ const PianoKeyButton = ({
         isBlack
           ? "absolute top-2 z-20 h-[60%] rounded-b-md border-zinc-950 px-1 pt-8 text-xs"
           : "relative h-56 flex-1 rounded-b-lg border-zinc-300 px-1 pb-4 pt-36 text-sm sm:h-64 sm:pt-44",
-        isBlack ? blackStateClasses[visualState] : whiteStateClasses[visualState]
+        stateClassFor(tone, visualState, activeVariant)
       ].join(" ")}
     >
       <span
@@ -154,8 +189,11 @@ export const CoursePiano = ({
   activeNotes = [],
   correctNotes = [],
   wrongNotes = [],
+  activeVariant = "lesson",
   disabled = false,
   onInput,
+  onPress,
+  onRelease,
   onPrepareAudio
 }: CoursePianoProps) => {
   const visualStateFor = (noteId: NoteId) =>
@@ -179,8 +217,11 @@ export const CoursePiano = ({
                   tone={key.tone}
                   keyboardKey={key.keyboardKey}
                   visualState={visualStateFor(key.noteId)}
+                  activeVariant={activeVariant}
                   disabled={disabled}
                   onInput={onInput}
+                  onPress={onPress}
+                  onRelease={onRelease}
                 />
               ))}
             </div>
@@ -191,9 +232,12 @@ export const CoursePiano = ({
                 tone={key.tone}
                 keyboardKey={key.keyboardKey}
                 visualState={visualStateFor(key.noteId)}
+                activeVariant={activeVariant}
                 disabled={disabled}
                 style={{ left: blackKeyLeft(key.noteId), width: `${BLACK_KEY_WIDTH_PERCENT}%` }}
                 onInput={onInput}
+                onPress={onPress}
+                onRelease={onRelease}
               />
             ))}
           </div>

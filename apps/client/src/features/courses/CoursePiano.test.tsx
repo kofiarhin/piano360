@@ -34,6 +34,36 @@ describe("CoursePiano", () => {
     );
   });
 
+  it("can use purple for active freestyle keys without changing lesson active styling", () => {
+    const { rerender } = render(
+      <CoursePiano
+        targetNotes={[]}
+        activeNotes={["C4", "C#4"]}
+        activeVariant="freestyle"
+        onInput={vi.fn()}
+      />
+    );
+
+    expect(screen.getByRole("button", { name: /C4, white key/i }).className).toContain(
+      "bg-[#8B5CF6]"
+    );
+    expect(screen.getByRole("button", { name: /C#4, black key/i }).className).toContain(
+      "bg-[#8B5CF6]"
+    );
+
+    rerender(
+      <CoursePiano
+        targetNotes={[]}
+        activeNotes={["C4"]}
+        onInput={vi.fn()}
+      />
+    );
+
+    expect(screen.getByRole("button", { name: /C4, white key/i }).className).toContain(
+      "bg-[#10B981]"
+    );
+  });
+
   it("renders visible outline or glow styling for white and black highlighted keys", () => {
     render(
       <CoursePiano
@@ -108,5 +138,27 @@ describe("CoursePiano", () => {
 
     fireEvent.pointerDown(c4Key);
     expect(onInput).toHaveBeenCalledWith("C4");
+  });
+
+  it("reports pointer release and cancel events when release handling is provided", () => {
+    const onInput = vi.fn();
+    const onRelease = vi.fn();
+
+    render(
+      <CoursePiano
+        targetNotes={["C4"]}
+        onInput={onInput}
+        onRelease={onRelease}
+      />
+    );
+
+    const c4Key = screen.getByRole("button", { name: /C4, white key/i });
+    fireEvent.pointerDown(c4Key, { pointerId: 21 });
+    fireEvent.pointerUp(c4Key, { pointerId: 21 });
+    fireEvent.pointerDown(c4Key, { pointerId: 22 });
+    fireEvent.pointerCancel(c4Key, { pointerId: 22 });
+
+    expect(onInput).toHaveBeenCalledTimes(2);
+    expect(onRelease).toHaveBeenCalledWith("C4", "pointer:1");
   });
 });

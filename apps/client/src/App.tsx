@@ -4,6 +4,7 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 
 import { CourseLibrary } from "./features/courses/CourseLibrary";
 import { CourseOverview } from "./features/courses/CourseOverview";
+import { FreestyleMode } from "./features/courses/FreestyleMode";
 import { LessonPlayer } from "./features/courses/LessonPlayer";
 import { MarketingLanding } from "./features/courses/MarketingLanding";
 
@@ -30,6 +31,7 @@ export const App = () => {
             path="/courses"
             element={<CourseLibrary onProgressReset={bumpProgressVersion} />}
           />
+          <Route path="/freestyle" element={<FreestyleMode />} />
           <Route
             path="/courses/:courseSlug"
             element={<CourseOverview key={progressVersion} onProgressReset={bumpProgressVersion} />}

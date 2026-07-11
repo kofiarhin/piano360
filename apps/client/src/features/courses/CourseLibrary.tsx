@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 
 import { SiteHeader } from "../../shared/SiteHeader";
 import { CourseCard } from "./CourseCard";
@@ -130,6 +130,51 @@ const FilterSelect = <T extends string>({
       ))}
     </select>
   </label>
+);
+
+const FreestyleCatalogueCard = () => (
+  <Link
+    to="/freestyle"
+    className="group flex h-full min-h-72 flex-col rounded-lg border border-violet-200/35 bg-[#f4f0ff] p-5 text-stone-950 shadow-[0_18px_60px_-44px_rgba(0,0,0,0.95)] transition hover:-translate-y-1 hover:border-violet-500/55 hover:bg-white active:translate-y-0"
+  >
+    <div className="mb-5 grid h-16 grid-cols-12 overflow-hidden rounded-md border border-violet-200 bg-white">
+      {Array.from({ length: 12 }, (_, index) => (
+        <span
+          key={index}
+          className={[
+            "border-r border-violet-100 last:border-r-0",
+            [1, 3, 6, 8, 10].includes(index) ? "bg-stone-950" : "bg-[#fbf9ff]",
+            [4, 7, 11].includes(index) ? "shadow-[inset_0_-10px_0_#8B5CF6]" : ""
+          ].join(" ")}
+        />
+      ))}
+    </div>
+
+    <div className="flex flex-wrap gap-2">
+      <span className="rounded-md border border-violet-200 bg-white/75 px-2 py-1 font-mono text-[0.68rem] font-black uppercase tracking-[0.12em] text-violet-700">
+        Practice mode
+      </span>
+      <span className="rounded-md border border-violet-200 bg-white/75 px-2 py-1 font-mono text-[0.68rem] font-black uppercase tracking-[0.12em] text-violet-700">
+        Free play
+      </span>
+    </div>
+
+    <h2 className="mt-4 text-2xl font-black leading-tight tracking-tight text-stone-950">
+      Freestyle Mode
+    </h2>
+    <p className="course-card-description mt-3 text-sm leading-relaxed text-stone-700">
+      Play freely, hold multiple notes, and see recognized chords without lesson scoring.
+    </p>
+
+    <div className="mt-auto flex items-end justify-between gap-3 pt-6">
+      <span className="font-mono text-xs font-black uppercase tracking-[0.14em] text-stone-500">
+        No lessons
+      </span>
+      <span className="rounded-md bg-violet-700 px-3 py-2 font-mono text-xs font-black text-white">
+        Open
+      </span>
+    </div>
+  </Link>
 );
 
 type CourseLibraryProps = {
@@ -314,6 +359,7 @@ export const CourseLibrary = ({ onProgressReset }: CourseLibraryProps) => {
 
           {visibleCourses.length > 0 && (
             <div className="grid auto-rows-fr gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              {page === 1 && <FreestyleCatalogueCard />}
               {visibleCourses.map((course) => (
                 <CourseCard
                   key={course.slug}
