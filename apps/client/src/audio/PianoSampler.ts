@@ -157,6 +157,13 @@ export class PianoSampler {
         this.buffers.set(noteId, buffer);
       })
     )
+      .then((results) => {
+        const failedLoad = results.find((result) => result.status === "rejected");
+
+        if (failedLoad?.status === "rejected") {
+          throw failedLoad.reason;
+        }
+      })
       .then(() => undefined)
       .finally(() => {
         this.loadPromise = undefined;

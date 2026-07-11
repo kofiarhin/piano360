@@ -344,7 +344,7 @@ describe("PianoSampler", () => {
     stubAudioContext(mockAudioContext);
 
     const sampler = new PianoSampler();
-    await sampler.load();
+    await expect(sampler.load()).rejects.toThrow("Unable to decode audio data");
 
     await expect(sampler.play("C4")).resolves.toBe(true);
     expect(mockAudioContext.createOscillator).toHaveBeenCalledTimes(1);

@@ -3,6 +3,8 @@ import { AudioEngine, type AudioStatus } from "./AudioEngine";
 
 const audioEngine = new AudioEngine();
 
+export type { AudioStatus };
+
 export const playNote = (noteId: NoteId) => {
   void audioEngine.playNote(noteId);
 };

@@ -2,7 +2,13 @@ import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
 
-import { playNote } from "../../audio/NotePlayer";
+import {
+  getAudioStatus,
+  playNote,
+  subscribeToAudioStatus,
+  warmAudio,
+  type AudioStatus
+} from "../../audio/NotePlayer";
 import { CoursePiano } from "./CoursePiano";
 import { keyboardMap } from "./courseKeyboard";
 import type { LessonDetail, NoteId } from "./courseTypes";
@@ -30,6 +36,9 @@ const isEditableTarget = (target: EventTarget | null) => {
 
   return Boolean(target.closest("input, textarea, select, button, [contenteditable='true']"));
 };
+
+const NOTE_FEEDBACK_MS = 300;
+type TransientFeedback = Partial<Record<NoteId, "correct" | "wrong">>;
 
 type CompletionSummaryProps = {
   lesson: LessonDetail;
@@ -108,9 +117,11 @@ type PlayerLoadedProps = {
 
 const PlayerLoaded = ({ lesson, courseLessons, onProgressSaved }: PlayerLoadedProps) => {
   const [session, setSession] = useState(() => initializeLessonSession(lesson));
-  const [wrongNote, setWrongNote] = useState<NoteId>();
+  const [audioStatus, setAudioStatus] = useState<AudioStatus>(() => getAudioStatus());
+  const [transientFeedback, setTransientFeedback] = useState<TransientFeedback>({});
   const savedCompletionRef = useRef(false);
-  const wrongTimerRef = useRef<number | undefined>(undefined);
+  const hasRequestedAudioPreparationRef = useRef(audioStatus !== "idle");
+  const feedbackTimerRefs = useRef(new Map<NoteId, number>());
   const chordTimerRef = useRef<number | undefined>(undefined);
 
   const currentStep = lesson.steps[session.currentStepIndex];
@@ -120,31 +131,111 @@ const PlayerLoaded = ({ lesson, courseLessons, onProgressSaved }: PlayerLoadedPr
   );
   const nextLessonSlug = orderedLessonSlugs[orderedLessonSlugs.indexOf(lesson.slug) + 1];
 
-  const resetWrongNote = useCallback(() => {
-    window.clearTimeout(wrongTimerRef.current);
-    wrongTimerRef.current = window.setTimeout(() => setWrongNote(undefined), 260);
+  const clearFeedbackTimers = useCallback(() => {
+    feedbackTimerRefs.current.forEach((timerId) => window.clearTimeout(timerId));
+    feedbackTimerRefs.current.clear();
   }, []);
+
+  const setNoteFeedback = useCallback((noteId: NoteId, feedback: "correct" | "wrong") => {
+    const existingTimer = feedbackTimerRefs.current.get(noteId);
+    if (existingTimer !== undefined) {
+      window.clearTimeout(existingTimer);
+    }
+
+    setTransientFeedback((current) => ({
+      ...current,
+      [noteId]: feedback
+    }));
+
+    const timerId = window.setTimeout(() => {
+      feedbackTimerRefs.current.delete(noteId);
+      setTransientFeedback((current) => {
+        const remaining = { ...current };
+        delete remaining[noteId];
+        return remaining;
+      });
+    }, NOTE_FEEDBACK_MS);
+
+    feedbackTimerRefs.current.set(noteId, timerId);
+  }, []);
+
+  const prepareAudio = useCallback(() => {
+    if (hasRequestedAudioPreparationRef.current || audioStatus !== "idle") {
+      return;
+    }
+
+    hasRequestedAudioPreparationRef.current = true;
+    warmAudio();
+  }, [audioStatus]);
 
   const handleInput = useCallback(
     (noteId: NoteId) => {
-      if (session.status === "completed") {
+      if (session.status === "completed" || audioStatus !== "ready") {
         return;
       }
 
       playNote(noteId);
+      const step = lesson.steps[session.currentStepIndex];
       const previousIncorrect = session.metrics.incorrectInputs;
+      const previousCorrect = session.metrics.correctInputs;
       const nextSession = applyNoteInput(session, lesson, noteId);
 
       if (nextSession.metrics.incorrectInputs > previousIncorrect) {
-        setWrongNote(noteId);
-        resetWrongNote();
+        setNoteFeedback(noteId, "wrong");
         window.clearTimeout(chordTimerRef.current);
+      }
+
+      if (
+        step?.type === "single-note" &&
+        nextSession.metrics.correctInputs > previousCorrect
+      ) {
+        setNoteFeedback(noteId, "correct");
       }
 
       setSession(nextSession);
     },
-    [lesson, resetWrongNote, session]
+    [audioStatus, lesson, session, setNoteFeedback]
   );
+
+  useEffect(() => {
+    const unsubscribe = subscribeToAudioStatus((status) => {
+      setAudioStatus(status);
+      if (status === "idle") {
+        hasRequestedAudioPreparationRef.current = false;
+      }
+    });
+
+    return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    if (audioStatus === "idle") {
+      hasRequestedAudioPreparationRef.current = false;
+    }
+  }, [audioStatus]);
+
+  useEffect(() => {
+    if (audioStatus !== "idle") {
+      return;
+    }
+
+    const handlePointerDown = () => prepareAudio();
+    const handleKeyDownForAudio = (event: KeyboardEvent) => {
+      if (event.repeat || isEditableTarget(event.target)) {
+        return;
+      }
+
+      prepareAudio();
+    };
+
+    window.addEventListener("pointerdown", handlePointerDown, { capture: true });
+    window.addEventListener("keydown", handleKeyDownForAudio, { capture: true });
+
+    return () => {
+      window.removeEventListener("pointerdown", handlePointerDown, { capture: true });
+      window.removeEventListener("keydown", handleKeyDownForAudio, { capture: true });
+    };
+  }, [audioStatus, prepareAudio]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -181,10 +272,10 @@ const PlayerLoaded = ({ lesson, courseLessons, onProgressSaved }: PlayerLoadedPr
 
   useEffect(
     () => () => {
-      window.clearTimeout(wrongTimerRef.current);
+      clearFeedbackTimers();
       window.clearTimeout(chordTimerRef.current);
     },
-    []
+    [clearFeedbackTimers]
   );
 
   useEffect(() => {
@@ -204,14 +295,32 @@ const PlayerLoaded = ({ lesson, courseLessons, onProgressSaved }: PlayerLoadedPr
 
   const replay = () => {
     savedCompletionRef.current = false;
+    clearFeedbackTimers();
+    window.clearTimeout(chordTimerRef.current);
     setSession(restartLessonSession(session, lesson));
-    setWrongNote(undefined);
+    setTransientFeedback({});
   };
 
   const restart = () => {
+    clearFeedbackTimers();
+    window.clearTimeout(chordTimerRef.current);
     setSession(restartLessonSession(session, lesson));
-    setWrongNote(undefined);
+    setTransientFeedback({});
   };
+
+  const audioMessage =
+    audioStatus === "unavailable"
+      ? "Audio unavailable — refresh or check browser permissions."
+      : "Preparing piano audio…";
+  const isAudioReady = audioStatus === "ready";
+  const pianoTargetNotes =
+    session.status === "completed" || !isAudioReady ? [] : (currentStep?.targetNotes ?? []);
+  const correctNotes = Object.entries(transientFeedback)
+    .filter(([, feedback]) => feedback === "correct")
+    .map(([noteId]) => noteId as NoteId);
+  const wrongNotes = Object.entries(transientFeedback)
+    .filter(([, feedback]) => feedback === "wrong")
+    .map(([noteId]) => noteId as NoteId);
 
   return (
     <main className="min-h-[100dvh] bg-[#12110f] text-stone-100">
@@ -244,16 +353,18 @@ const PlayerLoaded = ({ lesson, courseLessons, onProgressSaved }: PlayerLoadedPr
             aria-live="polite"
             className={[
               "rounded-lg border px-3 py-2 font-black",
+              !isAudioReady ? "border-amber-200/40 bg-amber-950/35 text-amber-100" : "",
               session.feedback === "correct" ? "border-emerald-200/40 bg-emerald-950/40 text-emerald-100" : "",
               session.feedback === "incorrect" ? "border-rose-200/40 bg-rose-950/40 text-rose-100" : "",
               session.feedback === "completed" ? "border-emerald-200/40 bg-emerald-950/40 text-emerald-100" : "",
-              session.feedback === "idle" ? "border-white/10 bg-white/[0.04] text-stone-200" : ""
+              isAudioReady && session.feedback === "idle" ? "border-white/10 bg-white/[0.04] text-stone-200" : ""
             ].join(" ")}
           >
-            {session.feedback === "idle" && (currentStep?.type === "chord" ? "Play all highlighted notes" : "Play the highlighted note")}
-            {session.feedback === "correct" && "Correct"}
-            {session.feedback === "incorrect" && "Try again"}
-            {session.feedback === "completed" && "Complete"}
+            {!isAudioReady && audioMessage}
+            {isAudioReady && session.feedback === "idle" && (currentStep?.type === "chord" ? "Play all highlighted notes" : "Play the highlighted note")}
+            {isAudioReady && session.feedback === "correct" && "Correct"}
+            {isAudioReady && session.feedback === "incorrect" && "Try again"}
+            {isAudioReady && session.feedback === "completed" && "Complete"}
           </div>
         </section>
 
@@ -267,10 +378,13 @@ const PlayerLoaded = ({ lesson, courseLessons, onProgressSaved }: PlayerLoadedPr
         ) : null}
 
         <CoursePiano
-          targetNotes={currentStep?.targetNotes ?? []}
-          activeNotes={session.activeNotes}
-          wrongNote={wrongNote}
+          targetNotes={pianoTargetNotes}
+          activeNotes={isAudioReady ? session.activeNotes : []}
+          correctNotes={correctNotes}
+          wrongNotes={wrongNotes}
+          disabled={!isAudioReady}
           onInput={handleInput}
+          onPrepareAudio={prepareAudio}
         />
       </div>
     </main>
