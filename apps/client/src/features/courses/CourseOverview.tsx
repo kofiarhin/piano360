@@ -25,7 +25,7 @@ export const CourseOverview = ({ onProgressReset }: CourseOverviewProps) => {
   });
 
   if (!courseSlug) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/courses" replace />;
   }
 
   if (courseQuery.isLoading) {
@@ -41,7 +41,10 @@ export const CourseOverview = ({ onProgressReset }: CourseOverviewProps) => {
       <main className="grid min-h-[100dvh] place-items-center bg-[#12110f] px-4 text-stone-100">
         <section className="max-w-lg rounded-xl border border-white/10 bg-white/[0.04] p-6">
           <h1 className="text-3xl font-black">Course not found</h1>
-          <Link className="mt-4 inline-block rounded-lg bg-amber-200 px-4 py-2 font-black text-stone-950" to="/">
+          <Link
+            className="mt-4 inline-block rounded-lg bg-amber-200 px-4 py-2 font-black text-stone-950"
+            to="/courses"
+          >
             Return to courses
           </Link>
         </section>
@@ -56,7 +59,10 @@ export const CourseOverview = ({ onProgressReset }: CourseOverviewProps) => {
     <main className="min-h-[100dvh] bg-[#12110f] text-stone-100">
       <div className="mx-auto grid max-w-7xl gap-7 px-4 py-6 md:px-6 lg:py-10">
         <nav className="flex flex-wrap items-center justify-between gap-3">
-          <Link className="font-bold text-amber-100 underline-offset-4 hover:underline" to="/">
+          <Link
+            className="font-bold text-amber-100 underline-offset-4 hover:underline"
+            to="/courses"
+          >
             Course Library
           </Link>
           {import.meta.env.DEV && (
@@ -84,7 +90,8 @@ export const CourseOverview = ({ onProgressReset }: CourseOverviewProps) => {
             <p className="mt-4 max-w-2xl text-stone-300">{course.description}</p>
           </div>
           <div className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 font-mono font-black">
-            {progressState.progress.completedLessons[course.slug]?.length ?? 0}/{orderedLessons.length} lessons
+            {progressState.progress.completedLessons[course.slug]?.length ?? 0}/
+            {orderedLessons.length} lessons
           </div>
         </header>
 
@@ -92,7 +99,8 @@ export const CourseOverview = ({ onProgressReset }: CourseOverviewProps) => {
           {orderedLessons.map((lesson) => {
             const completed = isLessonCompleted(progressState.progress, course.slug, lesson.slug);
             const unlocked = isLessonUnlocked(progressState.progress, course, lesson);
-            const stats = progressState.progress.lessonStats[lessonProgressKey(course.slug, lesson.slug)];
+            const stats =
+              progressState.progress.lessonStats[lessonProgressKey(course.slug, lesson.slug)];
 
             return (
               <article
@@ -109,12 +117,17 @@ export const CourseOverview = ({ onProgressReset }: CourseOverviewProps) => {
                 </div>
                 <div>
                   <h2 className="text-xl font-black">{lesson.title}</h2>
-                  <p className={unlocked ? "mt-1 text-sm text-stone-700" : "mt-1 text-sm text-stone-400"}>
+                  <p
+                    className={
+                      unlocked ? "mt-1 text-sm text-stone-700" : "mt-1 text-sm text-stone-400"
+                    }
+                  >
                     {lesson.description}
                   </p>
                   {stats && (
                     <p className="mt-2 font-mono text-xs font-black uppercase tracking-[0.16em]">
-                      {formatPercent(stats.accuracy)} accuracy / {formatDuration(stats.durationMs)} / {stats.restartCount} restarts
+                      {formatPercent(stats.accuracy)} accuracy / {formatDuration(stats.durationMs)}{" "}
+                      / {stats.restartCount} restarts
                     </p>
                   )}
                 </div>

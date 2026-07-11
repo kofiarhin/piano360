@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
 import { playNote, warmAudio } from "./audio/NotePlayer";
 import { App } from "./App";
@@ -72,6 +72,17 @@ const courseSummary: CourseSummary = (({ lessons, ...summary }) => ({
   lessonCount: lessons.length
 }))(course);
 
+const createCourseSummary = (index: number): CourseSummary => ({
+  slug: `course-${index}`,
+  title: `Course ${index}`,
+  description: `Practice plan ${index}`,
+  contentType: index % 2 === 0 ? "chord" : "single-note",
+  hand: index % 2 === 0 ? "left" : "right",
+  difficulty: "beginner",
+  order: index,
+  lessonCount: 3
+});
+
 const lessonDetail: LessonDetail = {
   ...course.lessons[0],
   courseSlug: course.slug,
@@ -80,7 +91,7 @@ const lessonDetail: LessonDetail = {
 };
 
 let currentCourse = course;
-let currentCourseSummary = courseSummary;
+let currentCourseSummaries = [courseSummary];
 let currentLessonDetail = lessonDetail;
 
 const courseLessonFromDetail = ({
@@ -101,10 +112,12 @@ const setCurrentLesson = (lesson: LessonDetail) => {
     ...course,
     lessons: [courseLessonFromDetail(lesson), course.lessons[1]]
   };
-  currentCourseSummary = {
-    ...courseSummary,
-    lessonCount: currentCourse.lessons.length
-  };
+  currentCourseSummaries = [
+    {
+      ...courseSummary,
+      lessonCount: currentCourse.lessons.length
+    }
+  ];
 };
 
 const setAudioStatus = (status: MockAudioStatus) => {
@@ -127,7 +140,7 @@ const mockFetch = () => {
       if (url === "/api/courses") {
         return {
           ok: true,
-          json: async () => [currentCourseSummary]
+          json: async () => currentCourseSummaries
         };
       }
 
@@ -173,21 +186,97 @@ describe("Piano360 course MVP", () => {
     vi.clearAllMocks();
   });
 
-  it("renders the Course Library at the root route", async () => {
+  it("renders the marketing landing page at the root route", async () => {
     render(<App />);
 
-    expect(await screen.findByRole("heading", { name: "Piano360" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: /Piano practice that stays practical/i })
+    ).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: /Start Learning/i })[0]).toHaveAttribute(
+      "href",
+      "/courses"
+    );
+    expect(await screen.findByRole("link", { name: /Finger Placement/i })).toHaveAttribute(
+      "href",
+      "/courses/finger-placement"
+    );
+  });
+
+  it("renders the Course Catalogue at /courses with filters", async () => {
+    window.history.pushState({}, "", "/courses");
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "Course catalogue" })).toBeInTheDocument();
     expect(await screen.findByRole("link", { name: /Finger Placement/i })).toBeInTheDocument();
     expect(screen.getByLabelText("Content type")).toBeInTheDocument();
     expect(screen.getByLabelText("Hand")).toBeInTheDocument();
     expect(screen.getByLabelText("Difficulty")).toBeInTheDocument();
   });
 
+  it("filters courses by URL-backed search and resets pagination on search changes", async () => {
+    currentCourseSummaries = [
+      ...Array.from({ length: 9 }, (_, index) => createCourseSummary(index + 1)),
+      {
+        ...courseSummary,
+        title: "Middle C Basics",
+        description: "Find the center of the keyboard."
+      }
+    ];
+    window.history.pushState({}, "", "/courses?page=2");
+    render(<App />);
+
+    expect(await screen.findByText("Course 9")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Search courses"), {
+      target: { value: "middle" }
+    });
+
+    expect(await screen.findByRole("link", { name: /Middle C Basics/i })).toBeInTheDocument();
+    expect(screen.queryByText("Course 9")).not.toBeInTheDocument();
+    expect(window.location.search).toBe("?q=middle");
+  });
+
+  it("normalizes invalid catalogue query parameters", async () => {
+    currentCourseSummaries = Array.from({ length: 9 }, (_, index) =>
+      createCourseSummary(index + 1)
+    );
+    window.history.pushState(
+      {},
+      "",
+      "/courses?q=&contentType=bad&hand=wrong&difficulty=advanced&page=50"
+    );
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "Course catalogue" });
+
+    await waitFor(() => {
+      expect(window.location.search).toBe("?page=2");
+    });
+  });
+
+  it("paginates the course catalogue eight courses at a time", async () => {
+    currentCourseSummaries = Array.from({ length: 9 }, (_, index) =>
+      createCourseSummary(index + 1)
+    );
+    window.history.pushState({}, "", "/courses");
+    render(<App />);
+
+    expect(await screen.findByText("Course 1")).toBeInTheDocument();
+    expect(screen.queryByText("Course 9")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Page 2" }));
+
+    expect(await screen.findByText("Course 9")).toBeInTheDocument();
+    expect(window.location.search).toBe("?page=2");
+  });
+
   it("shows locked lessons on direct navigation without starting playback", async () => {
     window.history.pushState({}, "", "/courses/finger-placement/lessons/complete-finger-placement");
     render(<App />);
 
-    expect(await screen.findByRole("heading", { name: "Complete the previous lesson first" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Complete the previous lesson first" })
+    ).toBeInTheDocument();
     expect(screen.queryByLabelText("Virtual piano")).not.toBeInTheDocument();
   });
 
@@ -245,7 +334,9 @@ describe("Piano360 course MVP", () => {
     setAudioStatus("unavailable");
     await renderUnlockedLesson();
 
-    expect(screen.getByText("Audio unavailable — refresh or check browser permissions.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Audio unavailable — refresh or check browser permissions.")
+    ).toBeInTheDocument();
 
     fireEvent.keyDown(window, { key: "d" });
     fireEvent.pointerDown(screen.getByRole("button", { name: /C4, white key/i }));
@@ -274,7 +365,9 @@ describe("Piano360 course MVP", () => {
 
     expect(within(instructionPanel).getByText("C4")).toBeInTheDocument();
     expect(within(instructionPanel).getByLabelText("Play C4")).toBeInTheDocument();
-    expect(within(instructionPanel).queryByRole("heading", { name: "Middle C Anchor" })).not.toBeInTheDocument();
+    expect(
+      within(instructionPanel).queryByRole("heading", { name: "Middle C Anchor" })
+    ).not.toBeInTheDocument();
     expect(within(instructionPanel).queryByText("Play C4.")).not.toBeInTheDocument();
     expect(within(instructionPanel).getByText("1/1")).toBeInTheDocument();
     expect(within(instructionPanel).getByText("Play the highlighted note")).toBeInTheDocument();

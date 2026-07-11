@@ -5,7 +5,7 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { CourseLibrary } from "./features/courses/CourseLibrary";
 import { CourseOverview } from "./features/courses/CourseOverview";
 import { LessonPlayer } from "./features/courses/LessonPlayer";
-import type { CourseFilters } from "./features/courses/courseTypes";
+import { MarketingLanding } from "./features/courses/MarketingLanding";
 
 const createQueryClient = () =>
   new QueryClient({
@@ -18,7 +18,6 @@ const createQueryClient = () =>
 
 export const App = () => {
   const [queryClient] = useState(createQueryClient);
-  const [filters, setFilters] = useState<CourseFilters>({});
   const [progressVersion, setProgressVersion] = useState(0);
   const bumpProgressVersion = () => setProgressVersion((current) => current + 1);
 
@@ -26,24 +25,14 @@ export const App = () => {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <Routes>
+          <Route path="/" element={<MarketingLanding />} />
           <Route
-            path="/"
-            element={
-              <CourseLibrary
-                filters={filters}
-                setFilters={setFilters}
-                onProgressReset={bumpProgressVersion}
-              />
-            }
+            path="/courses"
+            element={<CourseLibrary onProgressReset={bumpProgressVersion} />}
           />
           <Route
             path="/courses/:courseSlug"
-            element={
-              <CourseOverview
-                key={progressVersion}
-                onProgressReset={bumpProgressVersion}
-              />
-            }
+            element={<CourseOverview key={progressVersion} onProgressReset={bumpProgressVersion} />}
           />
           <Route
             path="/courses/:courseSlug/lessons/:lessonSlug"

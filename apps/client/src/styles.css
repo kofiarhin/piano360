@@ -30,6 +30,24 @@ body {
   background: #12110f;
 }
 
+body::before {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  content: "";
+  background:
+    linear-gradient(90deg, rgba(246, 242, 234, 0.035) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(246, 242, 234, 0.025) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.9), transparent 72%);
+}
+
+#root {
+  position: relative;
+  z-index: 1;
+}
+
 button,
 input,
 select {
@@ -81,4 +99,11 @@ select:disabled {
 ::selection {
   color: #1c1917;
   background: rgba(252, 211, 77, 0.8);
+}
+
+.course-card-description {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
 }

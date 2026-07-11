@@ -53,18 +53,26 @@ const getVisualState = (
 
 const whiteStateClasses: Record<KeyVisualState, string> = {
   idle: "bg-[linear-gradient(180deg,#fff_0%,#f2f2f0_55%,#dbd7cf_100%)] text-zinc-900",
-  target: "bg-[#F59E0B] !bg-[#4C1D95] text-white ring-4 ring-[#7C3AED]/75 outline outline-2 outline-offset-[-5px] outline-violet-200 shadow-[inset_0_0_0_2px_rgba(255,255,255,0.32),0_0_22px_rgba(124,58,237,0.42)]",
-  active: "bg-[#10B981] text-zinc-950 ring-4 ring-[#10B981]/60 outline outline-2 outline-offset-[-5px] outline-zinc-950 shadow-[inset_0_0_0_2px_rgba(255,255,255,0.6)]",
-  correct: "bg-[#10B981] text-zinc-950 ring-4 ring-[#10B981]/60 outline outline-2 outline-offset-[-5px] outline-zinc-950 shadow-[inset_0_0_0_2px_rgba(255,255,255,0.6)]",
-  wrong: "bg-[#EF4444] text-zinc-950 ring-4 ring-[#EF4444]/60 outline outline-2 outline-offset-[-5px] outline-zinc-950 shadow-[inset_0_0_0_2px_rgba(255,255,255,0.68)]"
+  target:
+    "bg-[#F59E0B] text-zinc-950 ring-4 ring-[#F59E0B]/75 outline outline-2 outline-offset-[-5px] outline-amber-100 shadow-[inset_0_0_0_2px_rgba(255,255,255,0.42),0_0_22px_rgba(245,158,11,0.42)]",
+  active:
+    "bg-[#10B981] text-zinc-950 ring-4 ring-[#10B981]/60 outline outline-2 outline-offset-[-5px] outline-zinc-950 shadow-[inset_0_0_0_2px_rgba(255,255,255,0.6)]",
+  correct:
+    "bg-[#10B981] text-zinc-950 ring-4 ring-[#10B981]/60 outline outline-2 outline-offset-[-5px] outline-zinc-950 shadow-[inset_0_0_0_2px_rgba(255,255,255,0.6)]",
+  wrong:
+    "bg-[#EF4444] text-zinc-950 ring-4 ring-[#EF4444]/60 outline outline-2 outline-offset-[-5px] outline-zinc-950 shadow-[inset_0_0_0_2px_rgba(255,255,255,0.68)]"
 };
 
 const blackStateClasses: Record<KeyVisualState, string> = {
   idle: "bg-[linear-gradient(90deg,#050505,#242424_40%,#050505)] text-zinc-100",
-  target: "bg-[#F59E0B] !bg-[#4C1D95] text-white ring-4 ring-[#7C3AED]/80 outline outline-2 outline-offset-2 outline-violet-200 shadow-[0_0_0_2px_rgba(24,24,27,0.95),0_0_24px_rgba(124,58,237,0.65)]",
-  active: "bg-[#10B981] text-zinc-950 ring-4 ring-[#10B981]/70 outline outline-2 outline-offset-2 outline-emerald-100 shadow-[0_0_0_2px_rgba(24,24,27,0.95),0_0_22px_rgba(16,185,129,0.55)]",
-  correct: "bg-[#10B981] text-zinc-950 ring-4 ring-[#10B981]/70 outline outline-2 outline-offset-2 outline-emerald-100 shadow-[0_0_0_2px_rgba(24,24,27,0.95),0_0_22px_rgba(16,185,129,0.55)]",
-  wrong: "bg-[#EF4444] text-zinc-950 ring-4 ring-[#EF4444]/70 outline outline-2 outline-offset-2 outline-red-100 shadow-[0_0_0_2px_rgba(24,24,27,0.95),0_0_22px_rgba(239,68,68,0.55)]"
+  target:
+    "bg-[#F59E0B] text-zinc-950 ring-4 ring-[#F59E0B]/80 outline outline-2 outline-offset-2 outline-amber-100 shadow-[0_0_0_2px_rgba(24,24,27,0.95),0_0_24px_rgba(245,158,11,0.55)]",
+  active:
+    "bg-[#10B981] text-zinc-950 ring-4 ring-[#10B981]/70 outline outline-2 outline-offset-2 outline-emerald-100 shadow-[0_0_0_2px_rgba(24,24,27,0.95),0_0_22px_rgba(16,185,129,0.55)]",
+  correct:
+    "bg-[#10B981] text-zinc-950 ring-4 ring-[#10B981]/70 outline outline-2 outline-offset-2 outline-emerald-100 shadow-[0_0_0_2px_rgba(24,24,27,0.95),0_0_22px_rgba(16,185,129,0.55)]",
+  wrong:
+    "bg-[#EF4444] text-zinc-950 ring-4 ring-[#EF4444]/70 outline outline-2 outline-offset-2 outline-red-100 shadow-[0_0_0_2px_rgba(24,24,27,0.95),0_0_22px_rgba(239,68,68,0.55)]"
 };
 
 type PianoKeyButtonProps = {

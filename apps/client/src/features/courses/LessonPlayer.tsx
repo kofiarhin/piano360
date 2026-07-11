@@ -23,11 +23,7 @@ import {
   restartLessonSession,
   type LessonSession
 } from "./lessonEngine";
-import {
-  isLessonUnlocked,
-  loadProgress,
-  recordLessonCompletion
-} from "./progressStorage";
+import { isLessonUnlocked, loadProgress, recordLessonCompletion } from "./progressStorage";
 
 const isEditableTarget = (target: EventTarget | null) => {
   if (!(target instanceof HTMLElement)) {
@@ -47,7 +43,12 @@ type CompletionSummaryProps = {
   onReplay: () => void;
 };
 
-const CompletionSummary = ({ lesson, session, nextLessonSlug, onReplay }: CompletionSummaryProps) => {
+const CompletionSummary = ({
+  lesson,
+  session,
+  nextLessonSlug,
+  onReplay
+}: CompletionSummaryProps) => {
   const summary = getCompletionSummary(session);
 
   if (!summary) {
@@ -126,7 +127,10 @@ const PlayerLoaded = ({ lesson, courseLessons, onProgressSaved }: PlayerLoadedPr
 
   const currentStep = lesson.steps[session.currentStepIndex];
   const orderedLessonSlugs = useMemo(
-    () => [...courseLessons].sort((first, second) => first.order - second.order).map((item) => item.slug),
+    () =>
+      [...courseLessons]
+        .sort((first, second) => first.order - second.order)
+        .map((item) => item.slug),
     [courseLessons]
   );
   const nextLessonSlug = orderedLessonSlugs[orderedLessonSlugs.indexOf(lesson.slug) + 1];
@@ -185,10 +189,7 @@ const PlayerLoaded = ({ lesson, courseLessons, onProgressSaved }: PlayerLoadedPr
         window.clearTimeout(chordTimerRef.current);
       }
 
-      if (
-        step?.type === "single-note" &&
-        nextSession.metrics.correctInputs > previousCorrect
-      ) {
+      if (step?.type === "single-note" && nextSession.metrics.correctInputs > previousCorrect) {
         setNoteFeedback(noteId, "correct");
       }
 
@@ -329,10 +330,15 @@ const PlayerLoaded = ({ lesson, courseLessons, onProgressSaved }: PlayerLoadedPr
       <div className="mx-auto grid w-full min-w-0 max-w-7xl gap-4 px-4 py-4 md:px-6 lg:py-6">
         <nav className="flex min-w-0 flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <Link className="font-bold text-amber-100 underline-offset-4 hover:underline" to={`/courses/${lesson.courseSlug}`}>
+            <Link
+              className="font-bold text-amber-100 underline-offset-4 hover:underline"
+              to={`/courses/${lesson.courseSlug}`}
+            >
               {lesson.courseTitle}
             </Link>
-            <h1 className="mt-1 break-words text-2xl font-black tracking-tight text-white">{lesson.title}</h1>
+            <h1 className="mt-1 break-words text-2xl font-black tracking-tight text-white">
+              {lesson.title}
+            </h1>
           </div>
           <button
             type="button"
@@ -367,14 +373,26 @@ const PlayerLoaded = ({ lesson, courseLessons, onProgressSaved }: PlayerLoadedPr
               className={[
                 "min-h-11 max-w-full break-words rounded-lg border px-3 py-2 font-black",
                 !isAudioReady ? "border-amber-200/40 bg-amber-950/35 text-amber-100" : "",
-                session.feedback === "correct" ? "border-emerald-200/40 bg-emerald-950/40 text-emerald-100" : "",
-                session.feedback === "incorrect" ? "border-rose-200/40 bg-rose-950/40 text-rose-100" : "",
-                session.feedback === "completed" ? "border-emerald-200/40 bg-emerald-950/40 text-emerald-100" : "",
-                isAudioReady && session.feedback === "idle" ? "border-white/10 bg-white/[0.04] text-stone-200" : ""
+                session.feedback === "correct"
+                  ? "border-emerald-200/40 bg-emerald-950/40 text-emerald-100"
+                  : "",
+                session.feedback === "incorrect"
+                  ? "border-rose-200/40 bg-rose-950/40 text-rose-100"
+                  : "",
+                session.feedback === "completed"
+                  ? "border-emerald-200/40 bg-emerald-950/40 text-emerald-100"
+                  : "",
+                isAudioReady && session.feedback === "idle"
+                  ? "border-white/10 bg-white/[0.04] text-stone-200"
+                  : ""
               ].join(" ")}
             >
               {!isAudioReady && audioMessage}
-              {isAudioReady && session.feedback === "idle" && (currentStep?.type === "chord" ? "Play all highlighted notes" : "Play the highlighted note")}
+              {isAudioReady &&
+                session.feedback === "idle" &&
+                (currentStep?.type === "chord"
+                  ? "Play all highlighted notes"
+                  : "Play the highlighted note")}
               {isAudioReady && session.feedback === "correct" && "Correct"}
               {isAudioReady && session.feedback === "incorrect" && "Try again"}
               {isAudioReady && session.feedback === "completed" && "Complete"}
@@ -430,7 +448,7 @@ export const LessonPlayer = ({ onProgressSaved }: LessonPlayerProps) => {
   });
 
   if (!courseSlug || !lessonSlug) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/courses" replace />;
   }
 
   if (courseQuery.isLoading || (unlocked && lessonQuery.isLoading)) {
@@ -446,7 +464,10 @@ export const LessonPlayer = ({ onProgressSaved }: LessonPlayerProps) => {
       <main className="grid min-h-[100dvh] place-items-center bg-[#12110f] px-4 text-stone-100">
         <section className="max-w-lg rounded-xl border border-white/10 bg-white/[0.04] p-6">
           <h1 className="text-3xl font-black">Lesson not found</h1>
-          <Link className="mt-4 inline-block rounded-lg bg-amber-200 px-4 py-2 font-black text-stone-950" to="/">
+          <Link
+            className="mt-4 inline-block rounded-lg bg-amber-200 px-4 py-2 font-black text-stone-950"
+            to="/courses"
+          >
             Return to courses
           </Link>
         </section>
@@ -481,7 +502,10 @@ export const LessonPlayer = ({ onProgressSaved }: LessonPlayerProps) => {
       <main className="grid min-h-[100dvh] place-items-center bg-[#12110f] px-4 text-stone-100">
         <section className="max-w-lg rounded-xl border border-white/10 bg-white/[0.04] p-6">
           <h1 className="text-3xl font-black">Lesson not found</h1>
-          <Link className="mt-4 inline-block rounded-lg bg-amber-200 px-4 py-2 font-black text-stone-950" to="/">
+          <Link
+            className="mt-4 inline-block rounded-lg bg-amber-200 px-4 py-2 font-black text-stone-950"
+            to="/courses"
+          >
             Return to courses
           </Link>
         </section>
