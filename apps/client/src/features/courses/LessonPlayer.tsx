@@ -441,6 +441,8 @@ const PlayerLoaded = ({ lesson, courseLessons, onProgressSaved }: PlayerLoadedPr
             disabled={isAudioUnavailable}
             autoScrollNotes={pianoTargetNotes}
             fitToContainer={mobileLandscapeActive}
+            size={mobileLandscapeActive ? "compact" : "standard"}
+            orientationMode={mobileLandscapeActive ? "mobile-landscape" : "responsive"}
             onInput={handleInput}
             onPrepareAudio={prepareAudio}
           />

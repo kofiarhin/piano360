@@ -2,20 +2,48 @@ import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { pianoNotes, type NoteId } from "../features/notes";
-import { PianoSampler, sampleFileByNote, sampleUrlFor } from "./PianoSampler";
 
-const createMockAudioBuffer = () => ({}) as AudioBuffer;
-type AudioDecodeSuccess = (buffer: AudioBuffer) => void;
-type AudioDecodeFailure = (error: DOMException) => void;
-type MockAudioState = "running" | "suspended" | "interrupted";
-type MockSource = {
-  buffer: AudioBuffer | null;
-  connect: ReturnType<typeof vi.fn>;
-  disconnect: ReturnType<typeof vi.fn>;
-  start: ReturnType<typeof vi.fn>;
-  stop: ReturnType<typeof vi.fn>;
-  onended: (() => void) | null;
-};
+const toneMock = vi.hoisted(() => {
+  const instances: MockSampler[] = [];
+  const start = vi.fn(async () => undefined);
+  const context = { state: "suspended" };
+
+  class MockSampler {
+    static nextShouldError = false;
+    loaded = false;
+    disposed = false;
+    options: any;
+    triggerAttackRelease = vi.fn();
+    dispose = vi.fn(() => {
+      this.disposed = true;
+    });
+    toDestination = vi.fn(() => this);
+
+    constructor(options: any) {
+      this.options = options;
+      instances.push(this);
+      queueMicrotask(() => {
+        if (MockSampler.nextShouldError) {
+          MockSampler.nextShouldError = false;
+          options.onerror?.(new Error("load failed"));
+        } else {
+          this.loaded = true;
+          options.onload?.();
+        }
+      });
+    }
+  }
+
+  return { MockSampler, instances, start, context };
+});
+
+vi.mock("tone", () => ({
+  Sampler: toneMock.MockSampler,
+  start: toneMock.start,
+  getContext: () => toneMock.context
+}));
+
+import { PianoSampler, sampleFileByNote, sampleUrlFor } from "./PianoSampler";
 
 const expectedSampleUrls: Record<NoteId, string> = {
   A3: "/audio/piano/A3.mp3",
@@ -36,137 +64,15 @@ const expectedSampleUrls: Record<NoteId, string> = {
   C5: "/audio/piano/C5.mp3"
 };
 
-const createMockFetchResponse = () => ({
-  ok: true,
-  arrayBuffer: async () => new ArrayBuffer(8)
-});
-
-const createMockAudioContext = (state: MockAudioState = "running") => {
-  const destination = {} as AudioDestinationNode;
-  const gain = {
-    gain: {
-      setValueAtTime: vi.fn(),
-      exponentialRampToValueAtTime: vi.fn()
-    },
-    connect: vi.fn(() => destination),
-    disconnect: vi.fn()
-  };
-  const oscillator = {
-    type: "sine",
-    frequency: {
-      setValueAtTime: vi.fn()
-    },
-    connect: vi.fn(() => gain),
-    start: vi.fn(),
-    stop: vi.fn()
-  };
-  const sources: MockSource[] = [];
-
-  return {
-    currentTime: 12.5,
-    destination,
-    sampleRate: 48_000,
-    state,
-    createBuffer: vi.fn(() => createMockAudioBuffer()),
-    decodeAudioData: vi.fn((_bytes: ArrayBuffer, onSuccess?: AudioDecodeSuccess) => {
-      const buffer = createMockAudioBuffer();
-      onSuccess?.(buffer);
-      return Promise.resolve(buffer);
-    }),
-    createBufferSource: vi.fn(() => {
-      const source = {
-        buffer: null as AudioBuffer | null,
-        connect: vi.fn(() => gain),
-        disconnect: vi.fn(),
-        start: vi.fn(),
-        stop: vi.fn(),
-        onended: null as (() => void) | null
-      };
-      sources.push(source);
-      return source;
-    }),
-    createOscillator: vi.fn(() => oscillator),
-    createGain: vi.fn(() => gain),
-    resume: vi.fn(async () => undefined),
-    gain,
-    oscillator,
-    sources
-  };
-};
-
-type MockAudioContext = ReturnType<typeof createMockAudioContext>;
-
-const stubAudioContext = (mockAudioContext: MockAudioContext) => {
-  const MockAudioContextConstructor = vi.fn(() => mockAudioContext);
-
-  vi.stubGlobal("AudioContext", MockAudioContextConstructor);
-  Object.defineProperty(window, "AudioContext", {
-    value: MockAudioContextConstructor,
-    configurable: true
-  });
-};
-
-const expectStartedSource = (mockAudioContext: MockAudioContext, sourceIndex: number) => {
-  const source = mockAudioContext.sources[sourceIndex];
-
-  expect(source.start).toHaveBeenCalledWith(mockAudioContext.currentTime);
-};
-
-const expectGestureUnlockPrimer = (mockAudioContext: MockAudioContext) => {
-  expect(mockAudioContext.sources.length).toBeGreaterThan(0);
-
-  const source = mockAudioContext.sources[0];
-  expect(mockAudioContext.createBuffer).toHaveBeenCalledWith(1, 2_400, mockAudioContext.sampleRate);
-  expect(source.start).toHaveBeenCalledWith(mockAudioContext.currentTime);
-  expect(source.stop).toHaveBeenCalledWith(mockAudioContext.currentTime + 0.05);
-};
-
-const createPointerDownEvent = (pointerType: string) => {
-  const event = new Event("pointerdown", { bubbles: true });
-  Object.defineProperty(event, "pointerType", {
-    configurable: true,
-    value: pointerType
-  });
-  return event;
-};
-
 describe("PianoSampler", () => {
-  const samplers: PianoSampler[] = [];
-  const createSampler = () => {
-    const sampler = new PianoSampler();
-    samplers.push(sampler);
-    return sampler;
-  };
-
   afterEach(() => {
-    samplers.splice(0).forEach((sampler) => sampler.dispose());
-    vi.unstubAllGlobals();
-    Reflect.deleteProperty(window, "AudioContext");
+    toneMock.instances.splice(0);
+    toneMock.start.mockReset().mockResolvedValue(undefined);
+    toneMock.context.state = "suspended";
+    toneMock.MockSampler.nextShouldError = false;
   });
 
-  it("preloads and decodes every bundled note sample", async () => {
-    const mockAudioContext = createMockAudioContext();
-    const fetchMock = vi.fn(async (url: string) => {
-      void url;
-      return createMockFetchResponse();
-    });
-
-    vi.stubGlobal("fetch", fetchMock);
-    stubAudioContext(mockAudioContext);
-
-    const sampler = createSampler();
-
-    await sampler.load();
-
-    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual(
-      pianoNotes.map((noteId) => expectedSampleUrls[noteId])
-    );
-    expect(mockAudioContext.decodeAudioData).toHaveBeenCalledTimes(
-      Object.keys(sampleFileByNote).length
-    );
-  });
-
-  it("builds Vercel public asset URLs for every piano sample", () => {
+  it("builds public asset URLs for every piano sample", () => {
     expect(pianoNotes.map((noteId) => sampleUrlFor(noteId))).toEqual(
       pianoNotes.map((noteId) => expectedSampleUrls[noteId])
     );
@@ -180,359 +86,95 @@ describe("PianoSampler", () => {
     }
   });
 
-  it.each(["mouse", "touch", "pen"])(
-    "unlocks audio from a %s pointerdown document gesture",
-    async (pointerType) => {
-      const mockAudioContext = createMockAudioContext();
+  it("constructs Tone.Sampler with local sample options", async () => {
+    const sampler = new PianoSampler();
+    await sampler.load();
 
-      vi.stubGlobal(
-        "fetch",
-        vi.fn(async () => createMockFetchResponse())
-      );
-      stubAudioContext(mockAudioContext);
+    expect(toneMock.instances).toHaveLength(1);
+    expect(toneMock.instances[0].options.urls).toEqual(sampleFileByNote);
+    expect(toneMock.instances[0].options.baseUrl).toBe("/audio/piano/");
+    expect(toneMock.instances[0].toDestination).toHaveBeenCalledTimes(1);
+  });
 
-      const sampler = createSampler();
-      await sampler.load();
+  it("deduplicates concurrent loads and creates one sampler per instance", async () => {
+    const sampler = new PianoSampler();
+    await Promise.all([sampler.load(), sampler.load()]);
+    await sampler.load();
 
-      document.dispatchEvent(createPointerDownEvent(pointerType));
-      await Promise.resolve();
+    expect(toneMock.instances).toHaveLength(1);
+  });
 
-      expect(mockAudioContext.createBufferSource).toHaveBeenCalledTimes(1);
-      expectGestureUnlockPrimer(mockAudioContext);
-      sampler.dispose();
-    }
-  );
+  it("resets load state after failure so loading can retry", async () => {
+    toneMock.MockSampler.nextShouldError = true;
+    const sampler = new PianoSampler();
 
-  it("does not register duplicate global unlock listeners", async () => {
-    const mockAudioContext = createMockAudioContext();
-    const addEventListenerSpy = vi.spyOn(document, "addEventListener");
+    await expect(sampler.load()).rejects.toThrow("Could not load piano samples");
+    await expect(sampler.load()).resolves.toBeUndefined();
 
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => createMockFetchResponse())
+    expect(toneMock.instances).toHaveLength(2);
+    expect(toneMock.instances[0].dispose).toHaveBeenCalledTimes(1);
+  });
+
+  it("deduplicates concurrent unlock calls", async () => {
+    const sampler = new PianoSampler();
+    await Promise.all([sampler.unlock(), sampler.unlock()]);
+
+    expect(toneMock.start).toHaveBeenCalledTimes(1);
+  });
+
+  it("resets unlock state after failure so unlocking can retry", async () => {
+    const sampler = new PianoSampler();
+    toneMock.start.mockRejectedValueOnce(new Error("blocked"));
+
+    await expect(sampler.unlock()).rejects.toThrow("blocked");
+    await expect(sampler.unlock()).resolves.toBeUndefined();
+
+    expect(toneMock.start).toHaveBeenCalledTimes(2);
+  });
+
+  it("plays the requested note after unlock and load with clamped velocity", async () => {
+    const sampler = new PianoSampler();
+
+    await expect(sampler.play("C4", 2)).resolves.toBe(true);
+
+    expect(toneMock.start).toHaveBeenCalledTimes(1);
+    expect(toneMock.instances[0].triggerAttackRelease).toHaveBeenCalledWith(
+      "C4",
+      "8n",
+      undefined,
+      1
     );
-    stubAudioContext(mockAudioContext);
+  });
 
-    const sampler = createSampler();
+  it("clamps low velocities", async () => {
+    const sampler = new PianoSampler();
+
+    await expect(sampler.play("A3", -1)).resolves.toBe(true);
+
+    expect(toneMock.instances[0].triggerAttackRelease).toHaveBeenCalledWith(
+      "A3",
+      "8n",
+      undefined,
+      0
+    );
+  });
+
+  it("returns false when unlock fails", async () => {
+    const sampler = new PianoSampler();
+    toneMock.start.mockRejectedValueOnce(new Error("blocked"));
+
+    await expect(sampler.play("C4")).resolves.toBe(false);
+    expect(toneMock.instances).toHaveLength(0);
+  });
+
+  it("disposes repeatedly and allows later reinitialization", async () => {
+    const sampler = new PianoSampler();
     await sampler.load();
-    await sampler.load();
-
-    const unlockEvents = addEventListenerSpy.mock.calls
-      .map(([eventType]) => eventType)
-      .filter((eventType) =>
-        ["pointerdown", "mousedown", "keydown", "touchstart", "touchend"].includes(
-          String(eventType)
-        )
-      );
-
-    expect(unlockEvents).toEqual(["pointerdown", "mousedown", "keydown"]);
     sampler.dispose();
-  });
-
-  it("cleans up global unlock listeners after an asynchronous resume succeeds", async () => {
-    const mockAudioContext = createMockAudioContext("suspended");
-    const removeEventListenerSpy = vi.spyOn(document, "removeEventListener");
-    let finishResume!: () => void;
-    mockAudioContext.resume.mockImplementation(
-      () =>
-        new Promise<undefined>((resolve) => {
-          finishResume = () => {
-            mockAudioContext.state = "running";
-            resolve(undefined);
-          };
-        })
-    );
-
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => createMockFetchResponse())
-    );
-    stubAudioContext(mockAudioContext);
-
-    const sampler = createSampler();
-    await sampler.load();
-
-    document.dispatchEvent(createPointerDownEvent("touch"));
-    expect(removeEventListenerSpy).not.toHaveBeenCalledWith("pointerdown", expect.any(Function));
-
-    finishResume();
-    await Promise.resolve();
-    await Promise.resolve();
-    await Promise.resolve();
-
-    expect(removeEventListenerSpy).toHaveBeenCalledWith("pointerdown", expect.any(Function));
-    expect(removeEventListenerSpy).toHaveBeenCalledWith("mousedown", expect.any(Function));
-    expect(removeEventListenerSpy).toHaveBeenCalledWith("keydown", expect.any(Function));
     sampler.dispose();
-  });
-
-  it("supports Safari callback-style decodeAudioData implementations", async () => {
-    const mockAudioContext = createMockAudioContext();
-    const decodedBuffer = createMockAudioBuffer();
-
-    mockAudioContext.decodeAudioData.mockImplementation(
-      (_bytes: ArrayBuffer, onSuccess?: AudioDecodeSuccess) => {
-        onSuccess?.(decodedBuffer);
-        return undefined as unknown as Promise<AudioBuffer>;
-      }
-    );
-
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => createMockFetchResponse())
-    );
-    stubAudioContext(mockAudioContext);
-
-    const sampler = createSampler();
     await sampler.load();
 
-    await expect(sampler.play("C4" satisfies NoteId)).resolves.toBe(true);
-    expect(mockAudioContext.createBufferSource).toHaveBeenCalledTimes(2);
-    expectGestureUnlockPrimer(mockAudioContext);
-    expectStartedSource(mockAudioContext, 0);
-    expectStartedSource(mockAudioContext, 1);
-  });
-
-  it("starts an already decoded buffer immediately on key press", async () => {
-    const mockAudioContext = createMockAudioContext();
-
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => createMockFetchResponse())
-    );
-    stubAudioContext(mockAudioContext);
-
-    const sampler = createSampler();
-    await sampler.load();
-
-    await expect(sampler.play("C4" satisfies NoteId, 0.7)).resolves.toBe(true);
-    expect(mockAudioContext.createBufferSource).toHaveBeenCalledTimes(2);
-    expect(mockAudioContext.createGain).toHaveBeenCalledTimes(2);
-    expect(mockAudioContext.gain.gain.setValueAtTime).toHaveBeenCalledWith(
-      0.7,
-      mockAudioContext.currentTime
-    );
-    expectGestureUnlockPrimer(mockAudioContext);
-    expectStartedSource(mockAudioContext, 0);
-    expectStartedSource(mockAudioContext, 1);
-  });
-
-  it("starts a silent buffer before a suspended AudioContext resume resolves", async () => {
-    const mockAudioContext = createMockAudioContext("suspended");
-    let finishResume!: () => void;
-    mockAudioContext.resume.mockImplementation(
-      () =>
-        new Promise<undefined>((resolve) => {
-          finishResume = () => {
-            mockAudioContext.state = "running";
-            resolve(undefined);
-          };
-        })
-    );
-
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => createMockFetchResponse())
-    );
-    stubAudioContext(mockAudioContext);
-
-    const sampler = createSampler();
-    await sampler.load();
-
-    const playPromise = sampler.play("E4");
-
-    expect(mockAudioContext.resume).toHaveBeenCalledTimes(1);
-    expect(mockAudioContext.createBuffer).toHaveBeenCalledWith(
-      1,
-      2_400,
-      mockAudioContext.sampleRate
-    );
-    expect(mockAudioContext.createBufferSource).toHaveBeenCalledTimes(1);
-    expectGestureUnlockPrimer(mockAudioContext);
-    expectStartedSource(mockAudioContext, 0);
-
-    finishResume();
-
-    await expect(playPromise).resolves.toBe(true);
-    expect(mockAudioContext.createBufferSource).toHaveBeenCalledTimes(2);
-    expectStartedSource(mockAudioContext, 1);
-  });
-
-  it("resumes a suspended AudioContext from the key press gesture", async () => {
-    const mockAudioContext = createMockAudioContext("suspended");
-    mockAudioContext.resume.mockImplementation(async () => {
-      mockAudioContext.state = "running";
-    });
-
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => createMockFetchResponse())
-    );
-    stubAudioContext(mockAudioContext);
-
-    const sampler = createSampler();
-    await sampler.load();
-
-    await expect(sampler.play("E4")).resolves.toBe(true);
-    expect(mockAudioContext.resume).toHaveBeenCalledTimes(1);
-    expect(mockAudioContext.createBufferSource).toHaveBeenCalledTimes(2);
-    expectGestureUnlockPrimer(mockAudioContext);
-    expectStartedSource(mockAudioContext, 0);
-    expectStartedSource(mockAudioContext, 1);
-  });
-
-  it("treats Safari interrupted AudioContexts as resumable", async () => {
-    const mockAudioContext = createMockAudioContext("interrupted");
-    mockAudioContext.resume.mockImplementation(async () => {
-      mockAudioContext.state = "running";
-    });
-
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => createMockFetchResponse())
-    );
-    stubAudioContext(mockAudioContext);
-
-    const sampler = createSampler();
-    await sampler.load();
-
-    await expect(sampler.play("E4")).resolves.toBe(true);
-    expect(mockAudioContext.resume).toHaveBeenCalledTimes(1);
-    expect(mockAudioContext.createBufferSource).toHaveBeenCalledTimes(2);
-    expectGestureUnlockPrimer(mockAudioContext);
-    expectStartedSource(mockAudioContext, 0);
-    expectStartedSource(mockAudioContext, 1);
-  });
-
-  it("plays a fallback tone when a note is requested before its buffer is ready", async () => {
-    const mockAudioContext = createMockAudioContext();
-
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(() => new Promise(() => undefined))
-    );
-    stubAudioContext(mockAudioContext);
-
-    const sampler = createSampler();
-
-    await expect(sampler.play("C4")).resolves.toBe(true);
-    expect(mockAudioContext.createBufferSource).toHaveBeenCalledTimes(1);
-    expectGestureUnlockPrimer(mockAudioContext);
-    expectStartedSource(mockAudioContext, 0);
-    expect(mockAudioContext.createOscillator).toHaveBeenCalledTimes(1);
-    expect(mockAudioContext.oscillator.start).toHaveBeenCalledWith(mockAudioContext.currentTime);
-  });
-
-  it("uses fallback tones for decode failures and retries missing samples later", async () => {
-    const mockAudioContext = createMockAudioContext();
-    let shouldDecodeFail = true;
-
-    mockAudioContext.decodeAudioData.mockImplementation(
-      (_bytes: ArrayBuffer, onSuccess?: AudioDecodeSuccess, onFailure?: AudioDecodeFailure) => {
-        if (shouldDecodeFail) {
-          onFailure?.(new DOMException("Unable to decode audio data"));
-          return Promise.reject(new DOMException("Unable to decode audio data"));
-        }
-
-        const buffer = createMockAudioBuffer();
-        onSuccess?.(buffer);
-        return Promise.resolve(buffer);
-      }
-    );
-
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => createMockFetchResponse())
-    );
-    stubAudioContext(mockAudioContext);
-
-    const sampler = createSampler();
-    await expect(sampler.load()).rejects.toThrow("Unable to decode audio data");
-
-    await expect(sampler.play("C4")).resolves.toBe(true);
-    expect(mockAudioContext.createOscillator).toHaveBeenCalledTimes(1);
-
-    shouldDecodeFail = false;
-    await sampler.load();
-    await expect(sampler.play("C4")).resolves.toBe(true);
-
-    expect(mockAudioContext.createBufferSource).toHaveBeenCalledTimes(2);
-    expectGestureUnlockPrimer(mockAudioContext);
-    expectStartedSource(mockAudioContext, 0);
-    expectStartedSource(mockAudioContext, 1);
-  });
-
-  it("resumes and plays a fallback tone for the first cold mobile tap while samples load", async () => {
-    const mockAudioContext = createMockAudioContext("suspended");
-    mockAudioContext.resume.mockImplementation(async () => {
-      mockAudioContext.state = "running";
-    });
-
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(() => new Promise(() => undefined))
-    );
-    stubAudioContext(mockAudioContext);
-
-    const sampler = createSampler();
-
-    await expect(sampler.play("C4")).resolves.toBe(true);
-    expect(mockAudioContext.resume).toHaveBeenCalledTimes(1);
-    expect(mockAudioContext.createBufferSource).toHaveBeenCalledTimes(1);
-    expectGestureUnlockPrimer(mockAudioContext);
-    expectStartedSource(mockAudioContext, 0);
-    expect(mockAudioContext.createOscillator).toHaveBeenCalledTimes(1);
-    expect(mockAudioContext.oscillator.start).toHaveBeenCalledWith(mockAudioContext.currentTime);
-  });
-
-  it("starts the cold mobile fallback tone before a suspended AudioContext resume resolves", async () => {
-    const mockAudioContext = createMockAudioContext("suspended");
-    let finishResume!: () => void;
-    mockAudioContext.resume.mockImplementation(
-      () =>
-        new Promise<undefined>((resolve) => {
-          finishResume = () => {
-            mockAudioContext.state = "running";
-            resolve(undefined);
-          };
-        })
-    );
-
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(() => new Promise(() => undefined))
-    );
-    stubAudioContext(mockAudioContext);
-
-    const sampler = createSampler();
-    const playPromise = sampler.play("C4");
-
-    expect(mockAudioContext.resume).toHaveBeenCalledTimes(1);
-    expect(mockAudioContext.createBufferSource).toHaveBeenCalledTimes(1);
-    expectGestureUnlockPrimer(mockAudioContext);
-    expect(mockAudioContext.createOscillator).toHaveBeenCalledTimes(1);
-    expect(mockAudioContext.oscillator.start).toHaveBeenCalledWith(mockAudioContext.currentTime);
-
-    finishResume();
-    await expect(playPromise).resolves.toBe(true);
-  });
-
-  it("does not resume the AudioContext again after the first successful unlock", async () => {
-    const mockAudioContext = createMockAudioContext("suspended");
-    mockAudioContext.resume.mockImplementation(async () => {
-      mockAudioContext.state = "running";
-    });
-
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => createMockFetchResponse())
-    );
-    stubAudioContext(mockAudioContext);
-
-    const sampler = createSampler();
-
-    await expect(sampler.play("C4")).resolves.toBe(true);
-    await expect(sampler.play("D4")).resolves.toBe(true);
-    expect(mockAudioContext.resume).toHaveBeenCalledTimes(1);
+    expect(toneMock.instances).toHaveLength(2);
+    expect(toneMock.instances[0].dispose).toHaveBeenCalledTimes(1);
   });
 });

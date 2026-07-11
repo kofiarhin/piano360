@@ -192,6 +192,8 @@ export const FreestyleMode = () => {
             activeNotes={heldNotes}
             activeVariant="freestyle"
             fitToContainer={mobileLandscapeActive}
+            size={mobileLandscapeActive ? "compact" : "large"}
+            orientationMode={mobileLandscapeActive ? "mobile-landscape" : "responsive"}
             onInput={() => undefined}
             onPress={pressNote}
             onRelease={releaseNote}

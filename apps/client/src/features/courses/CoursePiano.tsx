@@ -6,6 +6,8 @@ import type { NoteId } from "./courseTypes";
 
 export type KeyVisualState = "idle" | "target" | "active" | "correct" | "wrong";
 export type PianoInputSource = `pointer:${number}`;
+export type PianoSize = "compact" | "standard" | "large";
+export type PianoOrientationMode = "responsive" | "mobile-landscape";
 
 type CoursePianoProps = {
   targetNotes: NoteId[];
@@ -17,6 +19,8 @@ type CoursePianoProps = {
   autoScrollNotes?: NoteId[];
   className?: string;
   fitToContainer?: boolean;
+  size?: PianoSize;
+  orientationMode?: PianoOrientationMode;
   onInput: (noteId: NoteId) => void;
   onPress?: (noteId: NoteId, source: PianoInputSource) => void;
   onRelease?: (noteId: NoteId, source: PianoInputSource) => void;
@@ -25,16 +29,94 @@ type CoursePianoProps = {
 
 const whiteKeys = keyboardKeys.filter((key) => key.tone === "white");
 const blackKeys = keyboardKeys.filter((key) => key.tone === "black");
-const BLACK_KEY_WIDTH_PERCENT = 6.2;
+type PianoSizeConfig = {
+  keyboardHeightClass: string;
+  whiteKeyHeightClass: string;
+  blackKeyHeightPercent: number;
+  blackKeyWidthPercent: number;
+  minimumWhiteKeyWidth: number;
+  keyGapClass: string;
+  whiteKeyPaddingClass: string;
+  blackKeyPaddingClass: string;
+  noteLabelClass: string;
+  whiteShortcutBadgeClass: string;
+  blackShortcutBadgeClass: string;
+  shellPaddingClass: string;
+  innerShellPaddingClass: string;
+  scrollPaddingClass: string;
+  railHeightClass: string;
+};
+
+const pianoSizeConfigs: Record<PianoSize, PianoSizeConfig> = {
+  compact: {
+    keyboardHeightClass: "h-36",
+    whiteKeyHeightClass: "h-32",
+    blackKeyHeightPercent: 58,
+    blackKeyWidthPercent: 5.8,
+    minimumWhiteKeyWidth: 34,
+    keyGapClass: "gap-[2px]",
+    whiteKeyPaddingClass: "px-0.5 pb-2 pt-20",
+    blackKeyPaddingClass: "px-0.5 pt-5",
+    noteLabelClass: "text-sm",
+    whiteShortcutBadgeClass:
+      "bottom-7 h-5 min-w-5 border-zinc-300 bg-white/70 text-[0.62rem] text-zinc-700",
+    blackShortcutBadgeClass: "top-2 h-4 min-w-4 border-white/20 bg-white/15 text-[0.55rem]",
+    shellPaddingClass: "p-1",
+    innerShellPaddingClass: "p-1",
+    scrollPaddingClass: "p-1",
+    railHeightClass: "h-2"
+  },
+  standard: {
+    keyboardHeightClass: "h-64 sm:h-72",
+    whiteKeyHeightClass: "h-56 sm:h-64",
+    blackKeyHeightPercent: 60,
+    blackKeyWidthPercent: 6.2,
+    minimumWhiteKeyWidth: 44,
+    keyGapClass: "gap-[3px]",
+    whiteKeyPaddingClass: "px-1 pb-4 pt-36 sm:pt-44",
+    blackKeyPaddingClass: "px-1 pt-8",
+    noteLabelClass: "text-2xl",
+    whiteShortcutBadgeClass:
+      "bottom-10 h-7 min-w-7 border-zinc-300 bg-white/70 text-xs text-zinc-700",
+    blackShortcutBadgeClass: "top-3 h-6 min-w-6 border-white/20 bg-white/15 text-[0.68rem]",
+    shellPaddingClass: "p-2",
+    innerShellPaddingClass: "p-2",
+    scrollPaddingClass: "p-2",
+    railHeightClass: "h-3"
+  },
+  large: {
+    keyboardHeightClass: "h-72 sm:h-80",
+    whiteKeyHeightClass: "h-64 sm:h-72",
+    blackKeyHeightPercent: 61,
+    blackKeyWidthPercent: 6.6,
+    minimumWhiteKeyWidth: 52,
+    keyGapClass: "gap-1",
+    whiteKeyPaddingClass: "px-1.5 pb-5 pt-44 sm:pt-52",
+    blackKeyPaddingClass: "px-1.5 pt-10",
+    noteLabelClass: "text-3xl",
+    whiteShortcutBadgeClass:
+      "bottom-12 h-8 min-w-8 border-zinc-300 bg-white/70 text-sm text-zinc-700",
+    blackShortcutBadgeClass: "top-4 h-7 min-w-7 border-white/20 bg-white/15 text-xs",
+    shellPaddingClass: "p-3",
+    innerShellPaddingClass: "p-3",
+    scrollPaddingClass: "p-3",
+    railHeightClass: "h-4"
+  }
+};
 
 const whiteIndexBefore = (noteId: NoteId) => {
   const index = keyboardKeys.findIndex((key) => key.noteId === noteId);
   return keyboardKeys.slice(0, index).filter((key) => key.tone === "white").length - 1;
 };
 
-const blackKeyLeft = (noteId: NoteId) => {
+const blackKeyStyle = (noteId: NoteId, config: PianoSizeConfig): CSSProperties => {
   const boundaryPercent = ((whiteIndexBefore(noteId) + 1) / whiteKeys.length) * 100;
-  return `calc(${boundaryPercent}% - ${BLACK_KEY_WIDTH_PERCENT / 2}%)`;
+
+  return {
+    left: `calc(${boundaryPercent}% - ${config.blackKeyWidthPercent / 2}%)`,
+    width: `${config.blackKeyWidthPercent}%`,
+    height: `${config.blackKeyHeightPercent}%`
+  };
 };
 
 const getVisualState = (
@@ -109,6 +191,7 @@ type PianoKeyButtonProps = {
   activeVariant: CoursePianoProps["activeVariant"];
   disabled: boolean;
   style?: CSSProperties;
+  sizeConfig: PianoSizeConfig;
   onInput: (noteId: NoteId) => void;
   onPress?: (noteId: NoteId, source: PianoInputSource) => void;
   onRelease?: (noteId: NoteId, source: PianoInputSource) => void;
@@ -123,6 +206,7 @@ const PianoKeyButton = ({
   activeVariant,
   disabled,
   style,
+  sizeConfig,
   onInput,
   onPress,
   onRelease,
@@ -171,22 +255,27 @@ const PianoKeyButton = ({
         "touch-none select-none border text-center font-black shadow-sm transition active:translate-y-1 focus-visible:z-30",
         disabled ? "cursor-not-allowed opacity-75 active:translate-y-0" : "",
         isBlack
-          ? "absolute top-2 z-20 h-[60%] rounded-b-md border-zinc-950 px-1 pt-8 text-xs"
-          : "relative h-56 flex-1 rounded-b-lg border-zinc-300 px-1 pb-4 pt-36 text-sm sm:h-64 sm:pt-44",
+          ? [
+              "absolute top-2 z-20 rounded-b-md border-zinc-950",
+              sizeConfig.blackKeyPaddingClass
+            ].join(" ")
+          : [
+              "relative flex-1 rounded-b-lg border-zinc-300",
+              sizeConfig.whiteKeyHeightClass,
+              sizeConfig.whiteKeyPaddingClass
+            ].join(" "),
         stateClassFor(tone, visualState, activeVariant)
       ].join(" ")}
     >
       <span
         className={[
           "absolute left-1/2 grid -translate-x-1/2 place-items-center rounded-md border font-mono font-black",
-          isBlack
-            ? "top-3 h-6 min-w-6 border-white/20 bg-white/15 text-[0.68rem]"
-            : "bottom-10 h-7 min-w-7 border-zinc-300 bg-white/70 text-xs text-zinc-700"
+          isBlack ? sizeConfig.blackShortcutBadgeClass : sizeConfig.whiteShortcutBadgeClass
         ].join(" ")}
       >
         {keyboardKey}
       </span>
-      <span className={isBlack ? "text-base" : "text-2xl"}>{noteId}</span>
+      <span className={isBlack ? "text-base" : sizeConfig.noteLabelClass}>{noteId}</span>
     </button>
   );
 };
@@ -201,11 +290,14 @@ export const CoursePiano = ({
   autoScrollNotes = [],
   className,
   fitToContainer = false,
+  size = "standard",
+  orientationMode = "responsive",
   onInput,
   onPress,
   onRelease,
   onPrepareAudio
 }: CoursePianoProps) => {
+  const sizeConfig = pianoSizeConfigs[size];
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const isUserInteractingRef = useRef(false);
   const isProgrammaticScrollRef = useRef(false);
@@ -294,16 +386,29 @@ export const CoursePiano = ({
       aria-label="Virtual piano"
       aria-disabled={disabled}
       className={[
-        "relative min-w-0 rounded-2xl border border-stone-800 bg-stone-950 p-2 shadow-[0_18px_50px_-35px_rgba(0,0,0,0.95)]",
+        "relative min-w-0 rounded-2xl border border-stone-800 bg-stone-950 shadow-[0_18px_50px_-35px_rgba(0,0,0,0.95)]",
+        sizeConfig.shellPaddingClass,
+        orientationMode === "mobile-landscape" ? "piano-mobile-landscape" : "",
         className ?? ""
       ].join(" ")}
     >
-      <div className="min-w-0 rounded-xl border border-stone-700 bg-[#191511] p-2">
-        <div className="h-3 rounded-t-lg bg-[linear-gradient(90deg,#2f261f,#6f3f2d,#2f261f)]" />
+      <div
+        className={[
+          "min-w-0 rounded-xl border border-stone-700 bg-[#191511]",
+          sizeConfig.innerShellPaddingClass
+        ].join(" ")}
+      >
+        <div
+          className={[
+            "rounded-t-lg bg-[linear-gradient(90deg,#2f261f,#6f3f2d,#2f261f)]",
+            sizeConfig.railHeightClass
+          ].join(" ")}
+        />
         <div
           ref={scrollContainerRef}
           className={[
-            "piano-scroll relative rounded-b-xl bg-zinc-950 p-2",
+            "piano-scroll relative rounded-b-xl bg-zinc-950",
+            sizeConfig.scrollPaddingClass,
             fitToContainer ? "overflow-x-hidden" : "overflow-x-auto"
           ].join(" ")}
           onPointerDown={() => {
@@ -322,14 +427,17 @@ export const CoursePiano = ({
         >
           <div
             className={[
-              "relative mx-auto h-64 w-full sm:h-72",
+              "relative mx-auto w-full",
+              sizeConfig.keyboardHeightClass,
               fitToContainer ? "min-w-0" : "min-w-[30.25rem]"
             ].join(" ")}
             style={
-              fitToContainer ? undefined : { minWidth: `max(100%, ${whiteKeys.length * 44}px)` }
+              fitToContainer
+                ? undefined
+                : { minWidth: `max(100%, ${whiteKeys.length * sizeConfig.minimumWhiteKeyWidth}px)` }
             }
           >
-            <div className="flex h-full gap-[3px]">
+            <div className={["flex h-full", sizeConfig.keyGapClass].join(" ")}>
               {whiteKeys.map((key) => (
                 <PianoKeyButton
                   key={key.noteId}
@@ -339,6 +447,7 @@ export const CoursePiano = ({
                   visualState={visualStateFor(key.noteId)}
                   activeVariant={activeVariant}
                   disabled={disabled}
+                  sizeConfig={sizeConfig}
                   onInput={onInput}
                   onPress={onPress}
                   onRelease={onRelease}
@@ -355,7 +464,8 @@ export const CoursePiano = ({
                 visualState={visualStateFor(key.noteId)}
                 activeVariant={activeVariant}
                 disabled={disabled}
-                style={{ left: blackKeyLeft(key.noteId), width: `${BLACK_KEY_WIDTH_PERCENT}%` }}
+                style={blackKeyStyle(key.noteId, sizeConfig)}
+                sizeConfig={sizeConfig}
                 onInput={onInput}
                 onPress={onPress}
                 onRelease={onRelease}

@@ -15,7 +15,8 @@
     "framer-motion": "^12.42.2",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "react-router-dom": "^6.30.4"
+    "react-router-dom": "^6.30.4",
+    "tone": "^15.1.22"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.6.3",
