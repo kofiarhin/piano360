@@ -40,6 +40,11 @@ type SingleNoteCourseConfig = {
   finalRhythmHint: string;
 };
 
+type GospelMelodyCourseConfig = Omit<
+  SingleNoteCourseConfig,
+  "finalSlug" | "finalTitle" | "finalDescription" | "finalStepPrefix" | "finalRhythmHint"
+>;
+
 const buildSingleNoteLesson = (
   phrase: SingleNotePhrase,
   order: number,
@@ -83,6 +88,16 @@ const buildSingleNoteCourse = (config: SingleNoteCourseConfig): Course => ({
     )
   ]
 });
+
+const buildGospelMelodyCourse = (config: GospelMelodyCourseConfig): Course =>
+  buildSingleNoteCourse({
+    ...config,
+    finalSlug: `complete-${config.slug}`,
+    finalTitle: "Complete Song",
+    finalDescription: `Combine all three phrases from ${config.title}.`,
+    finalStepPrefix: `${config.slug}-complete`,
+    finalRhythmHint: `Complete ${config.title} melody`
+  });
 
 const foundationalCourses: Course[] = [
   {
@@ -768,6 +783,653 @@ const reggaeCourses: Course[] = [
   })
 ];
 
-export const seedCourses: Course[] = [...foundationalCourses, ...reggaeCourses].map((course) =>
-  courseSchema.parse(course)
-);
+const gospelCourses: Course[] = [
+  buildGospelMelodyCourse({
+    slug: "amazing-grace",
+    title: "Amazing Grace",
+    description: "Learn a simplified right-hand Gospel melody inside the A3-C5 keyboard.",
+    order: 16,
+    phrases: [
+      {
+        slug: "amazing-grace-opening",
+        title: "Opening Phrase",
+        description: "Shape the familiar opening with a gentle lift into the melody.",
+        stepPrefix: "ag-opening",
+        rhythmHint: "Slow hymn opening with an easy pickup feel",
+        notes: ["C4", "F4", "A4", "F4", "A4", "G4", "F4", "D4", "C4", "F4", "A4", "G4"]
+      },
+      {
+        slug: "amazing-grace-answer",
+        title: "Answer Phrase",
+        description: "Answer the opening phrase with a clear stepwise descent.",
+        stepPrefix: "ag-answer",
+        rhythmHint: "Answer phrase with a relaxed landing",
+        notes: ["A4", "C5", "A4", "F4", "A4", "G4", "F4", "D4", "C4", "F4", "A4", "F4"]
+      },
+      {
+        slug: "amazing-grace-close",
+        title: "Closing Phrase",
+        description: "Close the melody by returning to the home note.",
+        stepPrefix: "ag-close",
+        rhythmHint: "Closing hymn phrase with a quiet final note",
+        notes: ["A4", "G4", "F4", "D4", "C4", "F4", "A4", "F4", "G4", "F4", "D4", "F4"]
+      }
+    ]
+  }),
+  buildGospelMelodyCourse({
+    slug: "great-is-thy-faithfulness",
+    title: "Great Is Thy Faithfulness",
+    description: "Practice a simplified right-hand Gospel hymn melody in a compact range.",
+    order: 17,
+    phrases: [
+      {
+        slug: "great-is-thy-faithfulness-opening",
+        title: "Opening Phrase",
+        description: "Begin the hymn with steady repeated notes and a small rise.",
+        stepPrefix: "gitf-opening",
+        rhythmHint: "Broad hymn opening with even repeated notes",
+        notes: ["G4", "G4", "A4", "G4", "E4", "D4", "E4", "G4", "A4", "G4", "E4", "D4"]
+      },
+      {
+        slug: "great-is-thy-faithfulness-lift",
+        title: "Lift Phrase",
+        description: "Lift the melody toward the top of the beginner range.",
+        stepPrefix: "gitf-lift",
+        rhythmHint: "Lift phrase with a held-feel top note",
+        notes: ["E4", "G4", "A4", "B4", "C5", "B4", "A4", "G4", "E4", "G4", "A4", "G4"]
+      },
+      {
+        slug: "great-is-thy-faithfulness-close",
+        title: "Closing Phrase",
+        description: "Settle the hymn phrase back into the center of the keyboard.",
+        stepPrefix: "gitf-close",
+        rhythmHint: "Settled closing phrase with a gentle cadence",
+        notes: ["A4", "G4", "E4", "D4", "C4", "D4", "E4", "G4", "E4", "D4", "C4", "C4"]
+      }
+    ]
+  }),
+  buildGospelMelodyCourse({
+    slug: "blessed-assurance",
+    title: "Blessed Assurance",
+    description: "Learn a simplified right-hand Gospel melody with bright repeated notes.",
+    order: 18,
+    phrases: [
+      {
+        slug: "blessed-assurance-opening",
+        title: "Opening Phrase",
+        description: "Start with the clear repeated-note opening.",
+        stepPrefix: "ba-opening",
+        rhythmHint: "Confident hymn opening with repeated center notes",
+        notes: ["C4", "E4", "G4", "G4", "A4", "G4", "E4", "C4", "D4", "E4", "G4", "E4"]
+      },
+      {
+        slug: "blessed-assurance-story",
+        title: "Story Phrase",
+        description: "Continue the melody with an easy upward answer.",
+        stepPrefix: "ba-story",
+        rhythmHint: "Story phrase with a bright lift",
+        notes: ["E4", "G4", "A4", "C5", "B4", "A4", "G4", "E4", "G4", "A4", "G4", "E4"]
+      },
+      {
+        slug: "blessed-assurance-close",
+        title: "Closing Phrase",
+        description: "Finish with the familiar descending cadence.",
+        stepPrefix: "ba-close",
+        rhythmHint: "Closing phrase with a clear final landing",
+        notes: ["G4", "E4", "D4", "C4", "D4", "E4", "G4", "E4", "D4", "C4", "C4", "C4"]
+      }
+    ]
+  }),
+  buildGospelMelodyCourse({
+    slug: "it-is-well-with-my-soul",
+    title: "It Is Well With My Soul",
+    description: "Practice a calm simplified Gospel hymn melody for one hand.",
+    order: 19,
+    phrases: [
+      {
+        slug: "it-is-well-with-my-soul-opening",
+        title: "Opening Phrase",
+        description: "Play the peaceful opening with small steps.",
+        stepPrefix: "iiwwms-opening",
+        rhythmHint: "Peaceful hymn opening with a gentle pulse",
+        notes: ["C4", "E4", "G4", "E4", "D4", "C4", "D4", "E4", "G4", "E4", "D4", "C4"]
+      },
+      {
+        slug: "it-is-well-with-my-soul-answer",
+        title: "Answer Phrase",
+        description: "Answer the opening with a higher but still compact phrase.",
+        stepPrefix: "iiwwms-answer",
+        rhythmHint: "Answer phrase with a broad held-feel center",
+        notes: ["E4", "G4", "A4", "G4", "E4", "D4", "E4", "G4", "A4", "G4", "E4", "D4"]
+      },
+      {
+        slug: "it-is-well-with-my-soul-close",
+        title: "Closing Phrase",
+        description: "Bring the melody back to a quiet final note.",
+        stepPrefix: "iiwwms-close",
+        rhythmHint: "Closing phrase with a calm descent",
+        notes: ["G4", "A4", "C5", "A4", "G4", "E4", "D4", "C4", "D4", "E4", "D4", "C4"]
+      }
+    ]
+  }),
+  buildGospelMelodyCourse({
+    slug: "what-a-friend-we-have-in-jesus",
+    title: "What A Friend We Have In Jesus",
+    description: "Learn a simplified right-hand version of the gentle Gospel hymn melody.",
+    order: 20,
+    phrases: [
+      {
+        slug: "what-a-friend-we-have-in-jesus-opening",
+        title: "Opening Phrase",
+        description: "Begin with the familiar stepwise opening.",
+        stepPrefix: "wafwhij-opening",
+        rhythmHint: "Gentle hymn opening with repeated notes",
+        notes: ["E4", "E4", "F4", "G4", "G4", "F4", "E4", "D4", "C4", "D4", "E4", "E4"]
+      },
+      {
+        slug: "what-a-friend-we-have-in-jesus-answer",
+        title: "Answer Phrase",
+        description: "Answer the phrase with a smooth rise and return.",
+        stepPrefix: "wafwhij-answer",
+        rhythmHint: "Smooth answer phrase with a soft turn",
+        notes: ["G4", "G4", "A4", "G4", "F4", "E4", "D4", "E4", "F4", "G4", "E4", "D4"]
+      },
+      {
+        slug: "what-a-friend-we-have-in-jesus-close",
+        title: "Closing Phrase",
+        description: "Settle the melody back into the home position.",
+        stepPrefix: "wafwhij-close",
+        rhythmHint: "Closing phrase with an easy final cadence",
+        notes: ["E4", "F4", "G4", "A4", "G4", "F4", "E4", "D4", "C4", "D4", "E4", "C4"]
+      }
+    ]
+  }),
+  buildGospelMelodyCourse({
+    slug: "holy-holy-holy",
+    title: "Holy Holy Holy",
+    description: "Practice a dignified simplified right-hand hymn melody.",
+    order: 21,
+    phrases: [
+      {
+        slug: "holy-holy-holy-opening",
+        title: "Opening Phrase",
+        description: "Play the stately repeated opening tones.",
+        stepPrefix: "hhh-opening",
+        rhythmHint: "Stately hymn opening with broad repeated notes",
+        notes: ["C4", "E4", "G4", "G4", "A4", "G4", "E4", "C4", "E4", "G4", "A4", "G4"]
+      },
+      {
+        slug: "holy-holy-holy-lift",
+        title: "Lift Phrase",
+        description: "Lift the phrase without leaving the beginner range.",
+        stepPrefix: "hhh-lift",
+        rhythmHint: "Lift phrase with a noble top-note arrival",
+        notes: ["G4", "A4", "B4", "C5", "B4", "A4", "G4", "E4", "G4", "A4", "G4", "E4"]
+      },
+      {
+        slug: "holy-holy-holy-close",
+        title: "Closing Phrase",
+        description: "Return through the center notes for the final cadence.",
+        stepPrefix: "hhh-close",
+        rhythmHint: "Closing hymn cadence with steady steps",
+        notes: ["E4", "G4", "A4", "G4", "E4", "D4", "C4", "D4", "E4", "D4", "C4", "C4"]
+      }
+    ]
+  }),
+  buildGospelMelodyCourse({
+    slug: "to-god-be-the-glory",
+    title: "To God Be The Glory",
+    description: "Learn a simplified right-hand Gospel hymn melody with a bright contour.",
+    order: 22,
+    phrases: [
+      {
+        slug: "to-god-be-the-glory-opening",
+        title: "Opening Phrase",
+        description: "Start the hymn with a confident upward phrase.",
+        stepPrefix: "tgbtg-opening",
+        rhythmHint: "Bright hymn opening with a strong lift",
+        notes: ["C4", "E4", "G4", "A4", "G4", "E4", "D4", "C4", "E4", "G4", "A4", "G4"]
+      },
+      {
+        slug: "to-god-be-the-glory-praise",
+        title: "Praise Phrase",
+        description: "Play the higher praise phrase and return smoothly.",
+        stepPrefix: "tgbtg-praise",
+        rhythmHint: "Praise phrase with a lively top note",
+        notes: ["G4", "A4", "C5", "B4", "A4", "G4", "E4", "G4", "A4", "G4", "E4", "D4"]
+      },
+      {
+        slug: "to-god-be-the-glory-close",
+        title: "Closing Phrase",
+        description: "Close with a clear stepwise descent.",
+        stepPrefix: "tgbtg-close",
+        rhythmHint: "Closing phrase with a strong final note",
+        notes: ["E4", "G4", "A4", "G4", "E4", "D4", "C4", "D4", "E4", "D4", "C4", "C4"]
+      }
+    ]
+  }),
+  buildGospelMelodyCourse({
+    slug: "because-he-lives-limited-excerpt",
+    title: "Because He Lives Limited Excerpt",
+    description:
+      "Practice a licensed or legally approved excerpt as a simplified right-hand Gospel melody.",
+    order: 23,
+    phrases: [
+      {
+        slug: "because-he-lives-opening",
+        title: "Opening Phrase",
+        description: "Learn the opening contour as a compact approved excerpt.",
+        stepPrefix: "bhl-opening",
+        rhythmHint: "Approved excerpt opening with a gentle rising feel",
+        notes: ["C4", "E4", "G4", "G4", "A4", "G4", "E4", "D4", "E4", "G4", "A4", "G4"]
+      },
+      {
+        slug: "because-he-lives-answer",
+        title: "Answer Phrase",
+        description: "Answer the excerpt with a simple return through the center notes.",
+        stepPrefix: "bhl-answer",
+        rhythmHint: "Approved excerpt answer with relaxed repeated notes",
+        notes: ["E4", "D4", "C4", "D4", "E4", "G4", "E4", "D4", "C4", "C4", "D4", "E4"]
+      },
+      {
+        slug: "because-he-lives-close",
+        title: "Closing Phrase",
+        description: "Close the approved excerpt without extending into a full transcription.",
+        stepPrefix: "bhl-close",
+        rhythmHint: "Approved excerpt close with a steady final landing",
+        notes: ["G4", "A4", "G4", "E4", "D4", "E4", "G4", "E4", "D4", "C4", "C4", "C4"]
+      }
+    ]
+  }),
+  buildGospelMelodyCourse({
+    slug: "i-surrender-all",
+    title: "I Surrender All",
+    description: "Practice a simplified right-hand hymn melody with a quiet, flowing shape.",
+    order: 24,
+    phrases: [
+      {
+        slug: "i-surrender-all-opening",
+        title: "Opening Phrase",
+        description: "Begin with a gentle repeated-note phrase.",
+        stepPrefix: "isa-opening",
+        rhythmHint: "Quiet hymn opening with flowing repeated notes",
+        notes: ["C4", "D4", "E4", "G4", "E4", "D4", "C4", "D4", "E4", "G4", "E4", "D4"]
+      },
+      {
+        slug: "i-surrender-all-lift",
+        title: "Lift Phrase",
+        description: "Lift the phrase toward A4 and return.",
+        stepPrefix: "isa-lift",
+        rhythmHint: "Lift phrase with a soft upper turn",
+        notes: ["E4", "G4", "A4", "G4", "E4", "D4", "E4", "G4", "A4", "G4", "E4", "D4"]
+      },
+      {
+        slug: "i-surrender-all-close",
+        title: "Closing Phrase",
+        description: "Settle the melody back to the home note.",
+        stepPrefix: "isa-close",
+        rhythmHint: "Closing phrase with a surrendered final cadence",
+        notes: ["G4", "E4", "D4", "C4", "D4", "E4", "G4", "E4", "D4", "C4", "C4", "C4"]
+      }
+    ]
+  }),
+  buildGospelMelodyCourse({
+    slug: "there-is-power-in-the-blood",
+    title: "There Is Power In The Blood",
+    description: "Learn a simplified right-hand Gospel hymn melody with lively repeated notes.",
+    order: 25,
+    phrases: [
+      {
+        slug: "there-is-power-in-the-blood-opening",
+        title: "Opening Phrase",
+        description: "Start the lively opening with compact repeated notes.",
+        stepPrefix: "tipitb-opening",
+        rhythmHint: "Lively hymn opening with short repeated notes",
+        notes: ["C4", "E4", "G4", "G4", "A4", "G4", "E4", "C4", "D4", "E4", "G4", "E4"]
+      },
+      {
+        slug: "there-is-power-in-the-blood-answer",
+        title: "Answer Phrase",
+        description: "Answer with a bright upper turn.",
+        stepPrefix: "tipitb-answer",
+        rhythmHint: "Answer phrase with a quick gospel lift",
+        notes: ["E4", "G4", "A4", "B4", "A4", "G4", "E4", "G4", "A4", "G4", "E4", "D4"]
+      },
+      {
+        slug: "there-is-power-in-the-blood-close",
+        title: "Closing Phrase",
+        description: "Finish the phrase with a strong descent.",
+        stepPrefix: "tipitb-close",
+        rhythmHint: "Closing phrase with a firm final note",
+        notes: ["G4", "E4", "D4", "C4", "D4", "E4", "G4", "E4", "D4", "C4", "C4", "C4"]
+      }
+    ]
+  }),
+  buildGospelMelodyCourse({
+    slug: "pass-me-not-o-gentle-savior",
+    title: "Pass Me Not O Gentle Savior",
+    description: "Practice a tender simplified right-hand Gospel hymn melody.",
+    order: 26,
+    phrases: [
+      {
+        slug: "pass-me-not-o-gentle-savior-opening",
+        title: "Opening Phrase",
+        description: "Begin the tender melody with small steps.",
+        stepPrefix: "pmnogs-opening",
+        rhythmHint: "Tender hymn opening with a gentle repeated tone",
+        notes: ["E4", "G4", "A4", "G4", "E4", "D4", "C4", "D4", "E4", "G4", "E4", "D4"]
+      },
+      {
+        slug: "pass-me-not-o-gentle-savior-plea",
+        title: "Plea Phrase",
+        description: "Lift the plea phrase and return smoothly.",
+        stepPrefix: "pmnogs-plea",
+        rhythmHint: "Plea phrase with a soft upper note",
+        notes: ["G4", "A4", "C5", "A4", "G4", "E4", "D4", "E4", "G4", "A4", "G4", "E4"]
+      },
+      {
+        slug: "pass-me-not-o-gentle-savior-close",
+        title: "Closing Phrase",
+        description: "Close with a quiet descent to the home note.",
+        stepPrefix: "pmnogs-close",
+        rhythmHint: "Closing phrase with a prayerful cadence",
+        notes: ["A4", "G4", "E4", "D4", "C4", "D4", "E4", "G4", "E4", "D4", "C4", "C4"]
+      }
+    ]
+  }),
+  buildGospelMelodyCourse({
+    slug: "softly-and-tenderly",
+    title: "Softly And Tenderly",
+    description: "Learn a simplified right-hand Gospel invitation hymn melody.",
+    order: 27,
+    phrases: [
+      {
+        slug: "softly-and-tenderly-opening",
+        title: "Opening Phrase",
+        description: "Start softly with a narrow, singable phrase.",
+        stepPrefix: "sat-opening",
+        rhythmHint: "Soft invitation opening with gentle repeated notes",
+        notes: ["C4", "E4", "G4", "E4", "D4", "C4", "D4", "E4", "G4", "E4", "D4", "C4"]
+      },
+      {
+        slug: "softly-and-tenderly-calling",
+        title: "Calling Phrase",
+        description: "Play the calling phrase with an easy lift.",
+        stepPrefix: "sat-calling",
+        rhythmHint: "Calling phrase with a warm upward turn",
+        notes: ["E4", "G4", "A4", "G4", "E4", "D4", "E4", "G4", "A4", "G4", "E4", "D4"]
+      },
+      {
+        slug: "softly-and-tenderly-close",
+        title: "Closing Phrase",
+        description: "Bring the phrase home with a calm descent.",
+        stepPrefix: "sat-close",
+        rhythmHint: "Closing invitation phrase with a soft final note",
+        notes: ["G4", "A4", "C5", "A4", "G4", "E4", "D4", "C4", "D4", "E4", "D4", "C4"]
+      }
+    ]
+  }),
+  buildGospelMelodyCourse({
+    slug: "just-as-i-am",
+    title: "Just As I Am",
+    description: "Practice a simplified right-hand Gospel hymn melody with a calm contour.",
+    order: 28,
+    phrases: [
+      {
+        slug: "just-as-i-am-opening",
+        title: "Opening Phrase",
+        description: "Begin with the simple, steady opening phrase.",
+        stepPrefix: "jaia-opening",
+        rhythmHint: "Plain hymn opening with steady steps",
+        notes: ["C4", "D4", "E4", "G4", "E4", "D4", "C4", "D4", "E4", "G4", "E4", "D4"]
+      },
+      {
+        slug: "just-as-i-am-answer",
+        title: "Answer Phrase",
+        description: "Answer with a measured rise and return.",
+        stepPrefix: "jaia-answer",
+        rhythmHint: "Measured answer phrase with a small upper turn",
+        notes: ["E4", "G4", "A4", "G4", "E4", "D4", "E4", "G4", "A4", "G4", "E4", "D4"]
+      },
+      {
+        slug: "just-as-i-am-close",
+        title: "Closing Phrase",
+        description: "Close the melody with a centered final cadence.",
+        stepPrefix: "jaia-close",
+        rhythmHint: "Closing phrase with a quiet final landing",
+        notes: ["G4", "E4", "D4", "C4", "D4", "E4", "G4", "E4", "D4", "C4", "C4", "C4"]
+      }
+    ]
+  }),
+  buildGospelMelodyCourse({
+    slug: "leaning-on-the-everlasting-arms",
+    title: "Leaning On The Everlasting Arms",
+    description: "Learn a simplified right-hand Gospel melody with an easy rocking feel.",
+    order: 29,
+    phrases: [
+      {
+        slug: "leaning-on-the-everlasting-arms-opening",
+        title: "Opening Phrase",
+        description: "Start with the rocking repeated-note opening.",
+        stepPrefix: "lotea-opening",
+        rhythmHint: "Rocking gospel opening with repeated center notes",
+        notes: ["C4", "E4", "G4", "G4", "E4", "C4", "D4", "E4", "G4", "G4", "E4", "D4"]
+      },
+      {
+        slug: "leaning-on-the-everlasting-arms-leaning",
+        title: "Leaning Phrase",
+        description: "Move through the leaning phrase with a bright lift.",
+        stepPrefix: "lotea-leaning",
+        rhythmHint: "Leaning phrase with a buoyant upper turn",
+        notes: ["E4", "G4", "A4", "A4", "G4", "E4", "D4", "E4", "G4", "A4", "G4", "E4"]
+      },
+      {
+        slug: "leaning-on-the-everlasting-arms-close",
+        title: "Closing Phrase",
+        description: "Finish by rocking back to the home note.",
+        stepPrefix: "lotea-close",
+        rhythmHint: "Closing phrase with a steady gospel cadence",
+        notes: ["G4", "E4", "D4", "C4", "D4", "E4", "G4", "E4", "D4", "C4", "C4", "C4"]
+      }
+    ]
+  }),
+  buildGospelMelodyCourse({
+    slug: "victory-in-jesus-limited-excerpt",
+    title: "Victory In Jesus Limited Excerpt",
+    description:
+      "Practice a licensed or legally approved excerpt as a simplified right-hand Gospel melody.",
+    order: 30,
+    phrases: [
+      {
+        slug: "victory-in-jesus-opening",
+        title: "Opening Phrase",
+        description: "Start the approved excerpt with a lively opening contour.",
+        stepPrefix: "vij-opening",
+        rhythmHint: "Approved excerpt opening with lively repeated notes",
+        notes: ["C4", "E4", "G4", "A4", "G4", "E4", "D4", "C4", "E4", "G4", "A4", "G4"]
+      },
+      {
+        slug: "victory-in-jesus-answer",
+        title: "Answer Phrase",
+        description: "Answer the excerpt through a compact upper turn.",
+        stepPrefix: "vij-answer",
+        rhythmHint: "Approved excerpt answer with a bright turn",
+        notes: ["G4", "A4", "B4", "C5", "B4", "A4", "G4", "E4", "G4", "A4", "G4", "E4"]
+      },
+      {
+        slug: "victory-in-jesus-close",
+        title: "Closing Phrase",
+        description: "Close the approved excerpt without extending into a full transcription.",
+        stepPrefix: "vij-close",
+        rhythmHint: "Approved excerpt close with a firm final note",
+        notes: ["A4", "G4", "E4", "D4", "C4", "D4", "E4", "G4", "E4", "D4", "C4", "C4"]
+      }
+    ]
+  }),
+  buildGospelMelodyCourse({
+    slug: "trust-and-obey",
+    title: "Trust And Obey",
+    description: "Learn a simplified right-hand Gospel hymn melody with a steady march feel.",
+    order: 31,
+    phrases: [
+      {
+        slug: "trust-and-obey-opening",
+        title: "Opening Phrase",
+        description: "Begin with the steady opening phrase.",
+        stepPrefix: "tao-opening",
+        rhythmHint: "Steady hymn opening with clear repeated notes",
+        notes: ["C4", "E4", "G4", "G4", "A4", "G4", "E4", "D4", "C4", "D4", "E4", "G4"]
+      },
+      {
+        slug: "trust-and-obey-answer",
+        title: "Answer Phrase",
+        description: "Answer with an easy lift and return.",
+        stepPrefix: "tao-answer",
+        rhythmHint: "Answer phrase with a march-like pulse",
+        notes: ["E4", "G4", "A4", "B4", "A4", "G4", "E4", "G4", "A4", "G4", "E4", "D4"]
+      },
+      {
+        slug: "trust-and-obey-close",
+        title: "Closing Phrase",
+        description: "Close with a direct, confident cadence.",
+        stepPrefix: "tao-close",
+        rhythmHint: "Closing phrase with a clear final landing",
+        notes: ["G4", "E4", "D4", "C4", "D4", "E4", "G4", "E4", "D4", "C4", "C4", "C4"]
+      }
+    ]
+  }),
+  buildGospelMelodyCourse({
+    slug: "jesus-loves-me",
+    title: "Jesus Loves Me",
+    description: "Practice a simple right-hand Gospel melody that stays close to middle C.",
+    order: 32,
+    phrases: [
+      {
+        slug: "jesus-loves-me-opening",
+        title: "Opening Phrase",
+        description: "Start the familiar melody with small steps.",
+        stepPrefix: "jlm-opening",
+        rhythmHint: "Simple opening with gentle repeated notes",
+        notes: ["G4", "E4", "E4", "D4", "E4", "G4", "G4", "A4", "G4", "E4", "D4", "C4"]
+      },
+      {
+        slug: "jesus-loves-me-answer",
+        title: "Answer Phrase",
+        description: "Answer with the same compact hand position.",
+        stepPrefix: "jlm-answer",
+        rhythmHint: "Answer phrase with a childlike steady pulse",
+        notes: ["C4", "D4", "E4", "G4", "G4", "E4", "D4", "C4", "D4", "E4", "D4", "C4"]
+      },
+      {
+        slug: "jesus-loves-me-close",
+        title: "Closing Phrase",
+        description: "Close the melody by returning to the home note.",
+        stepPrefix: "jlm-close",
+        rhythmHint: "Closing phrase with an easy final cadence",
+        notes: ["G4", "E4", "E4", "D4", "E4", "G4", "A4", "G4", "E4", "D4", "C4", "C4"]
+      }
+    ]
+  }),
+  buildGospelMelodyCourse({
+    slug: "this-little-light-of-mine",
+    title: "This Little Light Of Mine",
+    description: "Learn a simplified right-hand Gospel melody with an upbeat repeated figure.",
+    order: 33,
+    phrases: [
+      {
+        slug: "this-little-light-of-mine-opening",
+        title: "Opening Phrase",
+        description: "Start with the bright repeated-note hook.",
+        stepPrefix: "tllom-opening",
+        rhythmHint: "Bright gospel opening with repeated notes",
+        notes: ["C4", "E4", "G4", "G4", "A4", "G4", "E4", "C4", "E4", "G4", "A4", "G4"]
+      },
+      {
+        slug: "this-little-light-of-mine-shine",
+        title: "Shine Phrase",
+        description: "Play the shine phrase with a small upper turn.",
+        stepPrefix: "tllom-shine",
+        rhythmHint: "Shine phrase with an upbeat swing feel",
+        notes: ["E4", "G4", "A4", "C5", "A4", "G4", "E4", "G4", "A4", "G4", "E4", "D4"]
+      },
+      {
+        slug: "this-little-light-of-mine-close",
+        title: "Closing Phrase",
+        description: "Finish with a strong stepwise return.",
+        stepPrefix: "tllom-close",
+        rhythmHint: "Closing phrase with a bright final landing",
+        notes: ["G4", "E4", "D4", "C4", "D4", "E4", "G4", "E4", "D4", "C4", "C4", "C4"]
+      }
+    ]
+  }),
+  buildGospelMelodyCourse({
+    slug: "swing-low-sweet-chariot",
+    title: "Swing Low Sweet Chariot",
+    description: "Practice a simplified spiritual melody with a broad, gentle contour.",
+    order: 34,
+    phrases: [
+      {
+        slug: "swing-low-sweet-chariot-opening",
+        title: "Opening Phrase",
+        description: "Begin with the low swinging call.",
+        stepPrefix: "slsc-opening",
+        rhythmHint: "Broad spiritual opening with a low call",
+        notes: ["C4", "E4", "G4", "E4", "C4", "A3", "C4", "D4", "E4", "G4", "E4", "D4"]
+      },
+      {
+        slug: "swing-low-sweet-chariot-answer",
+        title: "Answer Phrase",
+        description: "Answer the call with a smooth rise and return.",
+        stepPrefix: "slsc-answer",
+        rhythmHint: "Answer phrase with a swinging upper turn",
+        notes: ["E4", "G4", "A4", "G4", "E4", "D4", "C4", "D4", "E4", "G4", "E4", "D4"]
+      },
+      {
+        slug: "swing-low-sweet-chariot-close",
+        title: "Closing Phrase",
+        description: "Settle the spiritual back to the low home note.",
+        stepPrefix: "slsc-close",
+        rhythmHint: "Closing phrase with a broad final landing",
+        notes: ["G4", "E4", "D4", "C4", "A3", "C4", "D4", "E4", "D4", "C4", "A3", "C4"]
+      }
+    ]
+  }),
+  buildGospelMelodyCourse({
+    slug: "go-tell-it-on-the-mountain",
+    title: "Go Tell It On The Mountain",
+    description: "Learn a simplified right-hand spiritual melody with a confident call.",
+    order: 35,
+    phrases: [
+      {
+        slug: "go-tell-it-on-the-mountain-opening",
+        title: "Opening Phrase",
+        description: "Start with the strong mountain-call opening.",
+        stepPrefix: "gtiotm-opening",
+        rhythmHint: "Confident spiritual opening with repeated notes",
+        notes: ["G4", "G4", "E4", "G4", "A4", "G4", "E4", "D4", "C4", "D4", "E4", "G4"]
+      },
+      {
+        slug: "go-tell-it-on-the-mountain-call",
+        title: "Call Phrase",
+        description: "Lift the call through the upper notes and return.",
+        stepPrefix: "gtiotm-call",
+        rhythmHint: "Call phrase with a bright top-note arrival",
+        notes: ["E4", "G4", "A4", "C5", "A4", "G4", "E4", "G4", "A4", "G4", "E4", "D4"]
+      },
+      {
+        slug: "go-tell-it-on-the-mountain-close",
+        title: "Closing Phrase",
+        description: "Finish the spiritual with a firm final cadence.",
+        stepPrefix: "gtiotm-close",
+        rhythmHint: "Closing phrase with a strong final landing",
+        notes: ["G4", "E4", "D4", "C4", "D4", "E4", "G4", "E4", "D4", "C4", "C4", "C4"]
+      }
+    ]
+  })
+];
+
+export const seedCourses: Course[] = [
+  ...foundationalCourses,
+  ...reggaeCourses,
+  ...gospelCourses
+].map((course) => courseSchema.parse(course));
