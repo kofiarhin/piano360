@@ -167,6 +167,38 @@ const mockFetch = () => {
   );
 };
 
+const installStaticMatchMedia = (matchesByQuery: Record<string, boolean>) => {
+  vi.stubGlobal(
+    "matchMedia",
+    vi.fn((query: string) => ({
+      media: query,
+      matches: Boolean(matchesByQuery[query]),
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(() => true)
+    }))
+  );
+};
+
+const setViewportSize = (width: number, height: number) => {
+  Object.defineProperty(window, "innerWidth", { configurable: true, value: width });
+  Object.defineProperty(window, "innerHeight", { configurable: true, value: height });
+  Object.defineProperty(document.documentElement, "clientWidth", {
+    configurable: true,
+    value: width
+  });
+  Object.defineProperty(document.documentElement, "clientHeight", {
+    configurable: true,
+    value: height
+  });
+};
+
+const phoneLandscapeMedia =
+  "(pointer: coarse) and (max-width: 767px), (pointer: coarse) and (max-height: 767px)";
+
 describe("Piano360 course MVP", () => {
   beforeEach(() => {
     setCurrentLesson(lessonDetail);
@@ -184,6 +216,7 @@ describe("Piano360 course MVP", () => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
     vi.clearAllMocks();
+    document.body.className = "";
   });
 
   it("renders the marketing landing page at the root route", async () => {
@@ -290,15 +323,11 @@ describe("Piano360 course MVP", () => {
 
     const c4Key = screen.getByRole("button", { name: /C4, white key/i });
     fireEvent.pointerDown(c4Key, { pointerId: 9 });
-    expect(screen.getByLabelText("Freestyle live notes")).toHaveTextContent(
-      "E4 + G4 + C5 + C4"
-    );
+    expect(screen.getByLabelText("Freestyle live notes")).toHaveTextContent("E4 + G4 + C5 + C4");
     expect(playNote).toHaveBeenCalledWith("C4");
 
     fireEvent.pointerUp(c4Key, { pointerId: 9 });
-    expect(screen.getByLabelText("Freestyle live notes")).toHaveTextContent(
-      "E4 + G4 + C5 + C4"
-    );
+    expect(screen.getByLabelText("Freestyle live notes")).toHaveTextContent("E4 + G4 + C5 + C4");
     expect(c4Key.className).not.toContain("bg-[#8B5CF6]");
   });
 
@@ -487,6 +516,117 @@ describe("Piano360 course MVP", () => {
     expect(within(instructionPanel).queryByText("Play C4.")).not.toBeInTheDocument();
     expect(within(instructionPanel).getByText("1/1")).toBeInTheDocument();
     expect(within(instructionPanel).getByText("Play the highlighted note")).toBeInTheDocument();
+  });
+
+  it("uses the shared forced-landscape shell for lessons on phone portrait viewports", async () => {
+    setViewportSize(390, 844);
+    installStaticMatchMedia({
+      [phoneLandscapeMedia]: true
+    });
+
+    await renderUnlockedLesson();
+
+    const shell = screen.getByTestId("lesson-player-shell");
+    const header = screen.getByRole("banner");
+    const instructionPanel = screen.getByLabelText("Lesson instruction");
+    const piano = screen.getByLabelText("Virtual piano");
+
+    expect(shell).toHaveClass("mobile-landscape-shell--active");
+    expect(shell).toHaveAttribute("data-mobile-landscape-shell", "active");
+    expect(shell).toContainElement(header);
+    expect(header).toHaveClass("site-header");
+    expect(document.body).toHaveClass("piano360-mobile-landscape");
+    expect(instructionPanel.compareDocumentPosition(piano)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+
+    const pianoScroll = piano.querySelector(".piano-scroll");
+    expect(pianoScroll).toHaveClass("overflow-x-hidden");
+    expect(pianoScroll).not.toHaveClass("overflow-x-auto");
+  });
+
+  it("keeps the lesson shell active after a phone is physically rotated", async () => {
+    setViewportSize(844, 390);
+    installStaticMatchMedia({
+      [phoneLandscapeMedia]: true
+    });
+
+    await renderUnlockedLesson();
+
+    const shell = screen.getByTestId("lesson-player-shell");
+    const pianoScroll = screen.getByLabelText("Virtual piano").querySelector(".piano-scroll");
+
+    expect(shell).toHaveClass("mobile-landscape-shell--active");
+    expect(shell).toHaveAttribute("data-mobile-landscape-shell", "active");
+    expect(document.body).toHaveClass("piano360-mobile-landscape");
+    expect(pianoScroll).toHaveClass("overflow-x-hidden");
+  });
+
+  it("preserves the active lesson step in the forced-landscape phone layout", async () => {
+    setCurrentLesson({
+      ...lessonDetail,
+      steps: [
+        {
+          id: "first-c4",
+          type: "single-note",
+          instruction: "Play C4.",
+          targetNotes: ["C4"]
+        },
+        {
+          id: "second-d4",
+          type: "single-note",
+          instruction: "Play D4.",
+          targetNotes: ["D4"]
+        }
+      ]
+    });
+    setViewportSize(390, 844);
+    installStaticMatchMedia({
+      [phoneLandscapeMedia]: true
+    });
+    setAudioStatus("ready");
+    await renderUnlockedLesson();
+
+    fireEvent.keyDown(window, { key: "d" });
+
+    expect(screen.getByTestId("lesson-player-shell")).toHaveClass("mobile-landscape-shell--active");
+    expect(screen.getByLabelText("Lesson instruction")).toHaveTextContent("D4");
+    expect(screen.getByLabelText("Lesson instruction")).toHaveTextContent("2/2");
+  });
+
+  it("uses the shared forced-landscape shell for Freestyle on phone viewports", async () => {
+    setViewportSize(390, 844);
+    installStaticMatchMedia({
+      [phoneLandscapeMedia]: true
+    });
+    window.history.pushState({}, "", "/freestyle");
+
+    render(<App />);
+
+    const shell = await screen.findByTestId("freestyle-mode-shell");
+    const pianoScroll = screen.getByLabelText("Virtual piano").querySelector(".piano-scroll");
+
+    expect(shell).toHaveClass("mobile-landscape-shell--active");
+    expect(shell).toHaveAttribute("data-mobile-landscape-shell", "active");
+    expect(document.body).toHaveClass("piano360-mobile-landscape");
+    expect(screen.getByLabelText("Freestyle live notes")).toHaveTextContent("Press any key");
+    expect(pianoScroll).toHaveClass("overflow-x-hidden");
+    expect(pianoScroll).not.toHaveClass("overflow-x-auto");
+  });
+
+  it("retains the normal lesson layout above the phone breakpoint", async () => {
+    setViewportSize(1024, 768);
+    installStaticMatchMedia({
+      [phoneLandscapeMedia]: false
+    });
+
+    await renderUnlockedLesson();
+
+    const shell = screen.getByTestId("lesson-player-shell");
+    const pianoScroll = screen.getByLabelText("Virtual piano").querySelector(".piano-scroll");
+
+    expect(shell).not.toHaveClass("mobile-landscape-shell--active");
+    expect(shell).toHaveAttribute("data-mobile-landscape-shell", "inactive");
+    expect(document.body).not.toHaveClass("piano360-mobile-landscape");
+    expect(pianoScroll).toHaveClass("overflow-x-auto");
   });
 
   it("updates the visible note instruction when the lesson advances", async () => {

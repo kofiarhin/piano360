@@ -11,7 +11,7 @@ export const SiteHeader = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <header className="border-b border-white/10 bg-[#12110f]/95 text-stone-100 backdrop-blur">
+    <header className="site-header border-b border-white/10 bg-[#12110f]/95 text-stone-100 backdrop-blur">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 md:px-6">
         <Link
           to="/"

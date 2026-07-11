@@ -51,13 +51,7 @@ describe("CoursePiano", () => {
       "bg-[#8B5CF6]"
     );
 
-    rerender(
-      <CoursePiano
-        targetNotes={[]}
-        activeNotes={["C4"]}
-        onInput={vi.fn()}
-      />
-    );
+    rerender(<CoursePiano targetNotes={[]} activeNotes={["C4"]} onInput={vi.fn()} />);
 
     expect(screen.getByRole("button", { name: /C4, white key/i }).className).toContain(
       "bg-[#10B981]"
@@ -65,12 +59,7 @@ describe("CoursePiano", () => {
   });
 
   it("renders visible outline or glow styling for white and black highlighted keys", () => {
-    render(
-      <CoursePiano
-        targetNotes={["C4", "C#4"]}
-        onInput={vi.fn()}
-      />
-    );
+    render(<CoursePiano targetNotes={["C4", "C#4"]} onInput={vi.fn()} />);
 
     const whiteKeyClassName = screen.getByRole("button", { name: /C4, white key/i }).className;
     const blackKeyClassName = screen.getByRole("button", { name: /C#4, black key/i }).className;
@@ -125,12 +114,7 @@ describe("CoursePiano", () => {
   it("triggers virtual piano input on pointerdown", () => {
     const onInput = vi.fn();
 
-    render(
-      <CoursePiano
-        targetNotes={["C4"]}
-        onInput={onInput}
-      />
-    );
+    render(<CoursePiano targetNotes={["C4"]} onInput={onInput} />);
 
     const c4Key = screen.getByRole("button", { name: /C4, white key/i });
     fireEvent.pointerUp(c4Key);
@@ -140,17 +124,20 @@ describe("CoursePiano", () => {
     expect(onInput).toHaveBeenCalledWith("C4");
   });
 
+  it("can fit the keyboard to its container without horizontal scrolling", () => {
+    render(<CoursePiano targetNotes={[]} fitToContainer onInput={vi.fn()} />);
+
+    const pianoScroll = screen.getByLabelText("Virtual piano").querySelector(".piano-scroll");
+
+    expect(pianoScroll).toHaveClass("overflow-x-hidden");
+    expect(pianoScroll).not.toHaveClass("overflow-x-auto");
+  });
+
   it("reports pointer release and cancel events when release handling is provided", () => {
     const onInput = vi.fn();
     const onRelease = vi.fn();
 
-    render(
-      <CoursePiano
-        targetNotes={["C4"]}
-        onInput={onInput}
-        onRelease={onRelease}
-      />
-    );
+    render(<CoursePiano targetNotes={["C4"]} onInput={onInput} onRelease={onRelease} />);
 
     const c4Key = screen.getByRole("button", { name: /C4, white key/i });
     fireEvent.pointerDown(c4Key, { pointerId: 21 });

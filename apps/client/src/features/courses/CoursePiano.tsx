@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useRef } from "react";
 import type { CSSProperties, PointerEvent } from "react";
 
 import { keyboardKeys } from "./courseKeyboard";
@@ -13,6 +14,9 @@ type CoursePianoProps = {
   wrongNotes?: NoteId[];
   activeVariant?: "lesson" | "freestyle";
   disabled?: boolean;
+  autoScrollNotes?: NoteId[];
+  className?: string;
+  fitToContainer?: boolean;
   onInput: (noteId: NoteId) => void;
   onPress?: (noteId: NoteId, source: PianoInputSource) => void;
   onRelease?: (noteId: NoteId, source: PianoInputSource) => void;
@@ -191,24 +195,137 @@ export const CoursePiano = ({
   wrongNotes = [],
   activeVariant = "lesson",
   disabled = false,
+  autoScrollNotes = [],
+  className,
+  fitToContainer = false,
   onInput,
   onPress,
   onRelease,
   onPrepareAudio
 }: CoursePianoProps) => {
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const isUserInteractingRef = useRef(false);
+  const isProgrammaticScrollRef = useRef(false);
+  const resumeAutoScrollTimerRef = useRef<number | undefined>(undefined);
+  const programmaticScrollTimerRef = useRef<number | undefined>(undefined);
+  const autoScrollNotesRef = useRef(autoScrollNotes);
   const visualStateFor = (noteId: NoteId) =>
     getVisualState(noteId, targetNotes, activeNotes, correctNotes, wrongNotes);
+
+  const centerAutoScrollNote = useCallback(() => {
+    const scrollContainer = scrollContainerRef.current;
+    if (!scrollContainer || fitToContainer || isUserInteractingRef.current) {
+      return;
+    }
+
+    const noteButtons = Array.from(
+      scrollContainer.querySelectorAll<HTMLButtonElement>("[data-note-id]")
+    );
+    const targetButton =
+      autoScrollNotesRef.current
+        .map((noteId) => noteButtons.find((button) => button.dataset.noteId === noteId))
+        .find((button) => {
+          if (!button) {
+            return false;
+          }
+
+          const start = button.offsetLeft;
+          const end = start + button.offsetWidth;
+          return (
+            start < scrollContainer.scrollLeft ||
+            end > scrollContainer.scrollLeft + scrollContainer.clientWidth
+          );
+        }) ??
+      autoScrollNotesRef.current
+        .map((noteId) => noteButtons.find((button) => button.dataset.noteId === noteId))
+        .find(Boolean);
+
+    if (!targetButton) {
+      return;
+    }
+
+    const maxScrollLeft = Math.max(0, scrollContainer.scrollWidth - scrollContainer.clientWidth);
+    const targetScrollLeft = Math.min(
+      maxScrollLeft,
+      Math.max(
+        0,
+        targetButton.offsetLeft + targetButton.offsetWidth / 2 - scrollContainer.clientWidth / 2
+      )
+    );
+
+    if (Math.abs(targetScrollLeft - scrollContainer.scrollLeft) < 2) {
+      return;
+    }
+
+    window.clearTimeout(programmaticScrollTimerRef.current);
+    isProgrammaticScrollRef.current = true;
+    scrollContainer.scrollTo({ left: targetScrollLeft, behavior: "smooth" });
+    programmaticScrollTimerRef.current = window.setTimeout(() => {
+      isProgrammaticScrollRef.current = false;
+    }, 450);
+  }, [fitToContainer]);
+
+  const scheduleAutoScrollResume = useCallback(() => {
+    window.clearTimeout(resumeAutoScrollTimerRef.current);
+    resumeAutoScrollTimerRef.current = window.setTimeout(() => {
+      isUserInteractingRef.current = false;
+      centerAutoScrollNote();
+    }, 700);
+  }, [centerAutoScrollNote]);
+
+  useEffect(() => {
+    autoScrollNotesRef.current = autoScrollNotes;
+    centerAutoScrollNote();
+  }, [autoScrollNotes, centerAutoScrollNote]);
+
+  useEffect(
+    () => () => {
+      window.clearTimeout(resumeAutoScrollTimerRef.current);
+      window.clearTimeout(programmaticScrollTimerRef.current);
+    },
+    []
+  );
 
   return (
     <section
       aria-label="Virtual piano"
       aria-disabled={disabled}
-      className="relative min-w-0 rounded-2xl border border-stone-800 bg-stone-950 p-2 shadow-[0_18px_50px_-35px_rgba(0,0,0,0.95)]"
+      className={[
+        "relative min-w-0 rounded-2xl border border-stone-800 bg-stone-950 p-2 shadow-[0_18px_50px_-35px_rgba(0,0,0,0.95)]",
+        className ?? ""
+      ].join(" ")}
     >
       <div className="min-w-0 rounded-xl border border-stone-700 bg-[#191511] p-2">
         <div className="h-3 rounded-t-lg bg-[linear-gradient(90deg,#2f261f,#6f3f2d,#2f261f)]" />
-        <div className="piano-scroll relative overflow-x-auto rounded-b-xl bg-zinc-950 p-2">
-          <div className="relative mx-auto h-64 min-w-[46rem] sm:h-72 md:min-w-0">
+        <div
+          ref={scrollContainerRef}
+          className={[
+            "piano-scroll relative rounded-b-xl bg-zinc-950 p-2",
+            fitToContainer ? "overflow-x-hidden" : "overflow-x-auto"
+          ].join(" ")}
+          onPointerDown={() => {
+            isUserInteractingRef.current = true;
+            window.clearTimeout(resumeAutoScrollTimerRef.current);
+          }}
+          onPointerUp={scheduleAutoScrollResume}
+          onPointerCancel={scheduleAutoScrollResume}
+          onTouchEnd={scheduleAutoScrollResume}
+          onScroll={() => {
+            if (!isProgrammaticScrollRef.current) {
+              isUserInteractingRef.current = true;
+              scheduleAutoScrollResume();
+            }
+          }}
+        >
+          <div
+            className={[
+              "relative mx-auto h-64 w-full sm:h-72",
+              fitToContainer ? "min-w-0" : "min-w-[30.25rem]"
+            ].join(" ")}
+            style={
+              fitToContainer ? undefined : { minWidth: `max(100%, ${whiteKeys.length * 44}px)` }
+            }
+          >
             <div className="flex h-full gap-[3px]">
               {whiteKeys.map((key) => (
                 <PianoKeyButton

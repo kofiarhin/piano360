@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
 
 import {
@@ -24,6 +25,8 @@ import {
   type LessonSession
 } from "./lessonEngine";
 import { isLessonUnlocked, loadProgress, recordLessonCompletion } from "./progressStorage";
+import { SiteHeader } from "../../shared/SiteHeader";
+import { MobileLandscapeShell, useMobileLandscapeMode } from "../../shared/MobileLandscapeShell";
 
 const isEditableTarget = (target: EventTarget | null) => {
   if (!(target instanceof HTMLElement)) {
@@ -35,6 +38,17 @@ const isEditableTarget = (target: EventTarget | null) => {
 
 const NOTE_FEEDBACK_MS = 300;
 type TransientFeedback = Partial<Record<NoteId, "correct" | "wrong">>;
+
+const LessonPageFrame = ({ active, children }: { active?: boolean; children: ReactNode }) => (
+  <MobileLandscapeShell
+    active={active}
+    className="lesson-player-page bg-[#12110f] text-stone-100"
+    testId="lesson-player-shell"
+  >
+    <SiteHeader />
+    {children}
+  </MobileLandscapeShell>
+);
 
 type CompletionSummaryProps = {
   lesson: LessonDetail;
@@ -56,7 +70,7 @@ const CompletionSummary = ({
   }
 
   return (
-    <section className="rounded-xl border border-emerald-200/30 bg-emerald-950/25 p-4 text-emerald-50">
+    <section className="lesson-player-completion rounded-xl border border-emerald-200/30 bg-emerald-950/25 p-4 text-emerald-50">
       <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-start">
         <div>
           <p className="font-mono text-xs font-black uppercase tracking-[0.18em] text-emerald-200">
@@ -117,6 +131,7 @@ type PlayerLoadedProps = {
 };
 
 const PlayerLoaded = ({ lesson, courseLessons, onProgressSaved }: PlayerLoadedProps) => {
+  const mobileLandscapeActive = useMobileLandscapeMode();
   const [session, setSession] = useState(() => initializeLessonSession(lesson));
   const [audioStatus, setAudioStatus] = useState<AudioStatus>(() => getAudioStatus());
   const [transientFeedback, setTransientFeedback] = useState<TransientFeedback>({});
@@ -326,100 +341,105 @@ const PlayerLoaded = ({ lesson, courseLessons, onProgressSaved }: PlayerLoadedPr
     .map(([noteId]) => noteId as NoteId);
 
   return (
-    <main className="min-h-[100dvh] bg-[#12110f] text-stone-100">
-      <div className="mx-auto grid w-full min-w-0 max-w-7xl gap-4 px-4 py-4 md:px-6 lg:py-6">
-        <nav className="flex min-w-0 flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <Link
-              className="font-bold text-amber-100 underline-offset-4 hover:underline"
-              to={`/courses/${lesson.courseSlug}`}
+    <LessonPageFrame active={mobileLandscapeActive}>
+      <main className="lesson-player-main min-h-[100dvh] bg-[#12110f] text-stone-100">
+        <div className="lesson-player-workspace mx-auto grid w-full min-w-0 max-w-7xl gap-4 px-4 py-4 md:px-6 lg:py-6">
+          <nav className="lesson-player-nav flex min-w-0 flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <Link
+                className="font-bold text-amber-100 underline-offset-4 hover:underline"
+                to={`/courses/${lesson.courseSlug}`}
+              >
+                {lesson.courseTitle}
+              </Link>
+              <h1 className="mt-1 break-words text-2xl font-black tracking-tight text-white">
+                {lesson.title}
+              </h1>
+            </div>
+            <button
+              type="button"
+              onClick={restart}
+              className="rounded-lg border border-white/15 px-3 py-2 text-sm font-black transition active:translate-y-0.5"
             >
-              {lesson.courseTitle}
-            </Link>
-            <h1 className="mt-1 break-words text-2xl font-black tracking-tight text-white">
-              {lesson.title}
-            </h1>
-          </div>
-          <button
-            type="button"
-            onClick={restart}
-            className="rounded-lg border border-white/15 px-3 py-2 text-sm font-black transition active:translate-y-0.5"
+              Restart
+            </button>
+          </nav>
+
+          <section
+            aria-label="Lesson instruction"
+            className="lesson-player-instruction grid min-w-0 gap-4 rounded-xl border border-white/10 bg-white/[0.04] p-4 text-center"
           >
-            Restart
-          </button>
-        </nav>
-
-        <section
-          aria-label="Lesson instruction"
-          className="grid min-w-0 gap-4 rounded-xl border border-white/10 bg-white/[0.04] p-4 text-center"
-        >
-          <div className="grid justify-items-center gap-2">
-            <p className="font-mono text-xs font-black uppercase tracking-[0.18em] text-amber-200/80">
-              {lesson.courseHand} hand / {currentStep?.type ?? "complete"}
-            </p>
-            <p
-              aria-label={instructionLabel}
-              className="max-w-full break-words font-mono text-5xl font-black leading-none tracking-normal text-white sm:text-6xl"
-            >
-              {instructionNotes}
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center justify-center gap-3">
-            <div className="min-h-11 rounded-lg border border-white/10 bg-stone-950/70 px-3 py-2 font-mono font-black">
-              {session.currentStepIndex + 1}/{lesson.steps.length}
+            <div className="grid justify-items-center gap-2">
+              <p className="font-mono text-xs font-black uppercase tracking-[0.18em] text-amber-200/80">
+                {lesson.courseHand} hand / {currentStep?.type ?? "complete"}
+              </p>
+              <p
+                aria-label={instructionLabel}
+                className="lesson-player-notes max-w-full break-words font-mono text-5xl font-black leading-none tracking-normal text-white sm:text-6xl"
+              >
+                {instructionNotes}
+              </p>
             </div>
-            <div
-              aria-live="polite"
-              className={[
-                "min-h-11 max-w-full break-words rounded-lg border px-3 py-2 font-black",
-                !isAudioReady ? "border-amber-200/40 bg-amber-950/35 text-amber-100" : "",
-                session.feedback === "correct"
-                  ? "border-emerald-200/40 bg-emerald-950/40 text-emerald-100"
-                  : "",
-                session.feedback === "incorrect"
-                  ? "border-rose-200/40 bg-rose-950/40 text-rose-100"
-                  : "",
-                session.feedback === "completed"
-                  ? "border-emerald-200/40 bg-emerald-950/40 text-emerald-100"
-                  : "",
-                isAudioReady && session.feedback === "idle"
-                  ? "border-white/10 bg-white/[0.04] text-stone-200"
-                  : ""
-              ].join(" ")}
-            >
-              {!isAudioReady && audioMessage}
-              {isAudioReady &&
-                session.feedback === "idle" &&
-                (currentStep?.type === "chord"
-                  ? "Play all highlighted notes"
-                  : "Play the highlighted note")}
-              {isAudioReady && session.feedback === "correct" && "Correct"}
-              {isAudioReady && session.feedback === "incorrect" && "Try again"}
-              {isAudioReady && session.feedback === "completed" && "Complete"}
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <div className="min-h-11 rounded-lg border border-white/10 bg-stone-950/70 px-3 py-2 font-mono font-black">
+                {session.currentStepIndex + 1}/{lesson.steps.length}
+              </div>
+              <div
+                aria-live="polite"
+                className={[
+                  "min-h-11 max-w-full break-words rounded-lg border px-3 py-2 font-black",
+                  !isAudioReady ? "border-amber-200/40 bg-amber-950/35 text-amber-100" : "",
+                  session.feedback === "correct"
+                    ? "border-emerald-200/40 bg-emerald-950/40 text-emerald-100"
+                    : "",
+                  session.feedback === "incorrect"
+                    ? "border-rose-200/40 bg-rose-950/40 text-rose-100"
+                    : "",
+                  session.feedback === "completed"
+                    ? "border-emerald-200/40 bg-emerald-950/40 text-emerald-100"
+                    : "",
+                  isAudioReady && session.feedback === "idle"
+                    ? "border-white/10 bg-white/[0.04] text-stone-200"
+                    : ""
+                ].join(" ")}
+              >
+                {!isAudioReady && audioMessage}
+                {isAudioReady &&
+                  session.feedback === "idle" &&
+                  (currentStep?.type === "chord"
+                    ? "Play all highlighted notes"
+                    : "Play the highlighted note")}
+                {isAudioReady && session.feedback === "correct" && "Correct"}
+                {isAudioReady && session.feedback === "incorrect" && "Try again"}
+                {isAudioReady && session.feedback === "completed" && "Complete"}
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
 
-        {session.status === "completed" ? (
-          <CompletionSummary
-            lesson={lesson}
-            session={session}
-            nextLessonSlug={nextLessonSlug}
-            onReplay={replay}
+          {session.status === "completed" ? (
+            <CompletionSummary
+              lesson={lesson}
+              session={session}
+              nextLessonSlug={nextLessonSlug}
+              onReplay={replay}
+            />
+          ) : null}
+
+          <CoursePiano
+            className="lesson-player-piano"
+            targetNotes={pianoTargetNotes}
+            activeNotes={isAudioReady ? session.activeNotes : []}
+            correctNotes={correctNotes}
+            wrongNotes={wrongNotes}
+            disabled={!isAudioReady}
+            autoScrollNotes={pianoTargetNotes}
+            fitToContainer={mobileLandscapeActive}
+            onInput={handleInput}
+            onPrepareAudio={prepareAudio}
           />
-        ) : null}
-
-        <CoursePiano
-          targetNotes={pianoTargetNotes}
-          activeNotes={isAudioReady ? session.activeNotes : []}
-          correctNotes={correctNotes}
-          wrongNotes={wrongNotes}
-          disabled={!isAudioReady}
-          onInput={handleInput}
-          onPrepareAudio={prepareAudio}
-        />
-      </div>
-    </main>
+        </div>
+      </main>
+    </LessonPageFrame>
   );
 };
 
@@ -453,25 +473,29 @@ export const LessonPlayer = ({ onProgressSaved }: LessonPlayerProps) => {
 
   if (courseQuery.isLoading || (unlocked && lessonQuery.isLoading)) {
     return (
-      <main className="min-h-[100dvh] bg-[#12110f] px-4 py-8 text-stone-100">
-        <div className="mx-auto h-[32rem] max-w-7xl animate-pulse rounded-xl border border-white/10 bg-white/[0.05]" />
-      </main>
+      <LessonPageFrame>
+        <main className="min-h-[100dvh] bg-[#12110f] px-4 py-8 text-stone-100">
+          <div className="mx-auto h-[32rem] max-w-7xl animate-pulse rounded-xl border border-white/10 bg-white/[0.05]" />
+        </main>
+      </LessonPageFrame>
     );
   }
 
   if (courseQuery.isError || !courseQuery.data || !courseLesson) {
     return (
-      <main className="grid min-h-[100dvh] place-items-center bg-[#12110f] px-4 text-stone-100">
-        <section className="max-w-lg rounded-xl border border-white/10 bg-white/[0.04] p-6">
-          <h1 className="text-3xl font-black">Lesson not found</h1>
-          <Link
-            className="mt-4 inline-block rounded-lg bg-amber-200 px-4 py-2 font-black text-stone-950"
-            to="/courses"
-          >
-            Return to courses
-          </Link>
-        </section>
-      </main>
+      <LessonPageFrame>
+        <main className="grid min-h-[100dvh] place-items-center bg-[#12110f] px-4 text-stone-100">
+          <section className="max-w-lg rounded-xl border border-white/10 bg-white/[0.04] p-6">
+            <h1 className="text-3xl font-black">Lesson not found</h1>
+            <Link
+              className="mt-4 inline-block rounded-lg bg-amber-200 px-4 py-2 font-black text-stone-950"
+              to="/courses"
+            >
+              Return to courses
+            </Link>
+          </section>
+        </main>
+      </LessonPageFrame>
     );
   }
 
@@ -479,37 +503,43 @@ export const LessonPlayer = ({ onProgressSaved }: LessonPlayerProps) => {
 
   if (!unlocked) {
     return (
-      <main className="grid min-h-[100dvh] place-items-center bg-[#12110f] px-4 text-stone-100">
-        <section className="max-w-lg rounded-xl border border-white/10 bg-white/[0.04] p-6">
-          <p className="font-mono text-xs font-black uppercase tracking-[0.18em] text-amber-200/80">
-            Locked lesson
-          </p>
-          <h1 className="mt-2 text-3xl font-black">Complete the previous lesson first</h1>
-          <p className="mt-2 text-stone-300">Playback is disabled until this lesson is unlocked.</p>
-          <Link
-            className="mt-4 inline-block rounded-lg bg-amber-200 px-4 py-2 font-black text-stone-950"
-            to={`/courses/${courseSlug}`}
-          >
-            Return to course
-          </Link>
-        </section>
-      </main>
+      <LessonPageFrame>
+        <main className="grid min-h-[100dvh] place-items-center bg-[#12110f] px-4 text-stone-100">
+          <section className="max-w-lg rounded-xl border border-white/10 bg-white/[0.04] p-6">
+            <p className="font-mono text-xs font-black uppercase tracking-[0.18em] text-amber-200/80">
+              Locked lesson
+            </p>
+            <h1 className="mt-2 text-3xl font-black">Complete the previous lesson first</h1>
+            <p className="mt-2 text-stone-300">
+              Playback is disabled until this lesson is unlocked.
+            </p>
+            <Link
+              className="mt-4 inline-block rounded-lg bg-amber-200 px-4 py-2 font-black text-stone-950"
+              to={`/courses/${courseSlug}`}
+            >
+              Return to course
+            </Link>
+          </section>
+        </main>
+      </LessonPageFrame>
     );
   }
 
   if (lessonQuery.isError || !lessonQuery.data) {
     return (
-      <main className="grid min-h-[100dvh] place-items-center bg-[#12110f] px-4 text-stone-100">
-        <section className="max-w-lg rounded-xl border border-white/10 bg-white/[0.04] p-6">
-          <h1 className="text-3xl font-black">Lesson not found</h1>
-          <Link
-            className="mt-4 inline-block rounded-lg bg-amber-200 px-4 py-2 font-black text-stone-950"
-            to="/courses"
-          >
-            Return to courses
-          </Link>
-        </section>
-      </main>
+      <LessonPageFrame>
+        <main className="grid min-h-[100dvh] place-items-center bg-[#12110f] px-4 text-stone-100">
+          <section className="max-w-lg rounded-xl border border-white/10 bg-white/[0.04] p-6">
+            <h1 className="text-3xl font-black">Lesson not found</h1>
+            <Link
+              className="mt-4 inline-block rounded-lg bg-amber-200 px-4 py-2 font-black text-stone-950"
+              to="/courses"
+            >
+              Return to courses
+            </Link>
+          </section>
+        </main>
+      </LessonPageFrame>
     );
   }
 
