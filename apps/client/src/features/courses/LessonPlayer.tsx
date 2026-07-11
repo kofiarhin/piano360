@@ -315,6 +315,8 @@ const PlayerLoaded = ({ lesson, courseLessons, onProgressSaved }: PlayerLoadedPr
   const isAudioReady = audioStatus === "ready";
   const pianoTargetNotes =
     session.status === "completed" || !isAudioReady ? [] : (currentStep?.targetNotes ?? []);
+  const instructionNotes = currentStep?.targetNotes.join(" + ") ?? "Complete";
+  const instructionLabel = currentStep ? `Play ${instructionNotes}` : "Lesson complete";
   const correctNotes = Object.entries(transientFeedback)
     .filter(([, feedback]) => feedback === "correct")
     .map(([noteId]) => noteId as NoteId);
@@ -324,11 +326,14 @@ const PlayerLoaded = ({ lesson, courseLessons, onProgressSaved }: PlayerLoadedPr
 
   return (
     <main className="min-h-[100dvh] bg-[#12110f] text-stone-100">
-      <div className="mx-auto grid max-w-7xl gap-4 px-4 py-4 md:px-6 lg:py-6">
-        <nav className="flex flex-wrap items-center justify-between gap-3">
-          <Link className="font-bold text-amber-100 underline-offset-4 hover:underline" to={`/courses/${lesson.courseSlug}`}>
-            {lesson.courseTitle}
-          </Link>
+      <div className="mx-auto grid w-full min-w-0 max-w-7xl gap-4 px-4 py-4 md:px-6 lg:py-6">
+        <nav className="flex min-w-0 flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <Link className="font-bold text-amber-100 underline-offset-4 hover:underline" to={`/courses/${lesson.courseSlug}`}>
+              {lesson.courseTitle}
+            </Link>
+            <h1 className="mt-1 break-words text-2xl font-black tracking-tight text-white">{lesson.title}</h1>
+          </div>
           <button
             type="button"
             onClick={restart}
@@ -338,33 +343,42 @@ const PlayerLoaded = ({ lesson, courseLessons, onProgressSaved }: PlayerLoadedPr
           </button>
         </nav>
 
-        <section className="grid gap-4 rounded-xl border border-white/10 bg-white/[0.04] p-4 md:grid-cols-[1fr_auto_auto] md:items-center">
-          <div>
+        <section
+          aria-label="Lesson instruction"
+          className="grid min-w-0 gap-4 rounded-xl border border-white/10 bg-white/[0.04] p-4 text-center"
+        >
+          <div className="grid justify-items-center gap-2">
             <p className="font-mono text-xs font-black uppercase tracking-[0.18em] text-amber-200/80">
               {lesson.courseHand} hand / {currentStep?.type ?? "complete"}
             </p>
-            <h1 className="mt-2 text-3xl font-black tracking-tight text-white">{lesson.title}</h1>
-            <p className="mt-1 text-stone-300">{currentStep?.instruction ?? "Lesson complete."}</p>
+            <p
+              aria-label={instructionLabel}
+              className="max-w-full break-words font-mono text-5xl font-black leading-none tracking-normal text-white sm:text-6xl"
+            >
+              {instructionNotes}
+            </p>
           </div>
-          <div className="rounded-lg border border-white/10 bg-stone-950/70 px-3 py-2 font-mono font-black">
-            {session.currentStepIndex + 1}/{lesson.steps.length}
-          </div>
-          <div
-            aria-live="polite"
-            className={[
-              "rounded-lg border px-3 py-2 font-black",
-              !isAudioReady ? "border-amber-200/40 bg-amber-950/35 text-amber-100" : "",
-              session.feedback === "correct" ? "border-emerald-200/40 bg-emerald-950/40 text-emerald-100" : "",
-              session.feedback === "incorrect" ? "border-rose-200/40 bg-rose-950/40 text-rose-100" : "",
-              session.feedback === "completed" ? "border-emerald-200/40 bg-emerald-950/40 text-emerald-100" : "",
-              isAudioReady && session.feedback === "idle" ? "border-white/10 bg-white/[0.04] text-stone-200" : ""
-            ].join(" ")}
-          >
-            {!isAudioReady && audioMessage}
-            {isAudioReady && session.feedback === "idle" && (currentStep?.type === "chord" ? "Play all highlighted notes" : "Play the highlighted note")}
-            {isAudioReady && session.feedback === "correct" && "Correct"}
-            {isAudioReady && session.feedback === "incorrect" && "Try again"}
-            {isAudioReady && session.feedback === "completed" && "Complete"}
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <div className="min-h-11 rounded-lg border border-white/10 bg-stone-950/70 px-3 py-2 font-mono font-black">
+              {session.currentStepIndex + 1}/{lesson.steps.length}
+            </div>
+            <div
+              aria-live="polite"
+              className={[
+                "min-h-11 max-w-full break-words rounded-lg border px-3 py-2 font-black",
+                !isAudioReady ? "border-amber-200/40 bg-amber-950/35 text-amber-100" : "",
+                session.feedback === "correct" ? "border-emerald-200/40 bg-emerald-950/40 text-emerald-100" : "",
+                session.feedback === "incorrect" ? "border-rose-200/40 bg-rose-950/40 text-rose-100" : "",
+                session.feedback === "completed" ? "border-emerald-200/40 bg-emerald-950/40 text-emerald-100" : "",
+                isAudioReady && session.feedback === "idle" ? "border-white/10 bg-white/[0.04] text-stone-200" : ""
+              ].join(" ")}
+            >
+              {!isAudioReady && audioMessage}
+              {isAudioReady && session.feedback === "idle" && (currentStep?.type === "chord" ? "Play all highlighted notes" : "Play the highlighted note")}
+              {isAudioReady && session.feedback === "correct" && "Correct"}
+              {isAudioReady && session.feedback === "incorrect" && "Try again"}
+              {isAudioReady && session.feedback === "completed" && "Complete"}
+            </div>
           </div>
         </section>
 

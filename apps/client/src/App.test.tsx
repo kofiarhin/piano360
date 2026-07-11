@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 
 import { playNote, warmAudio } from "./audio/NotePlayer";
 import { App } from "./App";
@@ -115,7 +115,7 @@ const setAudioStatus = (status: MockAudioStatus) => {
 const renderUnlockedLesson = async () => {
   window.history.pushState({}, "", "/courses/finger-placement/lessons/middle-c-anchor");
   render(<App />);
-  await screen.findByRole("heading", { name: "Middle C Anchor" });
+  await screen.findByLabelText("Lesson instruction");
 };
 
 const mockFetch = () => {
@@ -264,6 +264,51 @@ describe("Piano360 course MVP", () => {
 
     expect(playNote).toHaveBeenCalledWith("C4");
     expect(await screen.findByText("Lesson complete")).toBeInTheDocument();
+  });
+
+  it("renders a centered dynamic note instruction without the lesson heading or visible play text", async () => {
+    setAudioStatus("ready");
+    await renderUnlockedLesson();
+
+    const instructionPanel = screen.getByLabelText("Lesson instruction");
+
+    expect(within(instructionPanel).getByText("C4")).toBeInTheDocument();
+    expect(within(instructionPanel).getByLabelText("Play C4")).toBeInTheDocument();
+    expect(within(instructionPanel).queryByRole("heading", { name: "Middle C Anchor" })).not.toBeInTheDocument();
+    expect(within(instructionPanel).queryByText("Play C4.")).not.toBeInTheDocument();
+    expect(within(instructionPanel).getByText("1/1")).toBeInTheDocument();
+    expect(within(instructionPanel).getByText("Play the highlighted note")).toBeInTheDocument();
+  });
+
+  it("updates the visible note instruction when the lesson advances", async () => {
+    setCurrentLesson({
+      ...lessonDetail,
+      steps: [
+        {
+          id: "first-c4",
+          type: "single-note",
+          instruction: "Play C4.",
+          targetNotes: ["C4"]
+        },
+        {
+          id: "second-d4",
+          type: "single-note",
+          instruction: "Play D4.",
+          targetNotes: ["D4"]
+        }
+      ]
+    });
+    setAudioStatus("ready");
+    await renderUnlockedLesson();
+
+    const instructionPanel = screen.getByLabelText("Lesson instruction");
+    expect(within(instructionPanel).getByText("C4")).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "d" });
+
+    expect(within(instructionPanel).getByText("D4")).toBeInTheDocument();
+    expect(within(instructionPanel).queryByText("C4")).not.toBeInTheDocument();
+    expect(within(instructionPanel).getByText("2/2")).toBeInTheDocument();
   });
 
   it("uses keydown, not keyup, for keyboard playback", async () => {

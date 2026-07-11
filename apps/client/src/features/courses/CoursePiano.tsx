@@ -157,9 +157,9 @@ export const CoursePiano = ({
     <section
       aria-label="Virtual piano"
       aria-disabled={disabled}
-      className="relative rounded-2xl border border-stone-800 bg-stone-950 p-2 shadow-[0_18px_50px_-35px_rgba(0,0,0,0.95)]"
+      className="relative min-w-0 rounded-2xl border border-stone-800 bg-stone-950 p-2 shadow-[0_18px_50px_-35px_rgba(0,0,0,0.95)]"
     >
-      <div className="rounded-xl border border-stone-700 bg-[#191511] p-2">
+      <div className="min-w-0 rounded-xl border border-stone-700 bg-[#191511] p-2">
         <div className="h-3 rounded-t-lg bg-[linear-gradient(90deg,#2f261f,#6f3f2d,#2f261f)]" />
         <div className="piano-scroll relative overflow-x-auto rounded-b-xl bg-zinc-950 p-2">
           <div className="relative mx-auto h-64 min-w-[46rem] sm:h-72 md:min-w-0">
