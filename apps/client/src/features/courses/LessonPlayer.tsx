@@ -189,7 +189,13 @@ const PlayerLoaded = ({ lesson, courseLessons, onProgressSaved }: PlayerLoadedPr
 
   const handleInput = useCallback(
     (noteId: NoteId) => {
-      if (session.status === "completed" || audioStatus !== "ready") {
+      if (session.status === "completed" || audioStatus === "unavailable") {
+        return;
+      }
+
+      if (audioStatus !== "ready") {
+        prepareAudio();
+        playNote(noteId);
         return;
       }
 
@@ -210,7 +216,7 @@ const PlayerLoaded = ({ lesson, courseLessons, onProgressSaved }: PlayerLoadedPr
 
       setSession(nextSession);
     },
-    [audioStatus, lesson, session, setNoteFeedback]
+    [audioStatus, lesson, prepareAudio, session, setNoteFeedback]
   );
 
   useEffect(() => {
@@ -329,8 +335,9 @@ const PlayerLoaded = ({ lesson, courseLessons, onProgressSaved }: PlayerLoadedPr
       ? "Audio unavailable — refresh or check browser permissions."
       : "Preparing piano audio…";
   const isAudioReady = audioStatus === "ready";
+  const isAudioUnavailable = audioStatus === "unavailable";
   const pianoTargetNotes =
-    session.status === "completed" || !isAudioReady ? [] : (currentStep?.targetNotes ?? []);
+    session.status === "completed" || isAudioUnavailable ? [] : (currentStep?.targetNotes ?? []);
   const instructionNotes = currentStep?.targetNotes.join(" + ") ?? "Complete";
   const instructionLabel = currentStep ? `Play ${instructionNotes}` : "Lesson complete";
   const correctNotes = Object.entries(transientFeedback)
@@ -431,7 +438,7 @@ const PlayerLoaded = ({ lesson, courseLessons, onProgressSaved }: PlayerLoadedPr
             activeNotes={isAudioReady ? session.activeNotes : []}
             correctNotes={correctNotes}
             wrongNotes={wrongNotes}
-            disabled={!isAudioReady}
+            disabled={isAudioUnavailable}
             autoScrollNotes={pianoTargetNotes}
             fitToContainer={mobileLandscapeActive}
             onInput={handleInput}

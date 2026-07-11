@@ -87,6 +87,15 @@ const decodeAudioBuffer = (audioContext: AudioContext, sampleBytes: ArrayBuffer)
     }
   });
 
+const isPrimaryAudioPointer = (event: PointerEvent) =>
+  event.pointerType === "" ||
+  event.pointerType === "mouse" ||
+  event.pointerType === "touch" ||
+  event.pointerType === "pen";
+
+const isAudioContextRunning = (audioContext: AudioContext | undefined) =>
+  audioContext !== undefined && (audioContext.state as SafariAudioContextState) === "running";
+
 declare global {
   interface Window {
     webkitAudioContext?: typeof AudioContext;
@@ -105,19 +114,13 @@ export class PianoSampler {
     if (this.unlockListeners.length > 0) return;
 
     const unlockHandler = () => {
-      void this.unlock();
-      // Cleanup after successful unlock
-      if (this.audioContext?.state === "running") {
-        this.unlockListeners.forEach((cleanup) => cleanup());
-        this.unlockListeners = [];
-      }
+      void this.unlock().catch(() => undefined);
     };
 
-    const events = ['touchstart', 'touchend', 'pointerdown', 'mousedown', 'keydown'] as const;
+    const events = ["pointerdown", "mousedown", "keydown"] as const;
     events.forEach((eventType) => {
       const handler = (e: Event) => {
-        // Only act on primary gestures
-        if (eventType === 'pointerdown' && (e as PointerEvent).pointerType === 'mouse' || eventType !== 'pointerdown') {
+        if (eventType !== "pointerdown" || isPrimaryAudioPointer(e as PointerEvent)) {
           unlockHandler();
         }
       };
@@ -183,7 +186,10 @@ export class PianoSampler {
     if (!this.unlockPromise) {
       this.unlockPromise = this.forceGestureUnlock()
         .then(() => {
-          this.hasCompletedGestureUnlock = this.audioContext?.state === "running";
+          this.hasCompletedGestureUnlock = isAudioContextRunning(this.audioContext);
+          if (this.hasCompletedGestureUnlock) {
+            this.removeGlobalUnlockListeners();
+          }
         })
         .catch((error) => {
           this.hasCompletedGestureUnlock = false;
@@ -199,27 +205,51 @@ export class PianoSampler {
   }
 
   async play(noteId: NoteId, velocity = 0.92) {
-    // Ensure unlock attempt within this gesture
     const unlockPromise = this.unlock();
     void this.load().catch(() => undefined);
 
     const audioContext = this.audioContext;
+    const buffer = this.buffers.get(noteId);
+
+    if (!audioContext || audioContext.state === "closed") {
+      await unlockPromise;
+      return false;
+    }
+
+    if (!buffer) {
+      this.playFallbackTone(noteId, velocity);
+      await unlockPromise;
+      return true;
+    }
+
+    if (isAudioContextRunning(audioContext)) {
+      this.playSampleBuffer(audioContext, buffer, velocity);
+      await unlockPromise;
+      return true;
+    }
 
     await unlockPromise;
 
-    if (!audioContext || audioContext.state !== "running") {
+    if (!isAudioContextRunning(audioContext)) {
       console.warn(`AudioContext not running for note ${noteId}: ${audioContext?.state}`);
       this.playFallbackTone(noteId, velocity);
       return true;
     }
 
-    const buffer = this.buffers.get(noteId);
+    this.playSampleBuffer(audioContext, buffer, velocity);
+    return true;
+  }
 
-    if (!buffer) {
-      this.playFallbackTone(noteId, velocity);
-      return true;
-    }
+  dispose() {
+    this.removeGlobalUnlockListeners();
+  }
 
+  private removeGlobalUnlockListeners() {
+    this.unlockListeners.forEach((cleanup) => cleanup());
+    this.unlockListeners = [];
+  }
+
+  private playSampleBuffer(audioContext: AudioContext, buffer: AudioBuffer, velocity: number) {
     const source = audioContext.createBufferSource();
     const gain = audioContext.createGain();
 
@@ -227,7 +257,6 @@ export class PianoSampler {
     gain.gain.setValueAtTime(clampVelocity(velocity), audioContext.currentTime);
     source.connect(gain).connect(audioContext.destination);
     source.start(audioContext.currentTime);
-    return true;
   }
 
   private async forceGestureUnlock() {

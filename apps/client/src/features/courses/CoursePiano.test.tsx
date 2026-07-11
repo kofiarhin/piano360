@@ -113,15 +113,22 @@ describe("CoursePiano", () => {
 
   it("triggers virtual piano input on pointerdown", () => {
     const onInput = vi.fn();
+    const onPrepareAudio = vi.fn();
 
-    render(<CoursePiano targetNotes={["C4"]} onInput={onInput} />);
+    render(
+      <CoursePiano targetNotes={["C4"]} onInput={onInput} onPrepareAudio={onPrepareAudio} />
+    );
 
     const c4Key = screen.getByRole("button", { name: /C4, white key/i });
     fireEvent.pointerUp(c4Key);
     expect(onInput).not.toHaveBeenCalled();
 
     fireEvent.pointerDown(c4Key);
+    expect(onPrepareAudio).toHaveBeenCalledTimes(1);
     expect(onInput).toHaveBeenCalledWith("C4");
+    expect(onPrepareAudio.mock.invocationCallOrder[0]).toBeLessThan(
+      onInput.mock.invocationCallOrder[0]
+    );
   });
 
   it("can fit the keyboard to its container without horizontal scrolling", () => {

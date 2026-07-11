@@ -121,8 +121,25 @@ const expectGestureUnlockPrimer = (mockAudioContext: MockAudioContext) => {
   expect(source.stop).toHaveBeenCalledWith(mockAudioContext.currentTime + 0.05);
 };
 
+const createPointerDownEvent = (pointerType: string) => {
+  const event = new Event("pointerdown", { bubbles: true });
+  Object.defineProperty(event, "pointerType", {
+    configurable: true,
+    value: pointerType
+  });
+  return event;
+};
+
 describe("PianoSampler", () => {
+  const samplers: PianoSampler[] = [];
+  const createSampler = () => {
+    const sampler = new PianoSampler();
+    samplers.push(sampler);
+    return sampler;
+  };
+
   afterEach(() => {
+    samplers.splice(0).forEach((sampler) => sampler.dispose());
     vi.unstubAllGlobals();
     Reflect.deleteProperty(window, "AudioContext");
   });
@@ -137,7 +154,7 @@ describe("PianoSampler", () => {
     vi.stubGlobal("fetch", fetchMock);
     stubAudioContext(mockAudioContext);
 
-    const sampler = new PianoSampler();
+    const sampler = createSampler();
 
     await sampler.load();
 
@@ -163,6 +180,92 @@ describe("PianoSampler", () => {
     }
   });
 
+  it.each(["mouse", "touch", "pen"])(
+    "unlocks audio from a %s pointerdown document gesture",
+    async (pointerType) => {
+      const mockAudioContext = createMockAudioContext();
+
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () => createMockFetchResponse())
+      );
+      stubAudioContext(mockAudioContext);
+
+      const sampler = createSampler();
+      await sampler.load();
+
+      document.dispatchEvent(createPointerDownEvent(pointerType));
+      await Promise.resolve();
+
+      expect(mockAudioContext.createBufferSource).toHaveBeenCalledTimes(1);
+      expectGestureUnlockPrimer(mockAudioContext);
+      sampler.dispose();
+    }
+  );
+
+  it("does not register duplicate global unlock listeners", async () => {
+    const mockAudioContext = createMockAudioContext();
+    const addEventListenerSpy = vi.spyOn(document, "addEventListener");
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => createMockFetchResponse())
+    );
+    stubAudioContext(mockAudioContext);
+
+    const sampler = createSampler();
+    await sampler.load();
+    await sampler.load();
+
+    const unlockEvents = addEventListenerSpy.mock.calls
+      .map(([eventType]) => eventType)
+      .filter((eventType) =>
+        ["pointerdown", "mousedown", "keydown", "touchstart", "touchend"].includes(
+          String(eventType)
+        )
+      );
+
+    expect(unlockEvents).toEqual(["pointerdown", "mousedown", "keydown"]);
+    sampler.dispose();
+  });
+
+  it("cleans up global unlock listeners after an asynchronous resume succeeds", async () => {
+    const mockAudioContext = createMockAudioContext("suspended");
+    const removeEventListenerSpy = vi.spyOn(document, "removeEventListener");
+    let finishResume!: () => void;
+    mockAudioContext.resume.mockImplementation(
+      () =>
+        new Promise<undefined>((resolve) => {
+          finishResume = () => {
+            mockAudioContext.state = "running";
+            resolve(undefined);
+          };
+        })
+    );
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => createMockFetchResponse())
+    );
+    stubAudioContext(mockAudioContext);
+
+    const sampler = createSampler();
+    await sampler.load();
+
+    document.dispatchEvent(createPointerDownEvent("touch"));
+    expect(removeEventListenerSpy).not.toHaveBeenCalledWith("pointerdown", expect.any(Function));
+
+    finishResume();
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(removeEventListenerSpy).toHaveBeenCalledWith("pointerdown", expect.any(Function));
+    expect(removeEventListenerSpy).toHaveBeenCalledWith("mousedown", expect.any(Function));
+    expect(removeEventListenerSpy).toHaveBeenCalledWith("keydown", expect.any(Function));
+    sampler.dispose();
+  });
+
   it("supports Safari callback-style decodeAudioData implementations", async () => {
     const mockAudioContext = createMockAudioContext();
     const decodedBuffer = createMockAudioBuffer();
@@ -180,7 +283,7 @@ describe("PianoSampler", () => {
     );
     stubAudioContext(mockAudioContext);
 
-    const sampler = new PianoSampler();
+    const sampler = createSampler();
     await sampler.load();
 
     await expect(sampler.play("C4" satisfies NoteId)).resolves.toBe(true);
@@ -199,7 +302,7 @@ describe("PianoSampler", () => {
     );
     stubAudioContext(mockAudioContext);
 
-    const sampler = new PianoSampler();
+    const sampler = createSampler();
     await sampler.load();
 
     await expect(sampler.play("C4" satisfies NoteId, 0.7)).resolves.toBe(true);
@@ -233,7 +336,7 @@ describe("PianoSampler", () => {
     );
     stubAudioContext(mockAudioContext);
 
-    const sampler = new PianoSampler();
+    const sampler = createSampler();
     await sampler.load();
 
     const playPromise = sampler.play("E4");
@@ -267,7 +370,7 @@ describe("PianoSampler", () => {
     );
     stubAudioContext(mockAudioContext);
 
-    const sampler = new PianoSampler();
+    const sampler = createSampler();
     await sampler.load();
 
     await expect(sampler.play("E4")).resolves.toBe(true);
@@ -290,7 +393,7 @@ describe("PianoSampler", () => {
     );
     stubAudioContext(mockAudioContext);
 
-    const sampler = new PianoSampler();
+    const sampler = createSampler();
     await sampler.load();
 
     await expect(sampler.play("E4")).resolves.toBe(true);
@@ -310,7 +413,7 @@ describe("PianoSampler", () => {
     );
     stubAudioContext(mockAudioContext);
 
-    const sampler = new PianoSampler();
+    const sampler = createSampler();
 
     await expect(sampler.play("C4")).resolves.toBe(true);
     expect(mockAudioContext.createBufferSource).toHaveBeenCalledTimes(1);
@@ -343,7 +446,7 @@ describe("PianoSampler", () => {
     );
     stubAudioContext(mockAudioContext);
 
-    const sampler = new PianoSampler();
+    const sampler = createSampler();
     await expect(sampler.load()).rejects.toThrow("Unable to decode audio data");
 
     await expect(sampler.play("C4")).resolves.toBe(true);
@@ -371,7 +474,7 @@ describe("PianoSampler", () => {
     );
     stubAudioContext(mockAudioContext);
 
-    const sampler = new PianoSampler();
+    const sampler = createSampler();
 
     await expect(sampler.play("C4")).resolves.toBe(true);
     expect(mockAudioContext.resume).toHaveBeenCalledTimes(1);
@@ -380,6 +483,38 @@ describe("PianoSampler", () => {
     expectStartedSource(mockAudioContext, 0);
     expect(mockAudioContext.createOscillator).toHaveBeenCalledTimes(1);
     expect(mockAudioContext.oscillator.start).toHaveBeenCalledWith(mockAudioContext.currentTime);
+  });
+
+  it("starts the cold mobile fallback tone before a suspended AudioContext resume resolves", async () => {
+    const mockAudioContext = createMockAudioContext("suspended");
+    let finishResume!: () => void;
+    mockAudioContext.resume.mockImplementation(
+      () =>
+        new Promise<undefined>((resolve) => {
+          finishResume = () => {
+            mockAudioContext.state = "running";
+            resolve(undefined);
+          };
+        })
+    );
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => new Promise(() => undefined))
+    );
+    stubAudioContext(mockAudioContext);
+
+    const sampler = createSampler();
+    const playPromise = sampler.play("C4");
+
+    expect(mockAudioContext.resume).toHaveBeenCalledTimes(1);
+    expect(mockAudioContext.createBufferSource).toHaveBeenCalledTimes(1);
+    expectGestureUnlockPrimer(mockAudioContext);
+    expect(mockAudioContext.createOscillator).toHaveBeenCalledTimes(1);
+    expect(mockAudioContext.oscillator.start).toHaveBeenCalledWith(mockAudioContext.currentTime);
+
+    finishResume();
+    await expect(playPromise).resolves.toBe(true);
   });
 
   it("does not resume the AudioContext again after the first successful unlock", async () => {
@@ -394,7 +529,7 @@ describe("PianoSampler", () => {
     );
     stubAudioContext(mockAudioContext);
 
-    const sampler = new PianoSampler();
+    const sampler = createSampler();
 
     await expect(sampler.play("C4")).resolves.toBe(true);
     await expect(sampler.play("D4")).resolves.toBe(true);

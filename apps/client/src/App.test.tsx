@@ -451,12 +451,12 @@ describe("Piano360 course MVP", () => {
     fireEvent.keyDown(window, { key: "d" });
 
     expect(warmAudio).toHaveBeenCalledTimes(1);
-    expect(playNote).not.toHaveBeenCalled();
+    expect(playNote).toHaveBeenCalledWith("C4");
     expect(screen.queryByText("Lesson complete")).not.toBeInTheDocument();
     expect(window.localStorage.getItem("piano360.progress.v1")).toBeNull();
   });
 
-  it("does not start audio loading multiple times while loading", async () => {
+  it("does not start audio loading multiple times while previewing notes during loading", async () => {
     await renderUnlockedLesson();
 
     fireEvent.keyDown(window, { key: "d" });
@@ -465,10 +465,10 @@ describe("Piano360 course MVP", () => {
     fireEvent.pointerDown(screen.getByLabelText("Virtual piano"));
 
     expect(warmAudio).toHaveBeenCalledTimes(1);
-    expect(playNote).not.toHaveBeenCalled();
+    expect(playNote).toHaveBeenCalledTimes(2);
   });
 
-  it("displays the preparing message and ignores keyboard and pointer input while loading", async () => {
+  it("displays the preparing message and previews keyboard and pointer input while loading", async () => {
     setAudioStatus("loading");
     await renderUnlockedLesson();
 
@@ -477,7 +477,8 @@ describe("Piano360 course MVP", () => {
     fireEvent.keyDown(window, { key: "d" });
     fireEvent.pointerDown(screen.getByRole("button", { name: /C4, white key/i }));
 
-    expect(playNote).not.toHaveBeenCalled();
+    expect(playNote).toHaveBeenCalledTimes(2);
+    expect(playNote).toHaveBeenCalledWith("C4");
     expect(screen.queryByText("Lesson complete")).not.toBeInTheDocument();
     expect(window.localStorage.getItem("piano360.progress.v1")).toBeNull();
   });

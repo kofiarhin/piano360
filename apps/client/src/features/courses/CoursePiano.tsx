@@ -112,6 +112,7 @@ type PianoKeyButtonProps = {
   onInput: (noteId: NoteId) => void;
   onPress?: (noteId: NoteId, source: PianoInputSource) => void;
   onRelease?: (noteId: NoteId, source: PianoInputSource) => void;
+  onPrepareAudio?: () => void;
 };
 
 const PianoKeyButton = ({
@@ -124,7 +125,8 @@ const PianoKeyButton = ({
   style,
   onInput,
   onPress,
-  onRelease
+  onRelease,
+  onPrepareAudio
 }: PianoKeyButtonProps) => {
   const isBlack = tone === "black";
   const sourceForPointer = (event: PointerEvent<HTMLButtonElement>): PianoInputSource =>
@@ -132,6 +134,7 @@ const PianoKeyButton = ({
 
   const handlePointerDown = (event: PointerEvent<HTMLButtonElement>) => {
     event.preventDefault();
+    onPrepareAudio?.();
 
     if (disabled) {
       return;
@@ -339,6 +342,7 @@ export const CoursePiano = ({
                   onInput={onInput}
                   onPress={onPress}
                   onRelease={onRelease}
+                  onPrepareAudio={onPrepareAudio}
                 />
               ))}
             </div>
@@ -355,6 +359,7 @@ export const CoursePiano = ({
                 onInput={onInput}
                 onPress={onPress}
                 onRelease={onRelease}
+                onPrepareAudio={onPrepareAudio}
               />
             ))}
           </div>
