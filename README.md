@@ -41,6 +41,24 @@ npm run seed:courses
 
 The seed script replaces only MongoDB course content. Learner progress is never stored in MongoDB; the browser stores it under `piano360.progress.v1`.
 
+## Course authoring
+
+Course content is authored in `apps/api/src/courses/seedCourses.ts` and published deliberately with:
+
+```bash
+npm run seed:courses
+```
+
+The seed command is not part of application startup or deployment. For the MVP, longer practice is modeled by adding more uniquely identified lesson steps to seed content while preserving the existing Course -> Lesson -> Step schema.
+
+Use a simple lesson progression for new material:
+
+```text
+Introduce -> Repeat -> Mix -> Challenge
+```
+
+For songs, split the piece into short phrase lessons, then add a final lesson that combines the phrases into the complete playable passage.
+
 ## Development
 
 ```bash

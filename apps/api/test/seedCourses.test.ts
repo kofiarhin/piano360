@@ -26,4 +26,12 @@ describe("seed course validation", () => {
       expect(finalLesson?.title.toLowerCase()).toContain("complete");
     }
   });
+
+  it("keeps seeded lessons long enough for meaningful beginner practice", () => {
+    for (const course of seedCourses) {
+      for (const lesson of course.lessons) {
+        expect(lesson.steps.length).toBeGreaterThanOrEqual(12);
+      }
+    }
+  });
 });
