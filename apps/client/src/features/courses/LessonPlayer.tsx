@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { Link, Navigate, useParams } from "react-router-dom";
+import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 
 import {
   getAudioStatus,
@@ -10,10 +10,12 @@ import {
   warmAudio,
   type AudioStatus
 } from "../../audio/NotePlayer";
+import { SiteHeader } from "../../shared/SiteHeader";
+import { MobileLandscapeShell, useMobileLandscapeMode } from "../../shared/MobileLandscapeShell";
 import { CoursePiano } from "./CoursePiano";
 import { keyboardMap } from "./courseKeyboard";
-import type { LessonDetail, NoteId } from "./courseTypes";
 import { courseQueryKeys, getCourse, getLesson } from "./courseQueries";
+import type { LessonDetail, NoteId } from "./courseTypes";
 import { formatDuration, formatPercent } from "./formatMetrics";
 import {
   CHORD_INPUT_WINDOW_MS,
@@ -25,8 +27,6 @@ import {
   type LessonSession
 } from "./lessonEngine";
 import { isLessonUnlocked, loadProgress, recordLessonCompletion } from "./progressStorage";
-import { SiteHeader } from "../../shared/SiteHeader";
-import { MobileLandscapeShell, useMobileLandscapeMode } from "../../shared/MobileLandscapeShell";
 
 const isEditableTarget = (target: EventTarget | null) => {
   if (!(target instanceof HTMLElement)) {
@@ -53,14 +53,17 @@ const LessonPageFrame = ({ active, children }: { active?: boolean; children: Rea
 type CompletionSummaryProps = {
   lesson: LessonDetail;
   session: LessonSession;
-  nextLessonSlug?: string;
+  continuePath: string;
   onReplay: () => void;
 };
+
+const shortcutKeyClass =
+  "inline-flex min-w-20 items-center justify-center rounded-md border border-white/20 bg-stone-950/70 px-3 py-1.5 font-mono text-xs font-black tracking-[0.12em] text-white shadow-sm";
 
 const CompletionSummary = ({
   lesson,
   session,
-  nextLessonSlug,
+  continuePath,
   onReplay
 }: CompletionSummaryProps) => {
   const summary = getCompletionSummary(session);
@@ -70,13 +73,19 @@ const CompletionSummary = ({
   }
 
   return (
-    <section className="lesson-player-completion rounded-xl border border-emerald-200/30 bg-emerald-950/25 p-4 text-emerald-50">
+    <section
+      aria-label="Lesson completion summary"
+      className="lesson-player-completion rounded-xl border border-emerald-200/30 bg-emerald-950/25 p-4 text-emerald-50"
+    >
       <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-start">
         <div>
           <p className="font-mono text-xs font-black uppercase tracking-[0.18em] text-emerald-200">
             Lesson complete
           </p>
           <h2 className="mt-2 text-2xl font-black">{lesson.title}</h2>
+          <p className="mt-2 text-lg font-black text-emerald-100">
+            {formatPercent(summary.accuracy)} Accuracy
+          </p>
         </div>
         <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
           <div className="rounded-lg border border-white/10 bg-white/10 p-2">
@@ -97,27 +106,31 @@ const CompletionSummary = ({
           </div>
         </div>
       </div>
-      <div className="mt-4 flex flex-wrap gap-2">
+
+      <div className="mt-5 grid gap-2 sm:max-w-sm" aria-label="Keyboard shortcuts">
         <button
           type="button"
           onClick={onReplay}
-          className="rounded-lg bg-emerald-100 px-4 py-2 font-black text-emerald-950 transition active:translate-y-0.5"
+          className="flex items-center gap-3 rounded-lg bg-emerald-100 px-3 py-2 text-left font-black text-emerald-950 transition hover:bg-emerald-50 active:translate-y-0.5"
         >
-          Replay
+          <kbd className={`${shortcutKeyClass} border-emerald-950/20 bg-emerald-950 text-emerald-50`}>
+            SPACE
+          </kbd>
+          <span>Replay</span>
         </button>
-        {nextLessonSlug && (
-          <Link
-            to={`/courses/${lesson.courseSlug}/lessons/${nextLessonSlug}`}
-            className="rounded-lg bg-stone-50 px-4 py-2 font-black text-stone-950 transition active:translate-y-0.5"
-          >
-            Next lesson
-          </Link>
-        )}
+        <Link
+          to={continuePath}
+          className="flex items-center gap-3 rounded-lg bg-stone-50 px-3 py-2 font-black text-stone-950 transition hover:bg-white active:translate-y-0.5"
+        >
+          <kbd className={shortcutKeyClass}>ENTER</kbd>
+          <span>Continue</span>
+        </Link>
         <Link
           to={`/courses/${lesson.courseSlug}`}
-          className="rounded-lg border border-white/20 px-4 py-2 font-black text-white transition active:translate-y-0.5"
+          className="flex items-center gap-3 rounded-lg border border-white/20 px-3 py-2 font-black text-white transition hover:bg-white/10 active:translate-y-0.5"
         >
-          Return to course
+          <kbd className={shortcutKeyClass}>ESC</kbd>
+          <span>Return</span>
         </Link>
       </div>
     </section>
@@ -131,6 +144,7 @@ type PlayerLoadedProps = {
 };
 
 const PlayerLoaded = ({ lesson, courseLessons, onProgressSaved }: PlayerLoadedProps) => {
+  const navigate = useNavigate();
   const mobileLandscapeActive = useMobileLandscapeMode();
   const [session, setSession] = useState(() => initializeLessonSession(lesson));
   const [audioStatus, setAudioStatus] = useState<AudioStatus>(() => getAudioStatus());
@@ -149,6 +163,10 @@ const PlayerLoaded = ({ lesson, courseLessons, onProgressSaved }: PlayerLoadedPr
     [courseLessons]
   );
   const nextLessonSlug = orderedLessonSlugs[orderedLessonSlugs.indexOf(lesson.slug) + 1];
+  const coursePath = `/courses/${lesson.courseSlug}`;
+  const continuePath = nextLessonSlug
+    ? `/courses/${lesson.courseSlug}/lessons/${nextLessonSlug}`
+    : coursePath;
 
   const clearFeedbackTimers = useCallback(() => {
     feedbackTimerRefs.current.forEach((timerId) => window.clearTimeout(timerId));
@@ -161,10 +179,7 @@ const PlayerLoaded = ({ lesson, courseLessons, onProgressSaved }: PlayerLoadedPr
       window.clearTimeout(existingTimer);
     }
 
-    setTransientFeedback((current) => ({
-      ...current,
-      [noteId]: feedback
-    }));
+    setTransientFeedback((current) => ({ ...current, [noteId]: feedback }));
 
     const timerId = window.setTimeout(() => {
       feedbackTimerRefs.current.delete(noteId);
@@ -218,6 +233,21 @@ const PlayerLoaded = ({ lesson, courseLessons, onProgressSaved }: PlayerLoadedPr
     },
     [audioStatus, lesson, prepareAudio, session, setNoteFeedback]
   );
+
+  const replay = useCallback(() => {
+    savedCompletionRef.current = false;
+    clearFeedbackTimers();
+    window.clearTimeout(chordTimerRef.current);
+    setSession((current) => restartLessonSession(current, lesson));
+    setTransientFeedback({});
+  }, [clearFeedbackTimers, lesson]);
+
+  const restart = useCallback(() => {
+    clearFeedbackTimers();
+    window.clearTimeout(chordTimerRef.current);
+    setSession((current) => restartLessonSession(current, lesson));
+    setTransientFeedback({});
+  }, [clearFeedbackTimers, lesson]);
 
   useEffect(() => {
     const unsubscribe = subscribeToAudioStatus((status) => {
@@ -279,6 +309,38 @@ const PlayerLoaded = ({ lesson, courseLessons, onProgressSaved }: PlayerLoadedPr
   }, [handleInput]);
 
   useEffect(() => {
+    if (session.status !== "completed") {
+      return;
+    }
+
+    const handleCompletionShortcut = (event: KeyboardEvent) => {
+      if (event.repeat || isEditableTarget(event.target)) {
+        return;
+      }
+
+      if (event.code === "Space") {
+        event.preventDefault();
+        replay();
+        return;
+      }
+
+      if (event.key === "Enter") {
+        event.preventDefault();
+        navigate(continuePath);
+        return;
+      }
+
+      if (event.key === "Escape") {
+        event.preventDefault();
+        navigate(coursePath);
+      }
+    };
+
+    window.addEventListener("keydown", handleCompletionShortcut);
+    return () => window.removeEventListener("keydown", handleCompletionShortcut);
+  }, [continuePath, coursePath, navigate, replay, session.status]);
+
+  useEffect(() => {
     window.clearTimeout(chordTimerRef.current);
 
     if (!session.chordAttempt || session.status === "completed") {
@@ -315,21 +377,6 @@ const PlayerLoaded = ({ lesson, courseLessons, onProgressSaved }: PlayerLoadedPr
     onProgressSaved();
   }, [lesson.courseSlug, lesson.slug, onProgressSaved, session]);
 
-  const replay = () => {
-    savedCompletionRef.current = false;
-    clearFeedbackTimers();
-    window.clearTimeout(chordTimerRef.current);
-    setSession(restartLessonSession(session, lesson));
-    setTransientFeedback({});
-  };
-
-  const restart = () => {
-    clearFeedbackTimers();
-    window.clearTimeout(chordTimerRef.current);
-    setSession(restartLessonSession(session, lesson));
-    setTransientFeedback({});
-  };
-
   const audioMessage =
     audioStatus === "unavailable"
       ? "Audio unavailable — refresh or check browser permissions."
@@ -355,7 +402,7 @@ const PlayerLoaded = ({ lesson, courseLessons, onProgressSaved }: PlayerLoadedPr
             <div className="min-w-0">
               <Link
                 className="font-bold text-amber-100 underline-offset-4 hover:underline"
-                to={`/courses/${lesson.courseSlug}`}
+                to={coursePath}
               >
                 {lesson.courseTitle}
               </Link>
@@ -427,7 +474,7 @@ const PlayerLoaded = ({ lesson, courseLessons, onProgressSaved }: PlayerLoadedPr
             <CompletionSummary
               lesson={lesson}
               session={session}
-              nextLessonSlug={nextLessonSlug}
+              continuePath={continuePath}
               onReplay={replay}
             />
           ) : null}
