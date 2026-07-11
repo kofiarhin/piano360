@@ -226,12 +226,21 @@ describe("Piano360 course MVP", () => {
     expect(catalogueLinks[1]).toHaveAttribute("href", "/courses/finger-placement");
   });
 
-  it("tracks held keyboard notes in Freestyle Mode and clears them on keyup", async () => {
+  it("persists the last keyboard result in Freestyle Mode while clearing key highlights", async () => {
     window.history.pushState({}, "", "/freestyle");
     render(<App />);
 
     expect(await screen.findByRole("heading", { name: "Freestyle Mode" })).toBeInTheDocument();
     expect(screen.getByLabelText("Freestyle live notes")).toHaveTextContent("Press any key");
+
+    fireEvent.keyDown(window, { key: "g" });
+    expect(screen.getByLabelText("Freestyle live notes")).toHaveTextContent("E4");
+
+    fireEvent.keyUp(window, { key: "g" });
+    expect(screen.getByLabelText("Freestyle live notes")).toHaveTextContent("E4");
+    expect(screen.getByRole("button", { name: /E4, white key/i }).className).not.toContain(
+      "bg-[#8B5CF6]"
+    );
 
     fireEvent.keyDown(window, { key: "d" });
     fireEvent.keyDown(window, { key: "g" });
@@ -250,14 +259,22 @@ describe("Piano360 course MVP", () => {
     expect(screen.queryByText("Lesson complete")).not.toBeInTheDocument();
 
     fireEvent.keyUp(window, { key: "d" });
-    expect(screen.getByLabelText("Freestyle live notes")).toHaveTextContent("E4 + G4");
+    expect(screen.getByLabelText("Freestyle live notes")).toHaveTextContent("C4 + E4 + G4");
+    expect(screen.getByText("C Major")).toBeInTheDocument();
+    expect(screen.getByText("Root Position")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /C4, white key/i }).className).not.toContain(
+      "bg-[#8B5CF6]"
+    );
 
     fireEvent.keyUp(window, { key: "g" });
     fireEvent.keyUp(window, { key: "j" });
-    expect(screen.getByLabelText("Freestyle live notes")).toHaveTextContent("Press any key");
+    expect(screen.getByLabelText("Freestyle live notes")).toHaveTextContent("C4 + E4 + G4");
+
+    fireEvent.keyDown(window, { key: "f" });
+    expect(screen.getByLabelText("Freestyle live notes")).toHaveTextContent("D4");
   });
 
-  it("detects Freestyle chord inversions and releases pointer-held notes", async () => {
+  it("detects Freestyle chord inversions and persists pointer results after release", async () => {
     window.history.pushState({}, "", "/freestyle");
     render(<App />);
 
@@ -274,12 +291,42 @@ describe("Piano360 course MVP", () => {
     const c4Key = screen.getByRole("button", { name: /C4, white key/i });
     fireEvent.pointerDown(c4Key, { pointerId: 9 });
     expect(screen.getByLabelText("Freestyle live notes")).toHaveTextContent(
-      "C4 + E4 + G4 + C5"
+      "E4 + G4 + C5 + C4"
     );
     expect(playNote).toHaveBeenCalledWith("C4");
 
     fireEvent.pointerUp(c4Key, { pointerId: 9 });
-    expect(screen.getByLabelText("Freestyle live notes")).toHaveTextContent("E4 + G4 + C5");
+    expect(screen.getByLabelText("Freestyle live notes")).toHaveTextContent(
+      "E4 + G4 + C5 + C4"
+    );
+    expect(c4Key.className).not.toContain("bg-[#8B5CF6]");
+  });
+
+  it("clears Freestyle held highlights on focus loss and pointer cancellation without clearing display", async () => {
+    window.history.pushState({}, "", "/freestyle");
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "Freestyle Mode" });
+
+    fireEvent.keyDown(window, { key: "d" });
+    const c4Key = screen.getByRole("button", { name: /C4, white key/i });
+
+    expect(screen.getByLabelText("Freestyle live notes")).toHaveTextContent("C4");
+    expect(c4Key.className).toContain("bg-[#8B5CF6]");
+
+    fireEvent.blur(window);
+
+    expect(screen.getByLabelText("Freestyle live notes")).toHaveTextContent("C4");
+    expect(c4Key.className).not.toContain("bg-[#8B5CF6]");
+
+    fireEvent.pointerDown(c4Key, { pointerId: 12 });
+    expect(screen.getByLabelText("Freestyle live notes")).toHaveTextContent("C4");
+    expect(c4Key.className).toContain("bg-[#8B5CF6]");
+
+    fireEvent.pointerCancel(c4Key, { pointerId: 12 });
+
+    expect(screen.getByLabelText("Freestyle live notes")).toHaveTextContent("C4");
+    expect(c4Key.className).not.toContain("bg-[#8B5CF6]");
   });
 
   it("filters courses by URL-backed search and resets pagination on search changes", async () => {

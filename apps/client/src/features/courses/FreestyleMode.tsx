@@ -4,15 +4,11 @@ import { Link } from "react-router-dom";
 import { playNote } from "../../audio/NotePlayer";
 import { SiteHeader } from "../../shared/SiteHeader";
 import { CoursePiano, type PianoInputSource } from "./CoursePiano";
-import { keyboardMap, keyboardKeys } from "./courseKeyboard";
+import { keyboardMap } from "./courseKeyboard";
 import type { NoteId } from "./courseTypes";
 import { identifyFreestyleChord } from "./freestyleChords";
 
 type FreestyleInputSource = PianoInputSource | `key:${string}`;
-
-const noteOrder = new Map<NoteId, number>(
-  keyboardKeys.map((key, index) => [key.noteId, index])
-);
 
 const isEditableTarget = (target: EventTarget | null) => {
   if (!(target instanceof HTMLElement)) {
@@ -22,15 +18,19 @@ const isEditableTarget = (target: EventTarget | null) => {
   return Boolean(target.closest("input, textarea, select, button, [contenteditable='true']"));
 };
 
-const sortNotes = (noteIds: Iterable<NoteId>) =>
-  [...noteIds].sort((first, second) => (noteOrder.get(first) ?? 0) - (noteOrder.get(second) ?? 0));
+const heldNotesFromSources = (sources: Map<NoteId, Set<FreestyleInputSource>>) => [
+  ...sources.keys()
+];
 
 export const FreestyleMode = () => {
   const heldSourcesRef = useRef(new Map<NoteId, Set<FreestyleInputSource>>());
   const [heldNotes, setHeldNotes] = useState<NoteId[]>([]);
+  const [lastPlayedNotes, setLastPlayedNotes] = useState<NoteId[]>([]);
 
   const syncHeldNotes = useCallback(() => {
-    setHeldNotes(sortNotes(heldSourcesRef.current.keys()));
+    const nextHeldNotes = heldNotesFromSources(heldSourcesRef.current);
+    setHeldNotes(nextHeldNotes);
+    return nextHeldNotes;
   }, []);
 
   const pressNote = useCallback(
@@ -42,7 +42,7 @@ export const FreestyleMode = () => {
 
       currentSources.add(source);
       heldSourcesRef.current.set(noteId, currentSources);
-      syncHeldNotes();
+      setLastPlayedNotes(syncHeldNotes());
       playNote(noteId);
     },
     [syncHeldNotes]
@@ -112,8 +112,9 @@ export const FreestyleMode = () => {
     };
   }, [pressNote, releaseNote, syncHeldNotes]);
 
-  const chord = useMemo(() => identifyFreestyleChord(heldNotes), [heldNotes]);
-  const heldNoteDisplay = heldNotes.length > 0 ? heldNotes.join(" + ") : "Press any key";
+  const chord = useMemo(() => identifyFreestyleChord(lastPlayedNotes), [lastPlayedNotes]);
+  const lastPlayedDisplay =
+    lastPlayedNotes.length > 0 ? lastPlayedNotes.join(" + ") : "Press any key";
 
   return (
     <main className="min-h-[100dvh] bg-[#12110f] text-stone-100">
@@ -147,7 +148,7 @@ export const FreestyleMode = () => {
               aria-live="polite"
               className="max-w-full break-words font-mono text-4xl font-black leading-tight tracking-normal text-white sm:text-6xl"
             >
-              {heldNoteDisplay}
+              {lastPlayedDisplay}
             </p>
           </div>
 
