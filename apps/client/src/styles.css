@@ -48,204 +48,209 @@ body::before {
   z-index: 1;
 }
 
-body.piano360-mobile-landscape {
-  width: 100dvw;
-  height: 100dvh;
-  overflow: hidden;
-  overscroll-behavior: none;
-}
-
-body.piano360-mobile-landscape #root {
-  width: 100dvw;
-  height: 100dvh;
-  overflow: hidden;
-}
-
 .mobile-landscape-shell {
   min-height: 100dvh;
 }
 
-.mobile-landscape-shell--active {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  width: 100dvw;
-  height: 100dvh;
-  min-height: 0;
-  flex-direction: column;
-  overflow: hidden;
-  background: #12110f;
-  padding: max(0.375rem, env(safe-area-inset-top)) max(0.5rem, env(safe-area-inset-right))
-    max(0.375rem, env(safe-area-inset-bottom)) max(0.5rem, env(safe-area-inset-left));
+@media (max-width: 767px) and (max-height: 1024px), (max-height: 767px) and (max-width: 1024px) {
+  html:has(.mobile-landscape-shell--active),
+  body.piano360-mobile-landscape {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
+  body.piano360-mobile-landscape #root {
+    width: 100dvw;
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  .mobile-landscape-shell--active {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    width: 100dvw;
+    height: 100dvh;
+    min-height: 0;
+    flex-direction: column;
+    overflow: hidden;
+    background: #12110f;
+    padding: max(0.375rem, env(safe-area-inset-top)) max(0.5rem, env(safe-area-inset-right))
+      max(0.375rem, env(safe-area-inset-bottom)) max(0.5rem, env(safe-area-inset-left));
+    transform-origin: top left;
+  }
+
+  .mobile-landscape-shell--active .site-header {
+    flex: 0 0 auto;
+    border-radius: 0.75rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .mobile-landscape-shell--active .site-header > div {
+    max-width: none;
+    gap: 0.5rem;
+    padding: 0.35rem 0.5rem;
+  }
+
+  .mobile-landscape-shell--active .site-header [aria-hidden="true"] {
+    width: 2rem;
+    height: 2rem;
+  }
+
+  .mobile-landscape-shell--active .site-header a,
+  .mobile-landscape-shell--active .site-header button {
+    min-height: 2.5rem;
+  }
+
+  .mobile-landscape-shell--active .lesson-player-main,
+  .mobile-landscape-shell--active .freestyle-mode-main {
+    display: flex;
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
+  }
+
+  .mobile-landscape-shell--active .lesson-player-workspace,
+  .mobile-landscape-shell--active .freestyle-mode-workspace {
+    grid-template-rows: auto auto minmax(0, 1fr);
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    gap: 0.5rem;
+    padding: 0.5rem 0;
+  }
+
+  .mobile-landscape-shell--active .lesson-player-nav,
+  .mobile-landscape-shell--active .freestyle-mode-nav {
+    min-height: 2.5rem;
+    align-items: center;
+  }
+
+  .mobile-landscape-shell--active .lesson-player-nav h1,
+  .mobile-landscape-shell--active .freestyle-mode-nav h1 {
+    margin-top: 0;
+    font-size: clamp(1rem, 4dvh, 1.35rem);
+    line-height: 1.05;
+  }
+
+  .mobile-landscape-shell--active .lesson-player-nav button {
+    min-height: 2.5rem;
+    padding: 0.45rem 0.75rem;
+  }
+
+  .mobile-landscape-shell--active .lesson-player-instruction,
+  .mobile-landscape-shell--active .freestyle-mode-instruction {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+  }
+
+  .mobile-landscape-shell--active .lesson-player-instruction > div,
+  .mobile-landscape-shell--active .freestyle-mode-instruction > div {
+    min-width: 0;
+    justify-items: start;
+  }
+
+  .mobile-landscape-shell--active .lesson-player-instruction p,
+  .mobile-landscape-shell--active .freestyle-mode-instruction p {
+    letter-spacing: 0;
+  }
+
+  .mobile-landscape-shell--active .lesson-player-notes,
+  .mobile-landscape-shell--active .freestyle-mode-live-notes {
+    font-size: clamp(1.6rem, 9dvh, 3rem);
+  }
+
+  .mobile-landscape-shell--active
+    .freestyle-mode-instruction
+    [aria-live="polite"]:not(.freestyle-mode-live-notes) {
+    max-width: 24rem;
+  }
+
+  .mobile-landscape-shell--active .lesson-player-completion {
+    overflow: auto;
+    padding: 0.75rem;
+  }
+
+  .mobile-landscape-shell--active .lesson-player-piano,
+  .mobile-landscape-shell--active .freestyle-mode-piano {
+    min-height: 0;
+    padding: 0.375rem;
+  }
+
+  .mobile-landscape-shell--active .lesson-player-piano,
+  .mobile-landscape-shell--active .lesson-player-piano > div,
+  .mobile-landscape-shell--active .freestyle-mode-piano,
+  .mobile-landscape-shell--active .freestyle-mode-piano > div {
+    display: flex;
+    height: 100%;
+    flex-direction: column;
+  }
+
+  .mobile-landscape-shell--active .lesson-player-piano > div,
+  .mobile-landscape-shell--active .freestyle-mode-piano > div {
+    min-height: 0;
+    padding: 0.375rem;
+  }
+
+  .mobile-landscape-shell--active .piano-scroll {
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow-x: hidden;
+    padding: 0.25rem;
+    scrollbar-width: none;
+  }
+
+  .mobile-landscape-shell--active .piano-scroll::-webkit-scrollbar {
+    display: none;
+  }
+
+  .mobile-landscape-shell--active .piano-scroll > div {
+    height: 100%;
+    min-width: 0 !important;
+  }
+
+  .mobile-landscape-shell--active [data-tone="white"] {
+    height: 100%;
+    min-width: 0;
+    padding-top: clamp(3.25rem, 19dvh, 5.5rem);
+    padding-bottom: 1.5rem;
+    font-size: clamp(0.75rem, 2.8dvh, 1rem);
+  }
+
+  .mobile-landscape-shell--active [data-tone="black"] {
+    top: 0.25rem;
+    height: 61%;
+    padding-top: clamp(1.75rem, 8dvh, 2.5rem);
+  }
+
+  .mobile-landscape-shell--active [data-note-id] span:first-child {
+    min-width: 1.6rem;
+    height: 1.55rem;
+    font-size: 0.65rem;
+  }
+
+  .mobile-landscape-shell--active [data-tone="white"] span:last-child {
+    font-size: clamp(1rem, 4.2dvh, 1.45rem);
+  }
+
+  .mobile-landscape-shell--active [data-tone="black"] span:last-child {
+    font-size: clamp(0.78rem, 3.2dvh, 1rem);
+  }
 }
 
-@media (orientation: portrait) {
+@media (max-width: 767px) and (max-height: 1024px) and (orientation: portrait),
+  (max-height: 767px) and (max-width: 1024px) and (orientation: portrait) {
   .mobile-landscape-shell--active {
     width: 100dvh;
     height: 100dvw;
     transform: rotate(90deg) translateY(-100%);
     transform-origin: top left;
   }
-}
-
-.mobile-landscape-shell--active .site-header {
-  flex: 0 0 auto;
-  border-radius: 0.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.mobile-landscape-shell--active .site-header > div {
-  max-width: none;
-  gap: 0.5rem;
-  padding: 0.35rem 0.5rem;
-}
-
-.mobile-landscape-shell--active .site-header [aria-hidden="true"] {
-  width: 2rem;
-  height: 2rem;
-}
-
-.mobile-landscape-shell--active .site-header a,
-.mobile-landscape-shell--active .site-header button {
-  min-height: 2.5rem;
-}
-
-.mobile-landscape-shell--active .lesson-player-main,
-.mobile-landscape-shell--active .freestyle-mode-main {
-  display: flex;
-  min-height: 0;
-  flex: 1 1 auto;
-  overflow: hidden;
-}
-
-.mobile-landscape-shell--active .lesson-player-workspace,
-.mobile-landscape-shell--active .freestyle-mode-workspace {
-  grid-template-rows: auto auto minmax(0, 1fr);
-  width: 100%;
-  height: 100%;
-  max-width: none;
-  gap: 0.5rem;
-  padding: 0.5rem 0;
-}
-
-.mobile-landscape-shell--active .lesson-player-nav,
-.mobile-landscape-shell--active .freestyle-mode-nav {
-  min-height: 2.5rem;
-  align-items: center;
-}
-
-.mobile-landscape-shell--active .lesson-player-nav h1,
-.mobile-landscape-shell--active .freestyle-mode-nav h1 {
-  margin-top: 0;
-  font-size: clamp(1rem, 4dvh, 1.35rem);
-  line-height: 1.05;
-}
-
-.mobile-landscape-shell--active .lesson-player-nav button {
-  min-height: 2.5rem;
-  padding: 0.45rem 0.75rem;
-}
-
-.mobile-landscape-shell--active .lesson-player-instruction,
-.mobile-landscape-shell--active .freestyle-mode-instruction {
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0.75rem;
-  text-align: left;
-}
-
-.mobile-landscape-shell--active .lesson-player-instruction > div,
-.mobile-landscape-shell--active .freestyle-mode-instruction > div {
-  min-width: 0;
-  justify-items: start;
-}
-
-.mobile-landscape-shell--active .lesson-player-instruction p,
-.mobile-landscape-shell--active .freestyle-mode-instruction p {
-  letter-spacing: 0;
-}
-
-.mobile-landscape-shell--active .lesson-player-notes,
-.mobile-landscape-shell--active .freestyle-mode-live-notes {
-  font-size: clamp(1.6rem, 9dvh, 3rem);
-}
-
-.mobile-landscape-shell--active
-  .freestyle-mode-instruction
-  [aria-live="polite"]:not(.freestyle-mode-live-notes) {
-  max-width: 24rem;
-}
-
-.mobile-landscape-shell--active .lesson-player-completion {
-  overflow: auto;
-  padding: 0.75rem;
-}
-
-.mobile-landscape-shell--active .lesson-player-piano,
-.mobile-landscape-shell--active .freestyle-mode-piano {
-  min-height: 0;
-  padding: 0.375rem;
-}
-
-.mobile-landscape-shell--active .lesson-player-piano,
-.mobile-landscape-shell--active .lesson-player-piano > div,
-.mobile-landscape-shell--active .freestyle-mode-piano,
-.mobile-landscape-shell--active .freestyle-mode-piano > div {
-  display: flex;
-  height: 100%;
-  flex-direction: column;
-}
-
-.mobile-landscape-shell--active .lesson-player-piano > div,
-.mobile-landscape-shell--active .freestyle-mode-piano > div {
-  min-height: 0;
-  padding: 0.375rem;
-}
-
-.mobile-landscape-shell--active .piano-scroll {
-  min-height: 0;
-  flex: 1 1 auto;
-  overflow-x: hidden;
-  padding: 0.25rem;
-  scrollbar-width: none;
-}
-
-.mobile-landscape-shell--active .piano-scroll::-webkit-scrollbar {
-  display: none;
-}
-
-.mobile-landscape-shell--active .piano-scroll > div {
-  height: 100%;
-  min-width: 0 !important;
-}
-
-.mobile-landscape-shell--active [data-tone="white"] {
-  height: 100%;
-  min-width: 0;
-  padding-top: clamp(3.25rem, 19dvh, 5.5rem);
-  padding-bottom: 1.5rem;
-  font-size: clamp(0.75rem, 2.8dvh, 1rem);
-}
-
-.mobile-landscape-shell--active [data-tone="black"] {
-  top: 0.25rem;
-  height: 61%;
-  padding-top: clamp(1.75rem, 8dvh, 2.5rem);
-}
-
-.mobile-landscape-shell--active [data-note-id] span:first-child {
-  min-width: 1.6rem;
-  height: 1.55rem;
-  font-size: 0.65rem;
-}
-
-.mobile-landscape-shell--active [data-tone="white"] span:last-child {
-  font-size: clamp(1rem, 4.2dvh, 1.45rem);
-}
-
-.mobile-landscape-shell--active [data-tone="black"] span:last-child {
-  font-size: clamp(0.78rem, 3.2dvh, 1rem);
 }
 
 button,

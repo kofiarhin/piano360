@@ -167,12 +167,22 @@ const mockFetch = () => {
   );
 };
 
-const installStaticMatchMedia = (matchesByQuery: Record<string, boolean>) => {
+const phoneViewportQuery =
+  "((max-width: 767px) and (max-height: 1024px)), " +
+  "((max-height: 767px) and (max-width: 1024px))";
+
+const isPhoneViewportSize = () =>
+  (window.innerWidth <= 767 && window.innerHeight <= 1024) ||
+  (window.innerHeight <= 767 && window.innerWidth <= 1024);
+
+const installViewportMatchMedia = () => {
   vi.stubGlobal(
     "matchMedia",
     vi.fn((query: string) => ({
       media: query,
-      matches: Boolean(matchesByQuery[query]),
+      get matches() {
+        return query === phoneViewportQuery && isPhoneViewportSize();
+      },
       onchange: null,
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
@@ -195,9 +205,6 @@ const setViewportSize = (width: number, height: number) => {
     value: height
   });
 };
-
-const phoneLandscapeMedia =
-  "(pointer: coarse) and (max-width: 767px), (pointer: coarse) and (max-height: 767px)";
 
 describe("Piano360 course MVP", () => {
   beforeEach(() => {
@@ -519,10 +526,8 @@ describe("Piano360 course MVP", () => {
   });
 
   it("uses the shared forced-landscape shell for lessons on phone portrait viewports", async () => {
-    setViewportSize(390, 844);
-    installStaticMatchMedia({
-      [phoneLandscapeMedia]: true
-    });
+    setViewportSize(462, 849);
+    installViewportMatchMedia();
 
     await renderUnlockedLesson();
 
@@ -544,10 +549,8 @@ describe("Piano360 course MVP", () => {
   });
 
   it("keeps the lesson shell active after a phone is physically rotated", async () => {
-    setViewportSize(844, 390);
-    installStaticMatchMedia({
-      [phoneLandscapeMedia]: true
-    });
+    setViewportSize(849, 462);
+    installViewportMatchMedia();
 
     await renderUnlockedLesson();
 
@@ -579,9 +582,7 @@ describe("Piano360 course MVP", () => {
       ]
     });
     setViewportSize(390, 844);
-    installStaticMatchMedia({
-      [phoneLandscapeMedia]: true
-    });
+    installViewportMatchMedia();
     setAudioStatus("ready");
     await renderUnlockedLesson();
 
@@ -594,9 +595,7 @@ describe("Piano360 course MVP", () => {
 
   it("uses the shared forced-landscape shell for Freestyle on phone viewports", async () => {
     setViewportSize(390, 844);
-    installStaticMatchMedia({
-      [phoneLandscapeMedia]: true
-    });
+    installViewportMatchMedia();
     window.history.pushState({}, "", "/freestyle");
 
     render(<App />);
@@ -613,10 +612,8 @@ describe("Piano360 course MVP", () => {
   });
 
   it("retains the normal lesson layout above the phone breakpoint", async () => {
-    setViewportSize(1024, 768);
-    installStaticMatchMedia({
-      [phoneLandscapeMedia]: false
-    });
+    setViewportSize(768, 1024);
+    installViewportMatchMedia();
 
     await renderUnlockedLesson();
 
@@ -627,6 +624,33 @@ describe("Piano360 course MVP", () => {
     expect(shell).toHaveAttribute("data-mobile-landscape-shell", "inactive");
     expect(document.body).not.toHaveClass("piano360-mobile-landscape");
     expect(pianoScroll).toHaveClass("overflow-x-auto");
+  });
+
+  it("updates the forced-landscape shell when a normal browser window is resized", async () => {
+    setViewportSize(1366, 768);
+    installViewportMatchMedia();
+
+    await renderUnlockedLesson();
+
+    const shell = screen.getByTestId("lesson-player-shell");
+    expect(shell).not.toHaveClass("mobile-landscape-shell--active");
+    expect(document.body).not.toHaveClass("piano360-mobile-landscape");
+
+    act(() => {
+      setViewportSize(462, 849);
+      fireEvent.resize(window);
+    });
+
+    expect(shell).toHaveClass("mobile-landscape-shell--active");
+    expect(document.body).toHaveClass("piano360-mobile-landscape");
+
+    act(() => {
+      setViewportSize(1366, 768);
+      fireEvent.resize(window);
+    });
+
+    expect(shell).not.toHaveClass("mobile-landscape-shell--active");
+    expect(document.body).not.toHaveClass("piano360-mobile-landscape");
   });
 
   it("updates the visible note instruction when the lesson advances", async () => {
