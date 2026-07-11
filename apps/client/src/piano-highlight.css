@@ -1,0 +1,19 @@
+[data-note-id][class*="bg-[#F59E0B]"] {
+  border-color: #7c3aed !important;
+  background-color: #5b21b6 !important;
+  color: #ffffff !important;
+  --tw-ring-color: rgb(91 33 182 / 0.8) !important;
+  outline-color: #c4b5fd !important;
+  box-shadow:
+    inset 0 0 0 2px rgb(255 255 255 / 0.42),
+    0 0 24px rgb(91 33 182 / 0.55) !important;
+}
+
+[data-note-id][class*="bg-[#F59E0B]"]:active {
+  border-color: #6d28d9 !important;
+  background-color: #4c1d95 !important;
+  --tw-ring-color: rgb(76 29 149 / 0.85) !important;
+  box-shadow:
+    inset 0 0 0 2px rgb(255 255 255 / 0.34),
+    0 0 20px rgb(76 29 149 / 0.58) !important;
+}
