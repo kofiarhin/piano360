@@ -89,6 +89,18 @@ Seeded courses:
 - Finger Placement
 - Beginner Chords
 - Ode to Joy
+- Three Little Birds Limited Excerpt
+- One Love Limited Excerpt
+- Redemption Song Limited Excerpt
+- Rivers of Babylon Limited Excerpt
+- Island Sunrise
+- One-Drop Walk
+- Kingston Evening
+- Positive Vibration Study
+- Ska Step-Up
+- Offbeat Run
+- Echo Bass Melody
+- Space and Delay Study
 
 ## Scripts
 

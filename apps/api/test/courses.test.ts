@@ -34,32 +34,37 @@ describe("course routes", () => {
   it("returns seeded course summaries in course order", async () => {
     const response = await request(app()).get("/api/courses").expect(200);
 
-    expect(response.body).toEqual([
-      expect.objectContaining({
-        slug: "finger-placement",
-        title: "Finger Placement",
-        contentType: "single-note",
-        hand: "right",
-        difficulty: "beginner",
-        lessonCount: 3
-      }),
-      expect.objectContaining({
-        slug: "beginner-chords",
-        title: "Beginner Chords",
-        contentType: "chord",
-        hand: "right",
-        difficulty: "beginner",
-        lessonCount: 3
-      }),
-      expect.objectContaining({
-        slug: "ode-to-joy",
-        title: "Ode to Joy",
-        contentType: "single-note",
-        hand: "right",
-        difficulty: "beginner",
-        lessonCount: 3
-      })
-    ]);
+    expect(response.body.map((course: { slug: string }) => course.slug)).toEqual(
+      seedCourses.map((course) => course.slug)
+    );
+    expect(response.body).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          slug: "finger-placement",
+          title: "Finger Placement",
+          contentType: "single-note",
+          hand: "right",
+          difficulty: "beginner",
+          lessonCount: 3
+        }),
+        expect.objectContaining({
+          slug: "beginner-chords",
+          title: "Beginner Chords",
+          contentType: "chord",
+          hand: "right",
+          difficulty: "beginner",
+          lessonCount: 3
+        }),
+        expect.objectContaining({
+          slug: "space-and-delay-study",
+          title: "Space and Delay Study",
+          contentType: "single-note",
+          hand: "right",
+          difficulty: "beginner",
+          lessonCount: 4
+        })
+      ])
+    );
   });
 
   it("filters courses by course-level metadata", async () => {
