@@ -117,6 +117,9 @@ export const CourseOverview = ({ onProgressReset }: CourseOverviewProps) => {
                 </div>
                 <div>
                   <h2 className="text-xl font-black">{lesson.title}</h2>
+                  <p className="mt-1 font-mono text-xs font-black uppercase text-stone-500">
+                    {lesson.mode === "timeline" ? "Rhythm timeline" : "Guided steps"}
+                  </p>
                   <p
                     className={
                       unlocked ? "mt-1 text-sm text-stone-700" : "mt-1 text-sm text-stone-400"
@@ -128,6 +131,9 @@ export const CourseOverview = ({ onProgressReset }: CourseOverviewProps) => {
                     <p className="mt-2 font-mono text-xs font-black uppercase tracking-[0.16em]">
                       {formatPercent(stats.accuracy)} accuracy / {formatDuration(stats.durationMs)}{" "}
                       / {stats.restartCount} restarts
+                      {stats.rhythmicAccuracy !== undefined
+                        ? ` / ${formatPercent(stats.rhythmicAccuracy)} rhythm`
+                        : ""}
                     </p>
                   )}
                 </div>

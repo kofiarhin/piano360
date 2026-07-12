@@ -1,4 +1,4 @@
-import type { Course, Lesson, LessonStep, NoteId } from "./courseTypes";
+import type { Course, Lesson, LessonStep, NoteId, SongTimeline } from "./courseTypes";
 import { courseSchema } from "./courseValidation";
 
 const single = (id: string, instruction: string, note: NoteId): LessonStep => ({
@@ -17,6 +17,51 @@ const chord = (id: string, instruction: string, targetNotes: NoteId[]): LessonSt
 
 const cMajorChord: NoteId[] = ["C4", "E4", "G4"];
 const gMajorChord: NoteId[] = ["G4", "B4", "D4"];
+
+const odeToJoyTimeline: SongTimeline = {
+  originalBpm: 120,
+  timeSignature: { numerator: 4, denominator: 4 },
+  countInBeats: 4,
+  totalBeats: 32,
+  events: [
+    ["E4", 0, 1],
+    ["E4", 1, 1],
+    ["F4", 2, 1],
+    ["G4", 3, 1],
+    ["G4", 4, 1],
+    ["F4", 5, 1],
+    ["E4", 6, 1],
+    ["D4", 7, 1],
+    ["C4", 8, 1],
+    ["C4", 9, 1],
+    ["D4", 10, 1],
+    ["E4", 11, 1],
+    ["E4", 12, 1.5],
+    ["D4", 13.5, 0.5],
+    ["D4", 14, 2],
+    ["E4", 16, 1],
+    ["E4", 17, 1],
+    ["F4", 18, 1],
+    ["G4", 19, 1],
+    ["G4", 20, 1],
+    ["F4", 21, 1],
+    ["E4", 22, 1],
+    ["D4", 23, 1],
+    ["C4", 24, 1],
+    ["C4", 25, 1],
+    ["D4", 26, 1],
+    ["E4", 27, 1],
+    ["D4", 28, 1],
+    ["C4", 29, 3]
+  ].map(([note, startBeat, durationBeats], index) => ({
+    id: `ode-timeline-${String(index + 1).padStart(2, "0")}`,
+    type: "note" as const,
+    notes: [note as NoteId],
+    startBeat: startBeat as number,
+    durationBeats: durationBeats as number,
+    hand: "right" as const
+  }))
+};
 
 type SingleNotePhrase = {
   slug: string;
@@ -320,40 +365,11 @@ const foundationalCourses: Course[] = [
       {
         slug: "complete-ode-to-joy",
         title: "Complete Ode to Joy",
-        description: "Play the complete beginner melody phrase.",
+        description: "Play the complete beginner melody with its original rhythmic spacing.",
         order: 3,
         isFinal: true,
-        steps: [
-          single("ode-full-e4-a", "Play E4.", "E4"),
-          single("ode-full-e4-b", "Repeat E4.", "E4"),
-          single("ode-full-f4-a", "Play F4.", "F4"),
-          single("ode-full-g4-a", "Play G4.", "G4"),
-          single("ode-full-g4-b", "Repeat G4.", "G4"),
-          single("ode-full-f4-b", "Play F4.", "F4"),
-          single("ode-full-e4-c", "Play E4.", "E4"),
-          single("ode-full-d4-a", "Play D4.", "D4"),
-          single("ode-full-c4-a", "Play C4.", "C4"),
-          single("ode-full-c4-b", "Repeat C4.", "C4"),
-          single("ode-full-d4-b", "Play D4.", "D4"),
-          single("ode-full-e4-d", "Play E4.", "E4"),
-          single("ode-full-e4-e", "Repeat E4.", "E4"),
-          single("ode-full-d4-b-repeat", "Play D4.", "D4"),
-          single("ode-full-d4-c", "Repeat D4.", "D4"),
-          single("ode-full-e4-f", "Start the second pass on E4.", "E4"),
-          single("ode-full-e4-g", "Repeat E4.", "E4"),
-          single("ode-full-f4-c", "Play F4.", "F4"),
-          single("ode-full-g4-c", "Play G4.", "G4"),
-          single("ode-full-g4-d", "Repeat G4.", "G4"),
-          single("ode-full-f4-d", "Play F4.", "F4"),
-          single("ode-full-e4-h", "Play E4.", "E4"),
-          single("ode-full-d4-d", "Play D4.", "D4"),
-          single("ode-full-c4-c", "Play C4.", "C4"),
-          single("ode-full-c4-d", "Repeat C4.", "C4"),
-          single("ode-full-d4-e", "Play D4.", "D4"),
-          single("ode-full-e4-i", "Play E4.", "E4"),
-          single("ode-full-d4-f", "Step down to D4.", "D4"),
-          single("ode-full-c4-e", "Finish on C4.", "C4")
-        ]
+        mode: "timeline",
+        timeline: odeToJoyTimeline
       }
     ]
   }

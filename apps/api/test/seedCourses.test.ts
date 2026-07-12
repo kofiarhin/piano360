@@ -46,10 +46,12 @@ describe("seed course validation", () => {
   it("keeps every seeded note inside the inclusive A3-C5 keyboard", () => {
     for (const course of seedCourses) {
       for (const lesson of course.lessons) {
-        for (const step of lesson.steps) {
-          for (const note of step.targetNotes) {
-            expect(noteIdSchema.parse(note)).toBe(note);
-          }
+        const lessonNotes =
+          lesson.mode === "timeline"
+            ? lesson.timeline.events.flatMap((event) => (event.type === "note" ? event.notes : []))
+            : lesson.steps.flatMap((step) => step.targetNotes);
+        for (const note of lessonNotes) {
+          expect(noteIdSchema.parse(note)).toBe(note);
         }
       }
     }
@@ -67,7 +69,9 @@ describe("seed course validation", () => {
   it("keeps seeded lessons long enough for meaningful beginner practice", () => {
     for (const course of seedCourses) {
       for (const lesson of course.lessons) {
-        expect(lesson.steps.length).toBeGreaterThanOrEqual(12);
+        const eventCount =
+          lesson.mode === "timeline" ? lesson.timeline.events.length : lesson.steps.length;
+        expect(eventCount).toBeGreaterThanOrEqual(12);
       }
     }
   });

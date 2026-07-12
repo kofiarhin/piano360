@@ -1,5 +1,5 @@
 import { matchChordInput } from "./chordMatcher";
-import type { LessonDetail, NoteId } from "./courseTypes";
+import type { GuidedStepLessonDetail, NoteId } from "./courseTypes";
 
 export const CHORD_INPUT_WINDOW_MS = 350;
 
@@ -12,6 +12,13 @@ export type LessonMetrics = {
   accuracy: number;
   durationMs: number;
   restartCount: number;
+  perfectInputs?: number;
+  goodInputs?: number;
+  acceptedInputs?: number;
+  missedInputs?: number;
+  wrongInputs?: number;
+  meanAbsoluteTimingErrorMs?: number;
+  rhythmicAccuracy?: number;
 };
 
 export type ChordAttempt = {
@@ -40,7 +47,7 @@ const emptyMetrics = (restartCount = 0): LessonMetrics => ({
   restartCount
 });
 
-export const initializeLessonSession = (lesson: LessonDetail): LessonSession => ({
+export const initializeLessonSession = (lesson: GuidedStepLessonDetail): LessonSession => ({
   lessonSlug: lesson.slug,
   currentStepIndex: 0,
   status: "active",
@@ -49,7 +56,8 @@ export const initializeLessonSession = (lesson: LessonDetail): LessonSession => 
   activeNotes: []
 });
 
-const currentStep = (session: LessonSession, lesson: LessonDetail) => lesson.steps[session.currentStepIndex];
+const currentStep = (session: LessonSession, lesson: GuidedStepLessonDetail) =>
+  lesson.steps[session.currentStepIndex];
 
 const withStartedAt = (session: LessonSession, now: Date): LessonSession => ({
   ...session,
@@ -64,7 +72,11 @@ const withAccuracy = (metrics: LessonMetrics): LessonMetrics => {
   };
 };
 
-const completeIfNeeded = (session: LessonSession, lesson: LessonDetail, now: Date): LessonSession => {
+const completeIfNeeded = (
+  session: LessonSession,
+  lesson: GuidedStepLessonDetail,
+  now: Date
+): LessonSession => {
   if (session.currentStepIndex < lesson.steps.length) {
     return session;
   }
@@ -87,7 +99,11 @@ const completeIfNeeded = (session: LessonSession, lesson: LessonDetail, now: Dat
   };
 };
 
-const recordCorrect = (session: LessonSession, lesson: LessonDetail, now: Date): LessonSession => {
+const recordCorrect = (
+  session: LessonSession,
+  lesson: GuidedStepLessonDetail,
+  now: Date
+): LessonSession => {
   const nextSession: LessonSession = {
     ...session,
     currentStepIndex: session.currentStepIndex + 1,
@@ -114,11 +130,12 @@ const recordIncorrect = (session: LessonSession): LessonSession => ({
   })
 });
 
-const appendUniqueNote = (notes: NoteId[], note: NoteId) => (notes.includes(note) ? notes : [...notes, note]);
+const appendUniqueNote = (notes: NoteId[], note: NoteId) =>
+  notes.includes(note) ? notes : [...notes, note];
 
 export const applyNoteInput = (
   currentSession: LessonSession,
-  lesson: LessonDetail,
+  lesson: GuidedStepLessonDetail,
   note: NoteId,
   now = new Date()
 ): LessonSession => {
@@ -134,7 +151,9 @@ export const applyNoteInput = (
   }
 
   if (step.type === "single-note") {
-    return step.targetNotes[0] === note ? recordCorrect(session, lesson, now) : recordIncorrect(session);
+    return step.targetNotes[0] === note
+      ? recordCorrect(session, lesson, now)
+      : recordIncorrect(session);
   }
 
   const collectedNotes = appendUniqueNote(session.chordAttempt?.collectedNotes ?? [], note);
@@ -169,7 +188,7 @@ export const applyNoteInput = (
 
 export const expireChordWindow = (
   session: LessonSession,
-  lesson: LessonDetail,
+  lesson: GuidedStepLessonDetail,
   now = new Date()
 ): LessonSession => {
   if (!session.chordAttempt || session.status === "completed") {
@@ -191,7 +210,10 @@ export const expireChordWindow = (
     : recordIncorrect(session);
 };
 
-export const restartLessonSession = (session: LessonSession, lesson: LessonDetail): LessonSession => ({
+export const restartLessonSession = (
+  session: LessonSession,
+  lesson: GuidedStepLessonDetail
+): LessonSession => ({
   ...initializeLessonSession(lesson),
   metrics: emptyMetrics(session.metrics.restartCount + 1)
 });

@@ -22,6 +22,8 @@ export type ContentType = "single-note" | "chord" | "mixed";
 export type Hand = "left" | "right";
 export type Difficulty = "beginner";
 export type LessonStepType = "single-note" | "chord";
+export type LessonMode = "guided-steps" | "timeline";
+export type TimelinePracticeMode = "guided" | "performance";
 
 export type LessonStep = {
   id: string;
@@ -30,13 +32,60 @@ export type LessonStep = {
   targetNotes: NoteId[];
 };
 
-export type Lesson = {
+type LessonBase = {
   slug: string;
   title: string;
   description: string;
   order: number;
   isFinal: boolean;
+};
+
+export type TimeSignature = {
+  numerator: number;
+  denominator: 2 | 4 | 8 | 16;
+};
+
+export type TimedNoteEvent = {
+  id: string;
+  type: "note";
+  notes: NoteId[];
+  startBeat: number;
+  durationBeats: number;
+  hand?: "left" | "right" | "both";
+  velocity?: number;
+};
+
+export type TimedRestEvent = {
+  id: string;
+  type: "rest";
+  startBeat: number;
+  durationBeats: number;
+};
+
+export type TimelineEvent = TimedNoteEvent | TimedRestEvent;
+
+export type SongTimeline = {
+  originalBpm: number;
+  timeSignature: TimeSignature;
+  countInBeats: number;
+  totalBeats: number;
+  events: TimelineEvent[];
+};
+
+export type Lesson = LessonBase & {
+  mode?: LessonMode;
+  steps?: LessonStep[];
+  timeline?: SongTimeline;
+};
+
+export type GuidedStepLesson = Lesson & {
+  mode?: "guided-steps";
   steps: LessonStep[];
+};
+
+export type TimelineLesson = Lesson & {
+  mode: "timeline";
+  timeline: SongTimeline;
 };
 
 export type Course = {
@@ -59,6 +108,24 @@ export type LessonDetail = Lesson & {
   courseTitle: string;
   courseHand: Hand;
 };
+
+export type GuidedStepLessonDetail = GuidedStepLesson & {
+  courseSlug: string;
+  courseTitle: string;
+  courseHand: Hand;
+};
+
+export type TimelineLessonDetail = TimelineLesson & {
+  courseSlug: string;
+  courseTitle: string;
+  courseHand: Hand;
+};
+
+export const isTimelineLesson = (lesson: Lesson): lesson is TimelineLesson =>
+  lesson.mode === "timeline" && lesson.timeline !== undefined;
+
+export const isGuidedStepLesson = (lesson: Lesson): lesson is GuidedStepLesson =>
+  lesson.mode !== "timeline" && lesson.steps !== undefined;
 
 export type CourseFilters = {
   contentType?: ContentType;

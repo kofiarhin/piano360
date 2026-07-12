@@ -104,8 +104,13 @@ body::before {
     min-height: 2.5rem;
   }
 
+  .timeline-player-page .site-header {
+    display: none !important;
+  }
+
   .mobile-landscape-shell--active .lesson-player-main,
-  .mobile-landscape-shell--active .freestyle-mode-main {
+  .mobile-landscape-shell--active .freestyle-mode-main,
+  .mobile-landscape-shell--active .timeline-player-main {
     display: flex;
     min-height: 0;
     flex: 1 1 auto;
@@ -113,7 +118,8 @@ body::before {
   }
 
   .mobile-landscape-shell--active .lesson-player-workspace,
-  .mobile-landscape-shell--active .freestyle-mode-workspace {
+  .mobile-landscape-shell--active .freestyle-mode-workspace,
+  .mobile-landscape-shell--active .timeline-player-workspace {
     grid-template-rows: auto auto minmax(0, 1fr);
     width: 100%;
     height: 100%;
@@ -177,7 +183,8 @@ body::before {
   }
 
   .mobile-landscape-shell--active .lesson-player-piano,
-  .mobile-landscape-shell--active .freestyle-mode-piano {
+  .mobile-landscape-shell--active .freestyle-mode-piano,
+  .mobile-landscape-shell--active .timeline-player-piano {
     min-height: 0;
     padding: 0.375rem;
   }
@@ -185,14 +192,17 @@ body::before {
   .mobile-landscape-shell--active .lesson-player-piano,
   .mobile-landscape-shell--active .lesson-player-piano > div,
   .mobile-landscape-shell--active .freestyle-mode-piano,
-  .mobile-landscape-shell--active .freestyle-mode-piano > div {
+  .mobile-landscape-shell--active .freestyle-mode-piano > div,
+  .mobile-landscape-shell--active .timeline-player-piano,
+  .mobile-landscape-shell--active .timeline-player-piano > div {
     display: flex;
     height: 100%;
     flex-direction: column;
   }
 
   .mobile-landscape-shell--active .lesson-player-piano > div,
-  .mobile-landscape-shell--active .freestyle-mode-piano > div {
+  .mobile-landscape-shell--active .freestyle-mode-piano > div,
+  .mobile-landscape-shell--active .timeline-player-piano > div {
     min-height: 0;
     padding: 0.375rem;
   }
@@ -240,6 +250,96 @@ body::before {
 
   .mobile-landscape-shell--active [data-tone="black"] span:last-child {
     font-size: clamp(0.78rem, 3.2dvh, 1rem);
+  }
+
+  .mobile-landscape-shell--active .timeline-player-workspace {
+    grid-template-rows: auto auto auto 5rem minmax(0, 1fr);
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    gap: 0.375rem;
+    padding: 0.375rem 0;
+  }
+
+  .mobile-landscape-shell--active .timeline-player-workspace nav {
+    min-height: 2.25rem;
+  }
+
+  .mobile-landscape-shell--active .timeline-player-workspace nav h1 {
+    margin-top: 0;
+    font-size: clamp(1rem, 4dvh, 1.25rem);
+    line-height: 1;
+  }
+
+  .mobile-landscape-shell--active .timeline-player-workspace nav button {
+    min-height: 2rem;
+    padding: 0.25rem 0.625rem;
+  }
+
+  .mobile-landscape-shell--active .timeline-transport {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0;
+  }
+
+  .mobile-landscape-shell--active .timeline-transport input[type="range"],
+  .mobile-landscape-shell--active .timeline-transport label > span {
+    display: none;
+  }
+
+  .mobile-landscape-shell--active .timeline-transport button,
+  .mobile-landscape-shell--active .timeline-transport select {
+    min-height: 2.25rem;
+  }
+
+  .mobile-landscape-shell--active .timeline-transport label {
+    min-width: 8.5rem;
+  }
+
+  .mobile-landscape-shell--active .timeline-viewport {
+    height: 5rem;
+  }
+
+  .mobile-landscape-shell--active .timeline-player-piano [data-note-id] span:first-child {
+    display: none;
+  }
+
+  .mobile-landscape-shell--active .timeline-player-piano [data-tone="white"] {
+    padding-top: 2.5rem;
+    padding-bottom: 0.25rem;
+  }
+
+  .mobile-landscape-shell--active .timeline-player-piano [data-tone="black"] {
+    padding-top: 1.25rem;
+  }
+
+  .mobile-landscape-shell--active .timeline-player-piano [data-tone="white"] span:last-child {
+    font-size: 0.75rem;
+  }
+
+  .mobile-landscape-shell--active .timeline-player-piano [data-tone="black"] span:last-child {
+    font-size: 0.65rem;
+  }
+
+  .mobile-landscape-shell--active .timeline-status {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .mobile-landscape-shell--active .timeline-status > div:first-child {
+    min-height: 2.5rem;
+  }
+
+  .mobile-landscape-shell--active .timeline-status > div:last-child {
+    gap: 0.5rem;
+    font-size: 0.7rem;
+  }
+
+  .mobile-landscape-shell--active .timeline-status p:last-child {
+    font-size: clamp(0.9rem, 3.5dvh, 1.1rem);
   }
 }
 

@@ -15,7 +15,13 @@ import { MobileLandscapeShell, useMobileLandscapeMode } from "../../shared/Mobil
 import { CoursePiano } from "./CoursePiano";
 import { keyboardMap } from "./courseKeyboard";
 import { courseQueryKeys, getCourse, getLesson } from "./courseQueries";
-import type { LessonDetail, NoteId } from "./courseTypes";
+import {
+  isGuidedStepLesson,
+  isTimelineLesson,
+  type GuidedStepLessonDetail,
+  type LessonDetail,
+  type NoteId
+} from "./courseTypes";
 import { formatDuration, formatPercent } from "./formatMetrics";
 import {
   CHORD_INPUT_WINDOW_MS,
@@ -27,6 +33,7 @@ import {
   type LessonSession
 } from "./lessonEngine";
 import { isLessonUnlocked, loadProgress, recordLessonCompletion } from "./progressStorage";
+import { TimelinePlayer } from "./timeline/TimelinePlayer";
 
 const isEditableTarget = (target: EventTarget | null) => {
   if (!(target instanceof HTMLElement)) {
@@ -51,7 +58,7 @@ const LessonPageFrame = ({ active, children }: { active?: boolean; children: Rea
 );
 
 type CompletionSummaryProps = {
-  lesson: LessonDetail;
+  lesson: GuidedStepLessonDetail;
   session: LessonSession;
   continuePath: string;
   onReplay: () => void;
@@ -60,12 +67,7 @@ type CompletionSummaryProps = {
 const shortcutKeyClass =
   "inline-flex min-w-20 items-center justify-center rounded-md border border-white/20 bg-stone-950/70 px-3 py-1.5 font-mono text-xs font-black tracking-[0.12em] text-white shadow-sm";
 
-const CompletionSummary = ({
-  lesson,
-  session,
-  continuePath,
-  onReplay
-}: CompletionSummaryProps) => {
+const CompletionSummary = ({ lesson, session, continuePath, onReplay }: CompletionSummaryProps) => {
   const summary = getCompletionSummary(session);
 
   if (!summary) {
@@ -113,7 +115,9 @@ const CompletionSummary = ({
           onClick={onReplay}
           className="flex items-center gap-3 rounded-lg bg-emerald-100 px-3 py-2 text-left font-black text-emerald-950 transition hover:bg-emerald-50 active:translate-y-0.5"
         >
-          <kbd className={`${shortcutKeyClass} border-emerald-950/20 bg-emerald-950 text-emerald-50`}>
+          <kbd
+            className={`${shortcutKeyClass} border-emerald-950/20 bg-emerald-950 text-emerald-50`}
+          >
             SPACE
           </kbd>
           <span>Replay</span>
@@ -138,7 +142,7 @@ const CompletionSummary = ({
 };
 
 type PlayerLoadedProps = {
-  lesson: LessonDetail;
+  lesson: GuidedStepLessonDetail;
   courseLessons: Array<{ slug: string; order: number }>;
   onProgressSaved: () => void;
 };
@@ -594,6 +598,31 @@ export const LessonPlayer = ({ onProgressSaved }: LessonPlayerProps) => {
               Return to courses
             </Link>
           </section>
+        </main>
+      </LessonPageFrame>
+    );
+  }
+
+  if (!isGuidedStepLesson(lessonQuery.data)) {
+    if (isTimelineLesson(lessonQuery.data)) {
+      const orderedLessonSlugs = [...course.lessons]
+        .sort((first, second) => first.order - second.order)
+        .map((lesson) => lesson.slug);
+      const nextLessonSlug =
+        orderedLessonSlugs[orderedLessonSlugs.indexOf(lessonQuery.data.slug) + 1];
+      return (
+        <TimelinePlayer
+          lesson={lessonQuery.data}
+          nextLessonSlug={nextLessonSlug}
+          onProgressSaved={onProgressSaved}
+        />
+      );
+    }
+
+    return (
+      <LessonPageFrame>
+        <main className="grid min-h-[100dvh] place-items-center bg-[#12110f] px-4 text-stone-100">
+          <p>Timeline player is loading.</p>
         </main>
       </LessonPageFrame>
     );

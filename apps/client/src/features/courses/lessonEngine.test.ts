@@ -1,4 +1,4 @@
-import type { LessonDetail } from "./courseTypes";
+import type { GuidedStepLessonDetail } from "./courseTypes";
 import {
   applyNoteInput,
   expireChordWindow,
@@ -6,7 +6,7 @@ import {
   restartLessonSession
 } from "./lessonEngine";
 
-const lesson: LessonDetail = {
+const lesson: GuidedStepLessonDetail = {
   courseSlug: "beginner-chords",
   courseTitle: "Beginner Chords",
   courseHand: "right",
