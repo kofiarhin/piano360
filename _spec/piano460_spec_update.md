@@ -1,329 +1,408 @@
-# Piano360 Rhythm Timeline System Specification
+# Piano360 Universal Guided Timeline Specification
 
-**Status:** Source of truth
-**Repository:** `kofiarhin/piano360`
-**Version:** 1.0
-**Purpose:** Define the original product and technical requirements for transforming Piano360 from a sequential note-prompt application into a rhythm-aware piano learning system.
-
----
-
-# 1. Product Vision
-
-Piano360 must teach learners both:
-
-- **which piano keys to play**
-- **when those keys should be played**
-
-The current lesson experience successfully teaches note recognition by showing one note or chord at a time and waiting for the correct input. This works for drills, but it does not preserve the rhythm, pace, rests, note lengths, or phrasing of complete songs.
-
-The redesigned system must introduce a beat-based timeline where musical events move toward a fixed playhead or judgement line. When an event reaches that line, the learner plays the corresponding piano key or chord.
-
-The learner must be able to slow down or increase the tempo without changing the song’s relative rhythmic structure.
+**Status:** Canonical source of truth  
+**Repository:** `kofiarhin/piano360`  
+**Version:** 2.0  
+**Supersedes:** The dual `guided-steps` and `timeline` learner-facing architecture in version 1.0  
+**Primary decision:** Every playable lesson MUST use the guided timeline player.  
 
 ---
 
-# 2. Problem Statement
+## 1. Source-of-Truth Statement
 
-The existing lesson data primarily represents songs as ordered note sequences.
+This document defines the required product behaviour, content model, migration rules, frontend architecture, backend validation, testing expectations, and rollout plan for Piano360.
 
-Example:
+Where existing code, seed data, documentation, or previous specifications conflict with this document, this document takes precedence until formally amended.
 
-```ts
-["G4", "A4", "B4", "A4", "G4", "E4"];
+The learner-facing single-note step player is deprecated. It MAY remain temporarily as an internal compatibility path while legacy lesson data is migrated, but it MUST NOT remain the default or intended learner experience.
+
+---
+
+## 2. Product Vision
+
+Piano360 is a guided-play piano learning application.
+
+Every playable lesson MUST teach both:
+
+- which piano keys to play
+- when those keys should be played
+
+Every lesson MUST present a consistent guided timeline interface containing:
+
+- a fixed playhead or judgement line
+- upcoming notes or chords
+- beat-based rhythmic spacing
+- visible note durations
+- BPM and tempo controls
+- count-in
+- piano input
+- guided pause-on-miss recovery
+- progress and completion feedback
+
+The learner must encounter the same core interaction model from the first note-recognition exercise through complete-song performance.
+
+The lesson content changes in complexity, but the player does not.
+
+---
+
+## 3. Problem Statement
+
+The current learner-facing experience frequently displays one target at a time:
+
+```text
+C4
+1/12
+Play the highlighted note
 ```
 
-This data communicates note order but does not communicate:
+This teaches note location but does not build rhythmic understanding. A learner can wait indefinitely between notes, so a song or exercise does not preserve timing, duration, rests, pulse, or phrasing.
 
-- when each note begins
-- how long each note lasts
-- where rests occur
-- whether notes are quarter notes, eighth notes, dotted notes, or sustained notes
-- whether notes occur on or between beats
-- whether multiple notes form a chord
-- where measures begin
-- the song’s tempo
-- the song’s time signature
+The existing repository contains a timeline prototype, but most lessons are still represented as sequential `steps`. Consequently, most production routes continue to render the legacy single-note player.
 
-As a result, the learner presses correct notes in sequence, but the result does not sound like the intended song.
+The product must move to one universal timeline engine so that:
 
-The current guided engine advances immediately after a correct input rather than according to musical time.
+1. foundational exercises use simple instructional timing
+2. song phrases use verified musical timing
+3. complete songs use verified musical timing
+4. every learner sees a playhead and upcoming events
+5. missed notes trigger guided recovery by default
+6. performance mode remains available for complete songs and assessment
 
 ---
 
-# 3. Goals
+## 4. Approved Product Decisions
 
-The system must:
+### 4.1 One learner-facing player
 
-1. Preserve the existing guided note-learning experience.
-2. Add a rhythm-aware timeline lesson mode.
-3. Store musical timing in beats.
-4. Store each song’s original BPM.
-5. Allow learners to select a slower or faster practice tempo.
-6. Preserve relative rhythm at every selected tempo.
-7. Display upcoming notes on a horizontally scrolling timeline.
-8. Use a fixed playhead or judgement line.
-9. Support note durations, rests, chords, and repeated notes.
-10. Judge both pitch and timing.
-11. Support beginner-friendly guided practice.
-12. Support continuous performance practice.
-13. Allow pause, restart, seeking, looping, count-in, and metronome.
-14. Audit and migrate existing song data.
-15. Maintain compatibility with existing lessons.
-16. Work on desktop and mobile landscape layouts.
+Piano360 MUST use one universal `TimelinePlayer` for every playable lesson.
+
+The application MUST NOT maintain two separate learner experiences such as:
+
+```text
+GuidedStepPlayer
+TimelinePlayer
+```
+
+The target architecture is:
+
+```text
+TimelinePlayer
+├── Transport
+├── Count-in
+├── Timeline viewport
+├── Judgement line
+├── Piano
+├── Input normalization
+├── Timing judgement
+├── Guided recovery
+├── Tempo control
+├── Metronome
+├── Looping
+├── Scoring
+└── Completion
+```
+
+### 4.2 Guided timeline is the default
+
+Every lesson MUST default to guided timeline behaviour.
+
+In guided timeline behaviour:
+
+- the playhead moves according to BPM
+- notes approach the judgement line
+- the learner plays the expected note or chord
+- if the event is missed, the transport pauses
+- the required note or chord remains highlighted
+- the learner completes the missed event
+- playback resumes after a short recovery sequence
+
+### 4.3 Performance mode is optional
+
+Timeline lessons MAY expose a continuous performance mode.
+
+Performance mode is primarily intended for:
+
+- complete songs
+- assessment
+- advanced practice
+- full-run rehearsal
+
+Performance mode MUST continue through mistakes and record misses without pausing.
+
+### 4.4 Legacy guided steps are migration input only
+
+The existing `guided-steps` model MAY temporarily remain in the API and database to support migration.
+
+It MUST be treated as legacy input, not a permanent learner-facing product mode.
+
+When a legacy lesson is loaded, the application SHOULD convert it into an instructional timeline before rendering.
+
+The old single-note player MUST be removed from normal learner routing after migration acceptance criteria are met.
 
 ---
 
-# 4. Non-Goals
+## 5. Goals
 
-The first release does not include:
+The implementation MUST:
 
-- automatic song transcription from commercial audio
-- automatic rhythm generation from note names alone
-- full sheet-music engraving
+1. Render every playable lesson through the timeline player.
+2. Display a fixed judgement line in every lesson.
+3. Display upcoming notes and chords before they are due.
+4. Represent canonical timing in beats.
+5. Support note start positions and durations.
+6. Support rests.
+7. Support chords.
+8. Support adjustable practice tempo.
+9. Support count-in.
+10. Support guided pause-on-miss recovery.
+11. Support optional continuous performance mode.
+12. Preserve existing lesson identity, ordering, unlocking, and progress where possible.
+13. Convert foundational drills automatically through instructional timing templates.
+14. Require verified timing for song phrases and complete songs.
+15. Clearly distinguish instructional timing from verified musical timing.
+16. Work on desktop, tablet, and mobile landscape.
+17. Use one transport clock for audio, visuals, metronome, judgement, and completion.
+18. Provide deterministic automated tests.
+
+---
+
+## 6. Non-Goals
+
+The first production release does not require:
+
+- automatic transcription from commercial recordings
+- automatic recovery of real rhythm from note names and BPM alone
+- full staff notation
 - advanced sustain-pedal notation
+- multiple time signatures in one lesson
+- tempo maps with multiple BPM changes
 - automatic fingering generation
-- teacher dashboards
 - multiplayer
 - leaderboards
-- mandatory MIDI keyboard support
-- multiple tempo changes inside one song
-- multiple time signatures inside one song
-- complete migration of every existing song before the first release
+- teacher dashboards
+- mandatory MIDI hardware
+- migration of unverified songs as though they contain accurate rhythm
 
 ---
 
-# 5. Core Product Principles
+## 7. Core Principles
 
-## 5.1 Two lesson modes must coexist
+### 7.1 Timeline data drives every lesson
 
-Piano360 must support:
+The same timeline MUST drive:
 
-```ts
-type LessonMode = "guided-steps" | "timeline";
-```
-
-The existing step-based system must not be removed.
-
-## 5.2 BPM alone is insufficient
-
-BPM specifies how quickly beats occur.
-
-It does not specify where individual notes occur.
-
-The application must not claim that a song has accurate rhythm unless it has:
-
-- note start beats
-- note durations
-- rests where required
-- verified BPM
-- verified time signature
-
-## 5.3 Canonical timing is stored in beats
-
-The database must not store canonical song timing as absolute milliseconds.
-
-Beat-based data allows the same timeline to work at multiple tempos.
-
-## 5.4 Tempo changes do not alter musical structure
-
-Changing practice tempo must only change how quickly the transport moves through the timeline.
-
-It must not modify:
-
-- event order
-- event start beats
-- event durations
-- rests
-- total beats
-- original BPM
-
-## 5.5 One timeline is the source of truth
-
-The same timeline must drive:
-
-- visual note positions
+- note placement
+- note width
 - playhead movement
-- reference audio
+- current target selection
 - metronome
 - count-in
+- reference playback
 - input judgement
-- missed-note detection
+- missed-event detection
+- guided recovery
 - seeking
 - looping
 - completion
 
----
+### 7.2 Canonical timing uses beats
 
-# 6. Lesson Modes
+Canonical lesson timing MUST be stored in beats, not milliseconds.
 
-## 6.1 Guided Steps
+Milliseconds are derived at runtime from the selected BPM.
 
-`guided-steps` is used for exercises where the learner can take unlimited time.
+### 7.3 Tempo does not mutate content
 
-Examples:
+Changing practice tempo MUST NOT modify:
 
-- finding middle C
-- locating specific keys
-- learning chord shapes
-- finger-placement exercises
-- basic note-recognition drills
+- event start beats
+- event durations
+- rest positions
+- event order
+- total beats
+- original BPM
 
-Behaviour:
+### 7.4 BPM alone is not sufficient for songs
 
-1. Show the expected note or chord.
-2. Wait for learner input.
-3. Mark incorrect input.
-4. Continue waiting.
-5. Advance after the correct input.
-6. Do not judge rhythm.
+BPM describes beat speed. It does not determine note placement or duration.
 
-The current lesson structure already supports this model through `LessonStep`.
+Song phrases and complete songs MUST NOT be migrated by assigning equal timing to every note and presenting that result as authentic rhythm.
 
-## 6.2 Timeline
+### 7.5 Instructional timing is valid for drills
 
-`timeline` is used when musical timing matters.
+Foundational exercises MAY use generated timing because their purpose is controlled repetition rather than reproduction of a known song.
 
-Examples:
+Generated timing MUST be labelled `instructional`.
 
-- song phrases
-- complete songs
-- rhythm exercises
-- tempo exercises
-- performance assessment
+### 7.6 Verified timing is required for songs
 
-Behaviour:
+Song phrases and complete songs MUST use timing derived from one of:
 
-1. Prepare audio.
-2. Begin a count-in.
-3. Move the timeline according to selected BPM.
-4. Display notes approaching a fixed judgement line.
-5. Judge learner input against expected pitch and time.
-6. Continue or pause depending on practice mode.
-7. Complete when the timeline reaches the end.
+- verified MIDI
+- verified sheet music
+- reviewed manual transcription
+- reviewed performance capture
 
 ---
 
-# 7. Timeline Practice Modes
+## 8. Lesson Classification
 
-Timeline lessons contain two practice behaviours.
+Every lesson MUST be classified by content purpose.
 
 ```ts
-type TimelinePracticeMode = "guided" | "performance";
+type LessonContentKind =
+  | "foundational-drill"
+  | "rhythm-drill"
+  | "song-phrase"
+  | "complete-song";
 ```
 
-## 7.1 Guided Timeline Mode
+### 8.1 Foundational drill
 
-This mode introduces timing while still helping beginners recover from mistakes.
+Examples:
 
-When a note is missed:
+- locate middle C
+- identify white keys
+- finger placement
+- repeat one note
+- build a chord shape
+- move between two chords
 
-1. The timeline pauses.
-2. The missed event remains highlighted.
-3. The expected key or chord is highlighted on the piano.
-4. The learner plays the correct pitch.
-5. The recovery input is recorded.
-6. A short confirmation appears.
-7. The timeline resumes from the next musical event.
+Timing source:
 
-Recovery input must not receive a normal rhythm score because it was played after the timeline paused.
+```ts
+"instructional"
+```
 
-## 7.2 Performance Timeline Mode
+Default behaviour:
 
-This mode measures continuous performance.
+```ts
+"guided"
+```
 
-When a note is missed:
+### 8.2 Rhythm drill
 
-- the timeline continues
-- the event is recorded as missed
-- later notes remain playable and scoreable
-- the song completes at the natural end
+Examples:
 
-Performance mode must never pause automatically because of a learner mistake.
+- quarter-note repetition
+- eighth-note alternation
+- syncopation exercise
+- chord-on-the-beat exercise
+
+Timing source:
+
+```ts
+"instructional" | "verified"
+```
+
+Default behaviour:
+
+```ts
+"guided"
+```
+
+### 8.3 Song phrase
+
+Timing source:
+
+```ts
+"verified"
+```
+
+Default behaviour:
+
+```ts
+"guided"
+```
+
+Performance mode MAY be available.
+
+### 8.4 Complete song
+
+Timing source:
+
+```ts
+"verified"
+```
+
+Default behaviour MAY be guided for beginners, but performance mode MUST be available.
 
 ---
 
-# 8. Canonical Lesson Data Model
+## 9. Canonical Lesson Model
 
-## 8.1 Shared lesson fields
+All newly authored lessons MUST contain a timeline.
 
 ```ts
-type LessonBase = {
+type Lesson = {
   slug: string;
   title: string;
   description: string;
   order: number;
   isFinal: boolean;
-};
-```
-
-## 8.2 Guided lesson
-
-```ts
-type GuidedStepLesson = LessonBase & {
-  mode: "guided-steps";
-  steps: LessonStep[];
-  timeline?: never;
-};
-```
-
-For backward compatibility, missing `mode` may temporarily be interpreted as `guided-steps`.
-
-All newly authored lessons must explicitly include `mode`.
-
-## 8.3 Timeline lesson
-
-```ts
-type TimelineLesson = LessonBase & {
-  mode: "timeline";
-  steps?: never;
+  contentKind: LessonContentKind;
+  defaultPracticeMode: TimelinePracticeMode;
+  availablePracticeModes: TimelinePracticeMode[];
   timeline: SongTimeline;
 };
 ```
 
-## 8.4 Lesson union
-
 ```ts
-type Lesson = GuidedStepLesson | TimelineLesson;
+type TimelinePracticeMode = "guided" | "performance";
 ```
 
-A lesson must not contain both active `steps` and active `timeline` data.
+### 9.1 Validation rules
+
+A new lesson MUST be invalid when:
+
+- `timeline` is absent
+- `availablePracticeModes` is empty
+- `defaultPracticeMode` is not included in `availablePracticeModes`
+- a `song-phrase` uses unverified instructional timing
+- a `complete-song` uses unverified instructional timing
+
+### 9.2 Legacy compatibility shape
+
+During migration only, the API MAY accept:
+
+```ts
+type LegacyGuidedLesson = {
+  slug: string;
+  title: string;
+  description: string;
+  order: number;
+  isFinal: boolean;
+  mode?: "guided-steps";
+  steps: LessonStep[];
+};
+```
+
+The client MUST NOT route this shape to the old player.
+
+It MUST pass it through the instructional timeline adapter.
 
 ---
 
-# 9. Song Timeline Data Model
+## 10. Timeline Model
 
 ```ts
 type SongTimeline = {
-  schemaVersion: 1;
+  schemaVersion: 2;
+  timingSource: TimelineTimingSource;
   originalBpm: number;
   timeSignature: TimeSignature;
   countInBeats: number;
   totalBeats: number;
   pickupBeats?: number;
   events: TimelineEvent[];
-  source: TimelineSource;
+  source: TimelineSourceMetadata;
+  instructionalTemplate?: InstructionalTimingTemplate;
 };
 ```
 
-## 9.1 Schema version
-
 ```ts
-schemaVersion: 1;
+type TimelineTimingSource = "instructional" | "verified";
 ```
-
-The schema version allows future timeline formats to be migrated safely.
-
-## 9.2 Original BPM
-
-`originalBpm` represents the verified baseline tempo of the song or arrangement.
-
-Example:
-
-```ts
-originalBpm: 120;
-```
-
-## 9.3 Time signature
 
 ```ts
 type TimeSignature = {
@@ -332,46 +411,13 @@ type TimeSignature = {
 };
 ```
 
-Example:
-
-```ts
-timeSignature: {
-  numerator: 4,
-  denominator: 4
-}
-```
-
-## 9.4 Count-in
-
-`countInBeats` represents the number of beats heard before beat zero.
-
-Example:
-
-```ts
-countInBeats: 4;
-```
-
-## 9.5 Total beats
-
-`totalBeats` must cover the end of the final event.
-
-```ts
-event.startBeat + event.durationBeats <= totalBeats;
-```
-
-## 9.6 Pickup beats
-
-`pickupBeats` optionally represents an anacrusis or pickup before the first full measure.
-
 ---
 
-# 10. Timeline Events
+## 11. Timeline Events
 
 ```ts
 type TimelineEvent = TimedNoteEvent | TimedRestEvent;
 ```
-
-## 10.1 Note event
 
 ```ts
 type TimedNoteEvent = {
@@ -382,10 +428,10 @@ type TimedNoteEvent = {
   durationBeats: number;
   hand?: "left" | "right" | "both";
   velocity?: number;
+  instruction?: string;
+  fingerNumbers?: number[];
 };
 ```
-
-## 10.2 Rest event
 
 ```ts
 type TimedRestEvent = {
@@ -393,131 +439,137 @@ type TimedRestEvent = {
   type: "rest";
   startBeat: number;
   durationBeats: number;
+  instruction?: string;
 };
 ```
 
-## 10.3 Single-note example
+### 11.1 Chords
+
+A chord MUST be represented as one note event containing multiple pitches.
 
 ```ts
 {
-  id: "event-001",
-  type: "note",
-  notes: ["G4"],
-  startBeat: 0,
-  durationBeats: 1,
-  hand: "right",
-  velocity: 0.8
-}
-```
-
-## 10.4 Eighth-note example
-
-```ts
-{
-  id: "event-002",
-  type: "note",
-  notes: ["A4"],
-  startBeat: 1,
-  durationBeats: 0.5,
-  hand: "right"
-}
-```
-
-## 10.5 Chord example
-
-```ts
-{
-  id: "event-003",
+  id: "c-major-01",
   type: "note",
   notes: ["C4", "E4", "G4"],
-  startBeat: 2,
+  startBeat: 4,
   durationBeats: 2,
   hand: "right"
 }
 ```
 
-## 10.6 Rest example
+### 11.2 Repeated notes
 
-```ts
-{
-  id: "event-004",
-  type: "rest",
-  startBeat: 4,
-  durationBeats: 1
-}
-```
+Repeated pitches MUST remain separate events with stable IDs.
+
+### 11.3 Note duration
+
+`durationBeats` controls:
+
+- visual note width
+- reference note length
+- release timing
+- sustain expectation where applicable
 
 ---
 
-# 11. Data Invariants
+## 12. Instructional Timeline Templates
 
-Every timeline must satisfy the following rules.
-
-## 11.1 Timeline requirements
-
-- `schemaVersion` must be supported.
-- `originalBpm` must be finite and greater than zero.
-- `totalBeats` must be finite and greater than zero.
-- `countInBeats` must be a non-negative integer.
-- `events` must contain at least one note event.
-- event IDs must be unique.
-- events must be ordered by `startBeat`.
-- every event must end at or before `totalBeats`.
-
-## 11.2 Note-event requirements
-
-- `notes` must contain at least one note.
-- all notes must be valid `NoteId` values.
-- duplicate pitches must not occur inside one event.
-- `startBeat` must be non-negative unless pickup handling explicitly permits otherwise.
-- `durationBeats` must be greater than zero.
-- `velocity`, when present, must be between `0` and `1`.
-
-## 11.3 Rest requirements
-
-- rests must not contain notes
-- rest duration must be greater than zero
-
-## 11.4 Event identity
-
-Repeated notes must remain separate events.
-
-This is valid:
+Foundational drills MAY be generated from legacy steps using an explicit template.
 
 ```ts
-[
-  {
-    id: "g4-first",
-    notes: ["G4"],
-    startBeat: 0,
-    durationBeats: 1
-  },
-  {
-    id: "g4-second",
-    notes: ["G4"],
-    startBeat: 1,
-    durationBeats: 1
+type InstructionalTimingTemplate = {
+  templateId: string;
+  eventSpacingBeats: number;
+  noteDurationBeats: number;
+  firstEventBeat: number;
+  restBetweenGroupsBeats?: number;
+  originalBpm: number;
+  countInBeats: number;
+  timingWindows: TimingWindows;
+};
+```
+
+### 12.1 Default foundational template
+
+Recommended initial default:
+
+```ts
+const foundationalTemplate: InstructionalTimingTemplate = {
+  templateId: "foundational-quarter-note-v1",
+  eventSpacingBeats: 2,
+  noteDurationBeats: 1,
+  firstEventBeat: 0,
+  originalBpm: 60,
+  countInBeats: 4,
+  timingWindows: {
+    perfectMs: 180,
+    goodMs: 350,
+    acceptedMs: 700
   }
-];
+};
 ```
 
-Pitch alone must never be used as event identity.
+This creates a slow, readable exercise with generous response time.
+
+### 12.2 Generated event algorithm
+
+For each legacy step at index `i`:
+
+```ts
+startBeat = firstEventBeat + i * eventSpacingBeats;
+durationBeats = noteDurationBeats;
+notes = step.targetNotes;
+instruction = step.instruction;
+```
+
+The resulting timeline MUST include:
+
+```ts
+timingSource: "instructional"
+```
+
+### 12.3 Template selection
+
+Different drill templates MAY be created for:
+
+- note-location drills
+- repeated-note drills
+- chord-shape drills
+- chord-transition drills
+- ascending and descending patterns
+- call-and-response exercises
+
+Templates MUST be named, versioned, deterministic, and tested.
+
+### 12.4 No authenticity claim
+
+Instructional timelines MUST NOT be labelled as original song rhythm.
+
+The learner-facing UI MAY display:
+
+```text
+Instructional timing
+```
+
+when relevant.
 
 ---
 
-# 12. Source Provenance
+## 13. Verified Song Timing
 
-Every production timeline must record where its rhythm data came from.
+Song phrases and complete songs MUST contain verified beat positions and durations.
+
+### 13.1 Required source metadata
 
 ```ts
-type TimelineSource = {
+type TimelineSourceMetadata = {
   type:
+    | "instructional-template"
     | "midi"
     | "sheet-music"
     | "manual-transcription"
-    | "recorded-performance"
-    | "legacy-note-list"
-    | "unknown";
+    | "recorded-performance";
   reference?: string;
   importedAt?: string;
   importedBy?: string;
@@ -527,142 +579,84 @@ type TimelineSource = {
 };
 ```
 
-A production timeline must have:
+For `song-phrase` and `complete-song`:
 
 ```ts
-reviewStatus: "approved";
+reviewStatus MUST equal "approved".
 ```
 
-A legacy note list may help identify pitch order, but it must not be considered authoritative timing data.
+### 13.2 Required musical fields
+
+Every verified song timeline MUST include:
+
+- verified original BPM
+- verified time signature
+- note start beats
+- note durations
+- rests where musically required
+- chords grouped correctly
+- stable event IDs
+- source provenance
 
 ---
 
-# 13. Beat and Time Conversion
+## 14. Universal Player Behaviour
 
-## 13.1 Milliseconds per beat
-
-```ts
-millisecondsPerBeat = 60_000 / selectedBpm;
-```
-
-## 13.2 Beat to milliseconds
-
-```ts
-eventStartMs = event.startBeat * millisecondsPerBeat;
-```
-
-## 13.3 Duration in milliseconds
-
-```ts
-eventDurationMs = event.durationBeats * millisecondsPerBeat;
-```
-
-## 13.4 Example
-
-Original BPM:
+Every lesson route MUST render the same high-level UI:
 
 ```text
-120 BPM
+Lesson header
+Practice mode
+Tempo and BPM
+Transport controls
+Count-in state
+Timeline viewport
+Fixed judgement line
+Now / Next feedback
+Virtual piano
+Session metrics
+Completion summary
 ```
 
-At 120 BPM:
+### 14.1 Initial load
 
-```text
-1 beat = 500ms
-```
+1. Fetch and validate the lesson.
+2. Convert legacy steps to an instructional timeline if necessary.
+3. Prepare audio after user interaction.
+4. Load saved lesson preferences.
+5. Render the timeline before playback.
+6. Keep transport idle until the learner starts.
 
-At 60 BPM:
+### 14.2 Start
 
-```text
-1 beat = 1000ms
-```
+1. Unlock audio.
+2. Reset to count-in start.
+3. Begin audible and visual count-in.
+4. Start the timeline at beat zero.
+5. Activate input judgement.
 
-A note beginning at beat `3.5` therefore begins:
+### 14.3 Default guided behaviour
 
-- at `1750ms` when playing at 120 BPM
-- at `3500ms` when playing at 60 BPM
+The default mode MUST be guided unless the lesson explicitly defines another approved default.
 
-The note remains at beat `3.5` in the database.
+### 14.4 Completion
+
+The lesson completes when:
+
+- the transport reaches `totalBeats`
+- no guided recovery is active
+- final metrics are calculated
+- progress is persisted or queued for persistence
 
 ---
 
-# 14. Tempo Control
+## 15. Transport Engine
 
-## 14.1 Tempo presets
+The transport MUST be the single authority for musical time.
 
-The initial interface must provide:
+React rendering MUST NOT be the canonical clock.
 
-- 50%
-- 60%
-- 70%
-- 80%
-- 90%
-- 100%
-
-## 14.2 Display
-
-The control must display both percentage and BPM.
-
-Example:
-
-```text
-70% · 84 BPM
-```
-
-## 14.3 Calculation
-
-```ts
-selectedBpm = (originalBpm * tempoPercent) / 100;
-```
-
-## 14.4 Limits
-
-Recommended bounds:
-
-```ts
-const MIN_BPM = 30;
-const MAX_BPM = 240;
-```
-
-## 14.5 Tempo persistence
-
-The application should persist the last selected tempo per lesson.
-
-## 14.6 Tempo changes
-
-Changing tempo while playing must:
-
-1. Pause the transport.
-2. Preserve the current beat.
-3. Clear future scheduled audio.
-4. Update BPM.
-5. Reschedule future events.
-6. Leave canonical event data unchanged.
-7. Require the learner to resume playback.
-
----
-
-# 15. Transport Engine
-
-## 15.1 Purpose
-
-The transport controls the progression of musical time.
-
-It is responsible for:
-
-- count-in
-- current beat
-- playback state
-- tempo
-- pause
-- resume
-- restart
-- seek
-- loops
-- completion
-- audio scheduling
-
-## 15.2 States
+### 15.1 Required states
 
 ```ts
 type TransportState =
@@ -671,13 +665,13 @@ type TransportState =
   | "counting-in"
   | "playing"
   | "paused"
+  | "guided-recovery"
   | "seeking"
   | "completed"
-  | "stopped"
   | "error";
 ```
 
-## 15.3 Interface
+### 15.2 Required interface
 
 ```ts
 interface TimelineTransport {
@@ -697,245 +691,157 @@ interface TimelineTransport {
 }
 ```
 
-## 15.4 Clock ownership
+### 15.3 Clock implementation
 
-Tone.js or another audio-grade clock must own musical time.
+Tone.js or an equivalent audio-grade clock MUST own transport time.
 
-React must not calculate musical progression from render cycles.
+`requestAnimationFrame` MAY sample transport position to update visuals.
 
-`requestAnimationFrame` may read the current transport position for visual updates.
+### 15.4 Pause
 
-## 15.5 Play
+Pausing MUST:
 
-`play()` must:
+- preserve the current beat
+- stop or clear future scheduled audio
+- release active notes safely
+- preserve prior judgements
 
-- unlock audio when necessary
-- prepare samples
-- begin at the current beat
-- perform count-in when applicable
-- start reference playback and metronome
-- update transport state
+### 15.5 Restart
 
-## 15.6 Pause
+Restart MUST:
 
-`pause()` must:
-
-- preserve current beat
-- stop future scheduled events
 - release active notes
-- pause metronome
-- retain existing judgements
-
-## 15.7 Restart
-
-`restart()` must:
-
-- stop active audio
-- clear scheduled events
-- reset current beat to `-countInBeats`
-- clear active judgement state
-- reset completion state
+- clear scheduled audio
+- reset session judgement state
+- return to negative count-in beat
 - increment restart count
 
-## 15.8 Completion
+### 15.6 Tempo change
 
-A timeline completes when:
+Changing BPM MUST:
 
-- current beat reaches `totalBeats`
-- no guided recovery remains active
-- the transport is no longer playing
+1. pause playback
+2. preserve the current beat
+3. clear future scheduling
+4. update BPM
+5. reschedule remaining events
+6. remain paused until explicit resume
 
 ---
 
-# 16. Reference Playback
+## 16. Count-In
 
-The learner must be able to control whether the timeline plays an audible reference.
+Every lesson MUST support count-in.
+
+The default count-in SHOULD be four beats unless lesson content specifies otherwise.
+
+Count-in MUST include:
+
+- visual countdown
+- audible click
+- selected BPM
+- emphasized final count or first downbeat
+- clean transition into beat zero
+
+Count-in MUST occur:
+
+- on first play
+- after restart
+- after guided recovery when configured
+- on loop restart when configured
+
+---
+
+## 17. Tempo Controls
+
+Every lesson MUST display tempo controls.
+
+Initial presets:
+
+- 50%
+- 60%
+- 70%
+- 80%
+- 90%
+- 100%
+
+The UI MUST display both percentage and BPM.
+
+Example:
+
+```text
+70% · 84 BPM
+```
 
 ```ts
-type ReferencePlaybackMode = "off" | "melody" | "metronome" | "melody-and-metronome";
+selectedBpm = originalBpm * tempoPercent / 100;
 ```
 
-## 16.1 Reference melody
-
-For each note event:
-
-- schedule note-on at `startBeat`
-- schedule note-off after `durationBeats`
-- apply velocity when present
-- schedule all chord pitches at the same beat
-
-## 16.2 Learner input audio
-
-The learner’s own piano input must always remain independent from reference playback.
-
-## 16.3 Volume controls
-
-The architecture should allow separate gain levels for:
-
-- learner piano
-- reference melody
-- metronome
-- count-in
-
-## 16.4 Audio cleanup
-
-All active notes must be released during:
-
-- pause
-- seek
-- restart
-- route change
-- component unmount
-- browser suspension
-- fatal playback error
+Selected tempo MUST be persisted per lesson.
 
 ---
 
-# 17. Count-In
+## 18. Timeline Rendering
 
-The count-in prepares the learner before the first note.
+### 18.1 Fixed judgement line
 
-## 17.1 Example
+The judgement line MUST remain fixed, preferably around 30% from the left edge.
 
-With four count-in beats:
-
-```text
-Beat -4: 4
-Beat -3: 3
-Beat -2: 2
-Beat -1: 1
-Beat  0: Play
-```
-
-## 17.2 Requirements
-
-The count-in must:
-
-- use the selected BPM
-- display a visual countdown
-- produce audible clicks
-- emphasize the final beat or first downbeat
-- transition cleanly into beat zero
-
-## 17.3 Count-in triggers
-
-Count-in must occur:
-
-- on the first play
-- after restart
-- optionally after guided recovery
-- optionally on each loop iteration
-
----
-
-# 18. Metronome
-
-The metronome must use the same transport clock.
-
-It must:
-
-- click once per beat
-- accent the first beat of each measure
-- follow selected BPM
-- remain synchronized after pause and seek
-- support enable and disable
-- persist the learner’s preference
-- function during count-in
-
----
-
-# 19. Timeline Visual Design
-
-## 19.1 Judgement line
-
-The playhead or judgement line remains fixed.
-
-Recommended location:
-
-```text
-30% from the left edge
-```
-
-Notes move from right to left toward the line.
-
-## 19.2 Beat-to-pixel calculation
+### 18.2 Event positioning
 
 ```ts
 x = event.startBeat * pixelsPerBeat;
-```
-
-```ts
 width = event.durationBeats * pixelsPerBeat;
 ```
 
-## 19.3 Timeline translation
+### 18.3 Timeline translation
 
 ```ts
-timelineOffset = judgementLinePosition - currentBeat * pixelsPerBeat;
+offset = judgementLineX - currentBeat * pixelsPerBeat;
 ```
 
-## 19.4 Pitch lanes
+### 18.4 Chord rendering
 
-Each supported piano note should have a vertical lane.
+Chord pitches MUST be shown as vertically aligned blocks sharing one event ID.
 
-Higher pitches appear above lower pitches.
-
-## 19.5 Chord rendering
-
-Each chord pitch should render as a separate aligned block, sharing one event ID.
-
-```text
-G4  ███
-E4  ███
-C4  ███
-        │
-   judgement line
-```
-
-## 19.6 Measure and beat grid
-
-The timeline must show:
-
-- beat lines
-- stronger measure lines
-- measure numbers
-- current measure where space permits
-
-## 19.7 Rests
-
-Rests should be represented visually without appearing as playable notes.
-
-## 19.8 Event states
-
-The UI must visually distinguish:
+### 18.5 Required visual states
 
 - upcoming
-- next target
-- active
+- current target
+- waiting in guided recovery
+- correct
 - perfect
 - good
 - accepted
 - early
 - late
-- wrong
 - missed
+- wrong
 - completed
 
-Feedback must not rely on colour alone.
+Feedback MUST NOT rely only on colour.
 
-## 19.9 Responsive scale
+### 18.6 Foundational lesson readability
 
-Suggested `pixelsPerBeat` ranges:
+Foundational drills MUST still show upcoming events even when only one note is currently actionable.
 
-- phone landscape: 48–60
-- tablet: 60–72
-- desktop: 72–96
+The screen MUST NOT collapse back into a single isolated note prompt.
+
+### 18.7 Responsive behaviour
+
+The timeline MUST remain visible on:
+
+- desktop
+- tablet
+- mobile landscape
+
+The piano and essential controls MUST remain usable without page-level horizontal overflow.
 
 ---
 
-# 20. Piano Input
+## 19. Input Architecture
 
-## 20.1 Normalized event
+All input sources MUST normalize to one event type.
 
 ```ts
 type PianoInputEvent = {
@@ -947,217 +853,177 @@ type PianoInputEvent = {
 };
 ```
 
-## 20.2 Initial input sources
-
-Version 1 must support:
+Version 1 MUST support:
 
 - computer keyboard
 - on-screen piano
 
-Web MIDI is a future extension.
+The architecture SHOULD remain compatible with future Web MIDI input.
 
-## 20.3 Computer keyboard rules
+Repeated keydown events MUST be ignored.
 
-- repeated keyboard events must be ignored
-- typing inside inputs must not trigger notes
-- held keys must not score repeatedly
-- key release should produce note-off when supported
+Editable controls MUST not trigger piano notes.
 
-## 20.4 Touch rules
-
-- touch must trigger sound immediately
-- multi-touch should support chords
-- duplicate touch events must not double-score
-- disabled keys must remain accessible and clearly disabled
+Multi-touch SHOULD support chords.
 
 ---
 
-# 21. Timing Judgement
-
-## 21.1 Classification
+## 20. Timing Judgement
 
 ```ts
-type TimingClassification = "perfect" | "good" | "accepted" | "early" | "late" | "wrong" | "missed";
+type TimingClassification =
+  | "perfect"
+  | "good"
+  | "accepted"
+  | "early"
+  | "late"
+  | "wrong"
+  | "missed"
+  | "recovered";
 ```
 
-## 21.2 Event result
+### 20.1 Configurable windows
 
 ```ts
-type EventJudgement = {
-  eventId: string;
-  expectedNotes: NoteId[];
-  playedNotes: NoteId[];
-  expectedBeat: number;
-  playedBeat?: number;
-  deltaMs?: number;
-  classification: TimingClassification;
-  judgedAt: string;
+type TimingWindows = {
+  perfectMs: number;
+  goodMs: number;
+  acceptedMs: number;
 };
 ```
 
-## 21.3 Default timing windows
+Foundational instructional lessons SHOULD use wider windows than verified song lessons.
 
-```ts
-const TIMING_WINDOWS = {
-  perfectMs: 80,
-  goodMs: 160,
-  acceptedMs: 250
-};
-```
+### 20.2 Event matching
 
-These values are starting defaults and must remain configurable.
+The judgement engine MUST:
 
-## 21.4 Delta calculation
+1. find unresolved events near current transport time
+2. prefer matching pitches
+3. choose the closest eligible event
+4. prevent duplicate scoring
+5. handle repeated notes deterministically
+6. handle chords as event sets
 
-```ts
-deltaMs = actualInputTimeMs - expectedEventTimeMs;
-```
+### 20.3 Miss detection
 
-Negative values mean early.
+An event becomes missed after its late accepted boundary passes without valid input.
 
-Positive values mean late.
+In guided mode, the miss triggers recovery.
 
-## 21.5 Classification algorithm
-
-```ts
-if (Math.abs(deltaMs) <= perfectMs) {
-  return "perfect";
-}
-
-if (Math.abs(deltaMs) <= goodMs) {
-  return "good";
-}
-
-if (Math.abs(deltaMs) <= acceptedMs) {
-  return "accepted";
-}
-
-if (deltaMs < 0) {
-  return "early";
-}
-
-return "late";
-```
-
-An event becomes `missed` after the accepted late window expires without valid input.
-
-## 21.6 Candidate matching
-
-When input occurs, the engine must:
-
-1. Find unresolved note events near the current time.
-2. Filter events that contain the played pitch.
-3. Select the event with the smallest absolute timing difference.
-4. Prevent one input from resolving multiple events.
-5. Prevent one event from being judged twice.
-6. Handle repeated notes deterministically.
-
-## 21.7 Wrong input
-
-A note is wrong when it does not match an eligible unresolved event.
-
-Wrong inputs must not resolve or remove the expected event.
+In performance mode, the transport continues.
 
 ---
 
-# 22. Chord Judgement
+## 21. Guided Recovery
 
-## 22.1 Chord collection
+Guided recovery is mandatory for the default lesson experience.
 
-After the first matching chord note:
+### 21.1 Recovery flow
 
-- start a chord collection window
-- collect unique note-on inputs
-- compare collected pitches to the expected pitch set
+1. The event passes its accepted timing window.
+2. Record the event as missed.
+3. Pause the transport.
+4. Set transport state to `guided-recovery`.
+5. Keep the missed event aligned with or near the judgement line.
+6. Highlight required piano keys.
+7. Show the event instruction.
+8. Accept the correct note or chord.
+9. Record the result as `recovered`.
+10. Show confirmation for approximately 300–500ms.
+11. Perform a short count-in when configured.
+12. Resume from the next unresolved event.
 
-Recommended initial window:
+### 21.2 Recovery scoring
 
-```ts
-const CHORD_WINDOW_MS = 250;
-```
+Recovered input MUST NOT be scored as perfect, good, or accepted timing.
 
-## 22.2 Correct chord
+It MAY count toward pitch completion while remaining a rhythmic miss.
 
-A chord is correct when:
+### 21.3 Wrong recovery input
 
-- every required pitch is present
-- no invalid extra pitch is present
-- all notes arrive within the chord window
+Wrong notes during recovery MUST:
 
-## 22.3 Chord timing
+- sound normally
+- display wrong feedback
+- leave recovery active
+- not advance the timeline
 
-The chord’s timing may use the average input time of all chord notes.
+### 21.4 Chord recovery
 
-## 22.4 Partial chord
+For a chord:
 
-In performance mode:
-
-- an incomplete chord becomes missed after the collection window
-
-In guided mode:
-
-- playback pauses
-- missing chord notes remain highlighted
-
-## 22.5 Arpeggiated content
-
-An arpeggio must be represented as separate note events unless it is intentionally judged as a chord.
-
----
-
-# 23. Miss Handling
-
-## 23.1 Performance mode
-
-When the late timing boundary passes:
-
-```ts
-classification = "missed";
-```
-
-The timeline continues.
-
-## 23.2 Guided mode
-
-When the late boundary passes:
-
-1. Record a missed event.
-2. Pause transport.
-3. Highlight the event.
-4. Wait for the correct input.
-5. Record recovery separately.
-6. Resume after confirmation.
+- all required notes MUST be collected
+- missing notes remain highlighted
+- invalid extra notes produce wrong feedback
+- transport resumes only after the full chord is complete
 
 ---
 
-# 24. Seeking
+## 22. Performance Mode
 
-Seeking must be treated as a coordinated session operation.
+Performance mode MUST:
 
-```ts
-seekTimeline(targetBeat);
-```
+- continue through misses
+- record wrong notes
+- keep later events scoreable
+- never enter guided recovery automatically
+- complete at the timeline end
 
-The operation must:
+Switching practice mode during playback MUST pause the transport.
 
-1. Pause transport.
-2. Clear scheduled reference audio.
-3. Release active notes.
-4. Move the transport.
-5. Clear active chord collection.
-6. Clear guided recovery.
-7. Recalculate the next expected event.
-8. Remove or reset judgements at and after the target beat.
-9. Update the timeline visual state.
-10. Remain paused until the learner presses play.
-
-Events skipped by manual seeking must not automatically count as missed.
+The selected mode SHOULD be persisted per lesson.
 
 ---
 
-# 25. Looping
+## 23. Reference Playback and Metronome
 
-## 25.1 Loop model
+### 23.1 Reference playback
+
+The player SHOULD support:
+
+```ts
+type ReferencePlaybackMode =
+  | "off"
+  | "melody"
+  | "metronome"
+  | "melody-and-metronome";
+```
+
+Reference notes MUST be scheduled from timeline beats and durations.
+
+### 23.2 Metronome
+
+The metronome MUST:
+
+- share the transport clock
+- follow selected BPM
+- accent measure downbeats
+- work during count-in
+- remain synchronized after pause and seek
+- persist preference
+
+---
+
+## 24. Seeking and Looping
+
+### 24.1 Seeking
+
+Seeking MUST:
+
+1. pause transport
+2. stop active notes
+3. clear future scheduling
+4. clear active chord collection
+5. clear guided recovery
+6. update transport position
+7. reset judgements at and after target beat
+8. recalculate the next event
+9. remain paused
+
+Events skipped manually MUST NOT be counted as misses.
+
+### 24.2 Looping
 
 ```ts
 type LoopRange = {
@@ -1166,67 +1032,21 @@ type LoopRange = {
 };
 ```
 
-## 25.2 Rules
+Loop boundaries SHOULD snap to measures by default.
 
-- `startBeat` must be lower than `endBeat`
-- both values must remain within song bounds
-- loop boundaries should snap to measures by default
-- advanced users may optionally choose beat-level boundaries
-
-## 25.3 Loop restart
-
-At loop end:
-
-1. Stop active notes.
-2. Return to loop start.
-3. Reset judgement state inside the loop.
-4. Optionally play a short count-in.
-5. Begin the next loop pass.
-
-## 25.4 Loop attempts
-
-Each loop pass should maintain separate practice statistics.
+At loop end, the player MUST reset loop-contained judgement state and return to loop start safely.
 
 ---
 
-# 26. Timeline Session State
+## 25. Metrics
 
-```ts
-type TimelineSession = {
-  lessonSlug: string;
-  practiceMode: "guided" | "performance";
-  transportState: TransportState;
-  selectedBpm: number;
-  tempoPercent: number;
-  currentBeat: number;
-  startedAt?: string;
-  completedAt?: string;
-  restartCount: number;
-  pausedDurationMs: number;
-  loopRange?: LoopRange;
-  judgements: EventJudgement[];
-  activeChord?: {
-    eventId: string;
-    collectedNotes: NoteId[];
-    startedAtMs: number;
-  };
-  guidedRecoveryEventId?: string;
-};
-```
+Every attempt SHOULD calculate:
 
-Timeline session state must remain separate from the existing guided-step session model.
-
----
-
-# 27. Scoring
-
-## 27.1 Required metrics
-
-The system must calculate:
-
-- correct event count
+- expected event count
+- correct pitch count
+- missed count
+- recovered count
 - wrong-note count
-- missed-event count
 - perfect count
 - good count
 - accepted count
@@ -1235,173 +1055,157 @@ The system must calculate:
 - pitch accuracy
 - rhythmic accuracy
 - combined accuracy
-- average absolute timing error
-- signed average timing error
+- mean absolute timing error
+- signed mean timing error
 - longest streak
-- selected tempo
+- selected BPM
+- tempo percentage
+- practice mode
 - musical duration
 - wall-clock practice duration
 - restart count
 
-## 27.2 Pitch accuracy
+Recovered events MAY count toward pitch completion but MUST remain rhythmically missed.
 
-```ts
-pitchAccuracy = correctlyResolvedEvents / totalExpectedEvents;
-```
+---
 
-## 27.3 Timing weights
+## 26. Progress Persistence
 
-```ts
-const TIMING_WEIGHT = {
-  perfect: 1,
-  good: 0.8,
-  accepted: 0.5,
-  early: 0,
-  late: 0,
-  missed: 0
-};
-```
+Persist per lesson:
 
-## 27.4 Rhythmic accuracy
-
-```ts
-rhythmicAccuracy = totalWeightedTimingScore / totalExpectedEvents;
-```
-
-## 27.5 Combined accuracy
-
-Initial formula:
-
-```ts
-combinedAccuracy = pitchAccuracy * 0.5 + rhythmicAccuracy * 0.5;
-```
-
-The weights must be configurable.
-
-## 27.6 Tempo-aware records
-
-Attempts at different tempos must not be compared without preserving tempo.
-
-The application should store:
-
-- best score at each tempo
-- highest completed tempo
-- best score at original tempo
+- completion state
 - latest attempt
-
----
-
-# 28. Completion
-
-A timeline lesson is complete when:
-
-- the transport reaches the end
-- all required guided recoveries are resolved
-- the final summary has been calculated
-- progress has been saved or queued for saving
-
-## 28.1 Completion summary
-
-Display:
-
-- lesson title
-- selected BPM
-- tempo percentage
-- pitch accuracy
-- rhythm accuracy
-- combined accuracy
-- perfect notes
-- good notes
-- misses
-- wrong notes
-- average timing error
-- longest streak
-- practice duration
-
-## 28.2 Completion actions
-
-Provide:
-
-- replay
-- practise slower
-- practise faster
-- next lesson
-- return to course
-
----
-
-# 29. Progress Persistence
-
-The system must persist:
-
-- lesson completion
-- last selected tempo
+- best attempt by tempo
+- highest completed tempo
+- last tempo
 - last practice mode
 - metronome preference
 - reference playback preference
-- latest attempt
-- best attempt
-- highest completed tempo
 - total practice time
 
-Local persistence is acceptable for the first release.
+Legacy guided-step progress SHOULD be mapped by stable lesson slug.
 
-Server-backed persistence should be added when account-based progress is available.
+Malformed stored progress MUST fail safely without crashing the lesson.
 
 ---
 
-# 30. Backend Requirements
+## 27. Migration Architecture
 
-## 30.1 Course API
+### 27.1 Legacy adapter
 
-Existing course and lesson endpoints must return the appropriate lesson union.
+Create a deterministic adapter:
 
-Timeline responses must retain:
-
-- mode
-- schema version
-- original BPM
-- time signature
-- count-in
-- total beats
-- event IDs
-- event timings
-- source metadata
-
-## 30.2 Validation
-
-All timeline data must pass Zod validation before persistence.
-
-Mongoose validation must provide a second enforcement layer.
-
-## 30.3 Recommended validation limits
-
-- maximum BPM: 400
-- maximum timeline events: configurable, initially 10,000
-- maximum total beats: configurable
-- finite numeric fields only
-- supported schema versions only
-- valid note IDs only
-- unique event IDs
-- valid event bounds
-
-## 30.4 Unnecessary endpoint warning
-
-Practice tempo must not be saved by changing the canonical song.
-
-Do not add:
-
-```text
-PATCH /song/:id/tempo
+```ts
+convertLegacyLessonToInstructionalTimeline(
+  lesson: LegacyGuidedLesson,
+  template: InstructionalTimingTemplate
+): Lesson
 ```
 
-Tempo is learner/session state.
+The adapter MUST preserve:
+
+- lesson slug
+- title
+- description
+- order
+- final status
+- step IDs as stable event IDs where possible
+- target notes
+- instructions
+
+### 27.2 Backend migration
+
+A migration script MUST convert persisted legacy lessons to timeline schema version 2.
+
+The migration MUST:
+
+- create a backup first
+- validate the source database name
+- support dry run
+- produce a report
+- be idempotent
+- avoid overwriting verified timelines
+- preserve stable identifiers
+
+### 27.3 Runtime fallback
+
+Until persisted migration is complete, the client MAY adapt legacy lessons at runtime.
+
+Runtime adaptation MUST be temporary and covered by telemetry or audit reporting so remaining legacy lessons can be identified.
+
+### 27.4 Learner routing
+
+`LessonPlayer` MUST route every valid playable lesson to `TimelinePlayer`.
+
+The legacy `PlayerLoaded` single-step UI MUST NOT be used after the universal timeline feature flag is enabled.
 
 ---
 
-# 31. Frontend Architecture
+## 28. Content Migration Rules
 
-Recommended module structure:
+### 28.1 Foundational drills
+
+May be generated automatically using instructional templates.
+
+Examples:
+
+- finger placement
+- note recognition
+- chord construction
+- chord transitions
+- keyboard geography
+
+### 28.2 Song phrases
+
+Must be manually verified or source-derived.
+
+### 28.3 Complete songs
+
+Must be manually verified or source-derived.
+
+### 28.4 Audit status
+
+```ts
+type MigrationStatus =
+  | "legacy"
+  | "generated-instructional"
+  | "needs-transcription"
+  | "needs-review"
+  | "approved";
+```
+
+No song lesson may reach production timeline status until `approved`.
+
+---
+
+## 29. API and Validation
+
+The API MUST return one canonical lesson shape for new content.
+
+Zod and Mongoose validation MUST enforce:
+
+- supported schema version
+- finite BPM
+- positive BPM
+- valid time signature
+- non-negative starts
+- positive durations
+- valid note IDs
+- unique event IDs
+- deterministic ordering
+- event end within total beats
+- valid timing source
+- approved provenance for song content
+- non-empty available practice modes
+- valid default practice mode
+
+The API MUST NOT expose a canonical tempo mutation endpoint. Learner-selected tempo is session/progress state.
+
+---
+
+## 30. Frontend Architecture
+
+Recommended structure:
 
 ```text
 apps/client/src/features/courses/timeline/
@@ -1419,6 +1223,8 @@ apps/client/src/features/courses/timeline/
 ├── CountInOverlay.tsx
 ├── TimelineFeedback.tsx
 ├── TimelineCompletionSummary.tsx
+├── legacyLessonAdapter.ts
+├── instructionalTemplates.ts
 ├── useTimelineTransport.ts
 ├── useTimelineInput.ts
 ├── useTimelineJudgement.ts
@@ -1431,694 +1237,336 @@ apps/client/src/features/courses/timeline/
 └── timelineTypes.ts
 ```
 
-## 31.1 `TimelinePlayer`
+### 30.1 Responsibility rules
 
-Responsibilities:
+`TimelinePlayer` coordinates modules but MUST NOT contain low-level clock or judgement algorithms.
 
-- compose the lesson screen
-- coordinate transport, input, scoring, and persistence
-- hold practice-mode selection
-- manage lesson lifecycle
+`timelineTransport` MUST remain independent from React.
 
-It must not contain low-level timing algorithms.
+`timingJudge` MUST be deterministic and independently testable.
 
-## 31.2 `timelineTransport`
+`legacyLessonAdapter` MUST contain all temporary step-to-timeline conversion rules.
 
-Responsibilities:
+API logic MUST remain outside presentation components.
 
-- musical clock
-- playback state
-- tempo
-- seeking
-- looping
-- completion
-
-It must not depend on React.
-
-## 31.3 `useTimelineTransport`
-
-Responsibilities:
-
-- expose transport state to React
-- subscribe to clock changes
-- provide transport commands to components
-
-## 31.4 `useTimelineAudio`
-
-Responsibilities:
-
-- initialize Tone.js
-- schedule reference melody
-- schedule metronome
-- schedule count-in
-- clear active audio
-
-## 31.5 `timingJudge`
-
-Responsibilities:
-
-- input matching
-- timing classification
-- miss detection
-- repeated-note handling
-- chord collection
-
-It must be deterministic and independently testable.
-
-## 31.6 `TimelineViewport`
-
-Responsibilities:
-
-- draw timeline events
-- draw measure grid
-- draw judgement line
-- apply transport-based visual translation
-- display loop regions and event states
-
-It must not control transport state.
+TanStack Query MUST continue to manage server state.
 
 ---
 
-# 32. Existing Lesson Compatibility
+## 31. Deprecation Plan
 
-The redesign must not break current guided lessons.
+### Phase A: Universal rendering
 
-Compatibility requirements:
+- Add legacy-to-instructional adapter.
+- Route every lesson to `TimelinePlayer`.
+- Keep legacy schemas readable.
+- Hide legacy single-note UI from learners.
 
-- lessons without `mode` are interpreted as `guided-steps` during migration
-- existing `steps` arrays remain valid
-- existing progress data remains readable
-- existing note and chord feedback remains functional
-- course unlocking continues to work
-- guided completion metrics continue to work
+### Phase B: Persisted migration
 
-New content must explicitly set `mode`.
+- Convert all foundational lessons to instructional timelines.
+- Convert verified song lessons to approved timelines.
+- Audit remaining legacy lessons.
 
----
+### Phase C: Removal
 
-# 33. Song Audit
+Remove only after all acceptance criteria pass:
 
-Every existing song must be audited.
+- legacy learner-facing player
+- guided-step routing branch
+- step-specific session engine where no longer required
+- duplicate completion UI
+- duplicate keyboard-input orchestration
 
-```ts
-type SongAuditRecord = {
-  courseSlug: string;
-  lessonSlug: string;
-  title: string;
-  currentMode: "guided-steps" | "timeline";
-  sourceType:
-    | "midi"
-    | "sheet-music"
-    | "manual-transcription"
-    | "recorded-performance"
-    | "legacy-note-list"
-    | "unknown";
-  hasBpm: boolean;
-  hasTimeSignature: boolean;
-  hasStartBeats: boolean;
-  hasDurations: boolean;
-  hasRests: boolean;
-  eventCount: number;
-  status: "ready" | "needs-review" | "needs-transcription" | "blocked";
-  issues: string[];
-};
-```
-
-## 33.1 Audit classifications
-
-### Ready
-
-The song has complete, verified timing data.
-
-### Needs review
-
-The song has timing data but requires musical verification.
-
-### Needs transcription
-
-The song only has note order or incomplete rhythm.
-
-### Blocked
-
-No authoritative source is available or the content cannot legally be used.
-
-## 33.2 Audit output
-
-The audit command must produce:
-
-- JSON report
-- Markdown summary
-- no database mutation
+Legacy data readers MAY remain for one additional compatibility release.
 
 ---
 
-# 34. Song Migration
+## 32. Accessibility
 
-## 34.1 Migration sources
-
-Preferred order:
-
-1. MIDI
-2. sheet music
-3. reviewed manual transcription
-4. captured performance
-5. legacy note list only as pitch guidance
-
-## 34.2 Migration requirements
-
-Before a song becomes a production timeline lesson:
-
-- BPM must be verified
-- time signature must be verified
-- every playable event must have a start beat
-- every event must have a duration
-- rests must be represented where musically necessary
-- chords must be correctly grouped
-- event IDs must be stable
-- source provenance must be recorded
-- the timeline must be reviewed by ear
-
-## 34.3 Migration approach
-
-Do not migrate all songs simultaneously.
-
-Recommended sequence:
-
-1. one reference song
-2. one additional short song
-3. five beginner songs
-4. songs with MIDI
-5. songs with verified notation
-6. manual transcriptions
-7. uncertain content last
-
----
-
-# 35. Reference Song
-
-Ode to Joy should be the initial reference song because a beat-based version already exists in the repository.
-
-The reference implementation must validate:
-
-- original tempo
-- 50% tempo
-- 70% tempo
-- 100% tempo
-- count-in
-- metronome
-- reference melody
-- visual synchronization
-- note judgement
-- chord judgement where added
-- guided mode
-- performance mode
-- seek
-- loop
-- restart
-- completion
-- mobile landscape
-
-No further catalogue migration should begin until the reference implementation is stable.
-
----
-
-# 36. Lesson Structure Recommendation
-
-For song-based courses:
-
-```text
-Phrase 1
-  → guided timeline
-
-Phrase 2
-  → guided timeline
-
-Complete song
-  → performance timeline
-```
-
-For foundational courses:
-
-```text
-Finger placement
-  → guided steps
-
-Note recognition
-  → guided steps
-
-Chord shapes
-  → guided steps
-```
-
-This structure preserves beginner accessibility while gradually introducing rhythm.
-
----
-
-# 37. Accessibility
-
-The timeline player must support:
+Every timeline lesson MUST support:
 
 - keyboard operation
 - visible focus
 - screen-reader labels
-- live announcements
-- minimum 44px touch targets
+- live feedback announcements
+- non-colour status indicators
 - reduced motion
 - high contrast
-- non-colour event states
-- labelled tempo controls
+- accessible tempo controls
 - accessible seek controls
-- labelled transport state
-- understandable completion feedback
+- minimum 44px touch targets
+- clear count-in announcements
 
-Reduced-motion mode may simplify scrolling, but it must preserve timing information.
-
----
-
-# 38. Responsive Behaviour
-
-## 38.1 Desktop
-
-Desktop should show:
-
-- full timeline
-- transport controls
-- scoring summary
-- full piano
-- tempo controls
-- practice-mode controls
-
-## 38.2 Mobile landscape
-
-Mobile landscape must prioritize:
-
-1. timeline
-2. piano
-3. essential transport controls
-4. tempo
-5. feedback
-
-It must avoid:
-
-- clipped keys
-- hidden controls
-- page-level horizontal overflow
-- unreadably small status text
-- accidental browser scrolling while playing
-
-## 38.3 Orientation changes
-
-Changing orientation must not:
-
-- restart the lesson
-- reset the selected tempo
-- corrupt transport position
-- lose scoring state
+Reduced-motion mode MUST preserve timing comprehension even if movement is simplified.
 
 ---
 
-# 39. Performance Requirements
+## 33. Mobile Landscape
 
-The implementation should target:
+Mobile landscape MUST show:
 
-- smooth timeline movement near 60 FPS on supported devices
-- audio scheduling independent from rendering
-- no full lesson rerender every frame
-- indexed event lookup
-- timeline virtualization for large songs
-- GPU-friendly transform-based scrolling
-- bounded event arrays
-- deterministic input processing
+- essential transport controls
+- tempo
+- timeline
+- judgement line
+- target feedback
+- playable piano
 
-The system must distinguish application scheduling performance from hardware audio latency.
+The layout MUST NOT hide the timeline in foundational lessons.
 
----
+Orientation changes MUST NOT reset:
 
-# 40. Error Handling
-
-## 40.1 Audio unavailable
-
-Show:
-
-- clear message
-- retry button
-- browser-permission guidance
-- disabled playback controls until recovered
-
-## 40.2 Invalid timeline data
-
-The lesson must not begin.
-
-Show:
-
-- lesson unavailable
-- return-to-course action
-- non-technical user message
-
-Log:
-
-- course slug
-- lesson slug
-- validation errors
-- schema version
-
-## 40.3 Progress save failure
-
-- show save failure
-- retain the result locally
-- allow retry
-- do not erase the completion screen
-
-## 40.4 Background tab
-
-When the page becomes hidden:
-
-- pause transport
-- release active notes
-- require explicit resume
+- current beat
+- selected tempo
+- practice mode
+- judgement state
+- guided recovery state
 
 ---
 
-# 41. Testing
+## 34. Testing Requirements
 
-## 41.1 Timeline math tests
+### 34.1 Adapter tests
 
 Test:
 
-- beat to milliseconds
-- milliseconds to beat
-- BPM percentage conversion
-- beat to pixels
+- one-note step conversion
+- chord step conversion
+- stable IDs
+- generated start beats
+- generated durations
+- preserved instructions
+- deterministic output
+- instructional source labels
+
+### 34.2 Timeline math tests
+
+Test:
+
+- BPM conversion
+- beat-to-time
+- time-to-beat
+- beat-to-pixel
 - measure calculation
 
-## 41.2 Transport tests
+### 34.3 Transport tests
 
 Test:
 
-- initial state
 - count-in
 - play
 - pause
 - resume
 - restart
+- tempo change
 - seek
-- tempo update
+- loop
 - completion
-- loop boundaries
+- guided recovery state
 
-## 41.3 Judgement tests
-
-Test:
-
-- perfect input
-- good input
-- accepted input
-- early input
-- late input
-- missed note
-- wrong note
-- repeated pitch
-- nearby repeated events
-- duplicate input
-- event scoring once only
-
-## 41.4 Chord tests
+### 34.4 Judgement tests
 
 Test:
 
-- complete chord
-- partial chord
-- wrong extra note
-- duplicate note
-- chord timeout
-- guided chord recovery
+- perfect
+- good
+- accepted
+- early
+- late
+- wrong
+- missed
+- recovered
+- repeated notes
+- chords
+- duplicate input suppression
 
-## 41.5 Component tests
-
-Test:
-
-- timeline positions
-- judgement line
-- responsive scaling
-- tempo selection
-- practice-mode switching
-- count-in overlay
-- metronome toggle
-- reference playback toggle
-- seek control
-- loop selection
-- completion summary
-
-## 41.6 Backend tests
+### 34.5 Component tests
 
 Test:
 
-- guided lesson compatibility
-- valid timeline lesson
+- every legacy lesson renders the timeline player
+- upcoming notes are visible
+- judgement line is visible
+- tempo controls are visible
+- foundational lessons pause on miss
+- chord recovery requires all notes
+- performance mode continues
+- completion summary renders
+
+### 34.6 Backend tests
+
+Test:
+
+- schema version 2
+- instructional timeline validity
+- verified song validity
+- song rejection without approved provenance
 - invalid BPM
-- invalid duration
-- invalid note
-- duplicate event ID
-- unsorted events
-- event beyond total beats
-- unsupported schema version
-- missing source metadata
+- invalid durations
+- duplicate event IDs
+- unsupported notes
+- migration idempotency
 
-## 41.7 End-to-end tests
+### 34.7 End-to-end tests
 
-Test:
+Required scenarios:
 
-1. Open a guided lesson.
-2. Complete it normally.
-3. Open a timeline lesson.
-4. Start count-in.
-5. Play through a song.
+1. Open finger placement and see a playhead.
+2. Open C major chord and see upcoming chord events.
+3. Start count-in.
+4. Miss an event and enter guided recovery.
+5. Complete recovery and resume.
 6. Change tempo.
-7. Pause and resume.
-8. Seek backward.
-9. Create a loop.
-10. Miss a note in guided mode.
-11. Recover and continue.
-12. Miss notes in performance mode.
-13. Complete the lesson.
-14. Refresh and restore preferences.
-15. Verify mobile landscape behaviour.
+7. Seek and replay.
+8. Open a song phrase and see verified timing.
+9. Complete a song in guided mode.
+10. Complete a song in performance mode.
+11. Reload and restore preferences.
+12. Verify mobile landscape.
 
 ---
 
-# 42. Phased Delivery
+## 35. Rollout Plan
 
-## Phase 1 — Schema foundation
+### Phase 0: Safety
 
-Deliver:
+- remove unrelated database exports from the repository
+- verify environment isolation
+- safeguard migration scripts
+- back up the correct Piano360 database
 
-- lesson-mode union
-- timeline schema
-- source metadata
-- Zod validation
-- Mongoose validation
-- backward compatibility
+### Phase 1: Universal timeline adapter
 
-## Phase 2 — Timeline mathematics
+- implement instructional templates
+- implement legacy adapter
+- route all lessons to timeline player
+- add regression tests
 
-Deliver:
+Exit criterion:
 
-- beat/time conversion
-- beat/pixel conversion
-- measure calculation
-- deterministic tests
+Every current lesson route displays a timeline and playhead.
 
-## Phase 3 — Transport
+### Phase 2: Guided recovery completion
 
-Deliver:
+- complete pause-on-miss flow
+- complete chord recovery
+- add recovery count-in
+- ensure correct resume position
 
-- audio-clock transport
-- play
-- pause
-- restart
-- seek
-- tempo
-- count-in state
+### Phase 3: Transport hardening
 
-## Phase 4 — Timeline UI
+- use Tone.js transport as musical authority
+- synchronize audio and visuals
+- harden pause, restart, seek, and tempo changes
 
-Deliver:
+### Phase 4: Foundational persisted migration
 
-- fixed judgement line
-- scrolling events
-- pitch lanes
-- measure grid
-- note duration rendering
-- rests
+- migrate finger placement
+- migrate note recognition
+- migrate chord lessons
+- migrate chord transitions
+- verify generated instructional timing
 
-## Phase 5 — Audio
+### Phase 5: Song migration
 
-Deliver:
+- audit song phrases and complete songs
+- obtain verified sources
+- author and approve timelines
+- migrate in reviewed batches
 
-- reference melody
-- note-off scheduling
-- metronome
-- audible count-in
-- cleanup
+### Phase 6: Legacy removal
 
-## Phase 6 — Judgement
-
-Deliver:
-
-- event matching
-- timing windows
-- miss detection
-- repeated-note handling
-- chord handling
-
-## Phase 7 — Practice modes
-
-Deliver:
-
-- guided timeline mode
-- guided recovery
-- performance mode
-
-## Phase 8 — Practice tools
-
-Deliver:
-
-- looping
-- safe seeking
-- tempo persistence
-- practice preferences
-
-## Phase 9 — Scoring and progress
-
-Deliver:
-
-- full metrics
-- completion summary
-- local persistence
-- best-tempo tracking
-
-## Phase 10 — Catalogue migration
-
-Deliver:
-
-- audit report
-- migration tooling
-- reference song
-- five reviewed songs
+- remove learner-facing single-step player
+- remove obsolete routing
+- remove duplicate session logic
+- retain temporary data compatibility reader if required
 
 ---
 
-# 43. Acceptance Criteria
+## 36. Acceptance Criteria
 
-## 43.1 Lesson modes
+The universal guided timeline redesign is complete when:
 
-- Existing guided lessons continue working.
-- Timeline lessons use the timeline player.
-- Invalid mixed lesson payloads are rejected.
+### Universal experience
 
-## 43.2 Timing data
+- Every playable lesson route renders `TimelinePlayer`.
+- Every lesson displays a judgement line.
+- Every lesson displays upcoming notes or chords.
+- Every lesson displays BPM and tempo controls.
+- Every lesson supports count-in.
+- No normal learner route displays only one isolated note prompt without a timeline.
 
-- Each timeline note has `startBeat`.
-- Each timeline note has `durationBeats`.
-- Each timeline has BPM and time signature.
-- Tempo changes do not modify stored timing.
+### Foundational lessons
 
-## 43.3 Timeline
+- Legacy steps convert deterministically to instructional timelines.
+- Generated timelines are labelled instructional.
+- Timing windows are generous.
+- Missed events pause the transport.
+- Chord drills display stacked chord notes.
+- Chord recovery requires the full chord.
 
-- Notes move toward a fixed judgement line.
-- Note spacing reflects beat spacing.
-- Note width reflects duration.
-- Chord pitches align at the same beat.
-- Rests are visible but not playable.
+### Song lessons
 
-## 43.4 Tempo
-
-- Learners can select slower practice tempos.
-- BPM is shown alongside percentage.
-- Rhythm remains proportional at every tempo.
-- Pitch does not change when tempo changes.
-
-## 43.5 Transport
-
-- Play works.
-- Pause preserves position.
-- Restart returns to count-in.
-- Seek resets relevant state.
-- Looping repeats the selected range.
-- Completion occurs at the final beat.
-
-## 43.6 Audio
-
-- Count-in is audible.
-- Metronome remains synchronized.
-- Reference playback follows the timeline.
-- Notes stop correctly after their duration.
-- No stuck notes remain after pause, restart, seek, or route change.
-
-## 43.7 Judgement
-
-- Correct pitch and correct timing are judged.
-- Early and late input are distinguishable.
-- Missed notes are recorded.
-- Wrong notes do not resolve expected events.
-- Repeated pitches are matched correctly.
-- Chords are judged as sets.
-
-## 43.8 Guided timeline mode
-
-- The timeline pauses after a miss.
-- The expected note remains highlighted.
-- Correct recovery allows continuation.
-- Recovery input is not scored as rhythmically perfect.
-
-## 43.9 Performance mode
-
-- The timeline continues through mistakes.
-- Later events remain scoreable.
-- The lesson completes naturally.
-
-## 43.10 Progress
-
-- Selected tempo persists.
-- Completion persists.
-- Latest attempt persists.
-- Highest completed tempo persists.
-- Failed saves remain recoverable.
-
-## 43.11 Content
-
+- Song phrases use approved verified timing.
+- Complete songs use approved verified timing.
 - BPM alone is never used to fabricate rhythm.
-- Every production timeline has approved source metadata.
-- Ode to Joy passes complete reference validation.
-- At least five songs are migrated before broad rollout.
+- Note spacing and duration match the reviewed source.
 
-## 43.12 UX
+### Transport
 
-- Timeline instructions are readable.
-- Feedback does not rely only on colour.
-- Desktop is usable.
-- Mobile landscape is usable.
-- Orientation changes preserve lesson state.
+- One transport controls audio, visuals, count-in, metronome, and judgement.
+- Pause preserves beat position.
+- Restart returns to count-in.
+- Tempo changes preserve musical position.
+- Seek resets affected judgement state.
+- No stuck notes remain after transport actions.
+
+### Guided recovery
+
+- A missed event pauses playback.
+- The required note or chord remains visible.
+- Correct recovery is accepted.
+- Recovery is not scored as rhythmically perfect.
+- Playback resumes from the correct next event.
+
+### Performance mode
+
+- Performance mode is available where configured.
+- Mistakes do not pause playback.
+- Later events remain scoreable.
+
+### Compatibility
+
+- Existing lesson slugs and course order remain stable.
+- Existing progress is mapped where possible.
+- Legacy data can be read during migration.
+- The old learner-facing player is deprecated and removed after migration.
+
+### Quality
+
+- Frontend unit and component tests pass.
+- Backend validation tests pass.
+- Required end-to-end tests pass.
+- Desktop and mobile landscape are usable.
+- Accessibility requirements pass review.
 
 ---
 
-# 44. Definition of Done
+## 37. Definition of Done
 
-The original Piano360 rhythm timeline redesign is complete when:
+Piano360 has completed this architectural transition when the product behaves as a guided-play application at all times:
 
-1. Guided-step lessons remain fully functional.
-2. Timeline lessons use verified beat-based data.
-3. A shared musical transport controls audio and visuals.
-4. Learners can change tempo without changing rhythm or pitch.
-5. Notes, durations, rests, and chords render correctly.
-6. Pitch and timing judgement are reliable.
-7. Guided and performance timeline modes work.
-8. Count-in, metronome, seeking, restart, and looping work.
-9. Results and progress are persisted.
-10. Existing songs have been audited.
-11. Production songs have verified timing sources.
-12. The reference song passes automated and manual testing.
-13. The experience works on desktop and mobile landscape.
-14. Core behaviour is covered by frontend, backend, and end-to-end tests.
+1. Every playable lesson has a timeline.
+2. Every lesson displays a fixed playhead or judgement line.
+3. Every lesson shows upcoming notes or chords.
+4. Foundational content uses explicit instructional timing.
+5. Song content uses approved verified timing.
+6. Guided pause-on-miss is the default behaviour.
+7. Performance mode is available for suitable lessons.
+8. One transport controls all musical time.
+9. The legacy single-note player is no longer learner-facing.
+10. Existing content has been migrated or is adapted deterministically.
+11. The full system is covered by automated tests.
 
-This is the canonical specification for accomplishing the original Piano360 redesign: moving from sequential note prompts to a complete rhythm-aware, tempo-adjustable piano learning experience.
+This version is the authoritative specification for Piano360 going forward.
