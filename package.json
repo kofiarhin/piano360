@@ -12,6 +12,7 @@
     "build:api": "npm run build -w @piano360/api",
     "heroku-postbuild": "npm run build:api",
     "seed:courses": "npm run seed:courses -w @piano360/api",
+    "backup:data": "tsx apps/api/src/scripts/backupDatabase.ts",
     "start": "node apps/api/dist/server.js",
     "lint": "eslint .",
     "format": "prettier --write .",
