@@ -3,6 +3,7 @@ import type { Model } from "mongoose";
 import { CourseModel } from "./courseSchema";
 import type { Course, CourseFilters } from "./courseTypes";
 import { courseSchema } from "./courseValidation";
+import { normalizePlayableCourse, normalizePlayableCourses } from "./normalizePlayableCourse";
 
 export type CourseRepository = {
   findAll(filters?: CourseFilters): Promise<Course[]>;
@@ -25,16 +26,16 @@ const toCourse = (value: unknown): Course => courseSchema.parse(withoutMongoId(v
 export const createCourseRepository = (model: Model<Course> = CourseModel): CourseRepository => ({
   async findAll(filters = {}) {
     const documents = await model.find(filters).sort({ order: 1 }).lean().exec();
-    return documents.map(toCourse);
+    return documents.map((document) => normalizePlayableCourse(toCourse(document)));
   },
 
   async findBySlug(slug) {
     const document = await model.findOne({ slug }).lean().exec();
-    return document ? toCourse(document) : undefined;
+    return document ? normalizePlayableCourse(toCourse(document)) : undefined;
   },
 
   async replaceAll(courses) {
-    const validatedCourses = courses.map(toCourse);
+    const validatedCourses = normalizePlayableCourses(courses.map(toCourse));
     await model.deleteMany({}).exec();
     if (validatedCourses.length > 0) {
       await model.insertMany(validatedCourses, { ordered: true });
