@@ -1,5 +1,15 @@
-import type { Course, Lesson, LessonStep, NoteId, SongTimeline } from "./courseTypes";
+import type {
+  Course,
+  GuidedStepLesson,
+  Lesson,
+  LessonContentKind,
+  LessonStep,
+  MigrationBlockedLesson,
+  NoteId,
+  SongTimeline
+} from "./courseTypes";
 import { courseSchema } from "./courseValidation";
+import { legacyStepsToInstructionalTimeline } from "./legacyStepsToInstructionalTimeline";
 
 const single = (id: string, instruction: string, note: NoteId): LessonStep => ({
   id,
@@ -18,7 +28,36 @@ const chord = (id: string, instruction: string, targetNotes: NoteId[]): LessonSt
 const cMajorChord: NoteId[] = ["C4", "E4", "G4"];
 const gMajorChord: NoteId[] = ["G4", "B4", "D4"];
 
+const foundationalCourseSlugs = new Set(["finger-placement", "beginner-chords"]);
+
+const isGuidedStepLesson = (lesson: Lesson): lesson is GuidedStepLesson =>
+  lesson.mode !== "timeline" && lesson.mode !== "migration-blocked" && "steps" in lesson;
+
+const blockGuidedSongLesson = (
+  lesson: GuidedStepLesson,
+  contentKind: Extract<LessonContentKind, "song-phrase" | "complete-song">
+): MigrationBlockedLesson => ({
+  slug: lesson.slug,
+  title: lesson.title,
+  description: lesson.description,
+  order: lesson.order,
+  isFinal: lesson.isFinal,
+  mode: "migration-blocked",
+  contentKind,
+  migrationStatus: "needs-transcription",
+  unavailableReason:
+    "Verified beat positions, note durations, BPM, time signature, and approved source provenance are required before timeline playback.",
+  requiredTimingSource:
+    "Provide approved MIDI, sheet music, reviewed manual transcription, or reviewed recorded-performance timing.",
+  legacySteps: lesson.steps.map((step) => ({
+    ...step,
+    targetNotes: [...step.targetNotes]
+  }))
+});
+
 const odeToJoyTimeline: SongTimeline = {
+  schemaVersion: 2,
+  timingSource: "verified",
   originalBpm: 120,
   timeSignature: { numerator: 4, denominator: 4 },
   countInBeats: 4,
@@ -60,7 +99,14 @@ const odeToJoyTimeline: SongTimeline = {
     startBeat: startBeat as number,
     durationBeats: durationBeats as number,
     hand: "right" as const
-  }))
+  })),
+  source: {
+    type: "manual-transcription",
+    reference: "Reviewed seed transcription for the beginner Ode to Joy excerpt.",
+    reviewedBy: "Piano360 curriculum review",
+    reviewedAt: "2026-07-14",
+    reviewStatus: "approved"
+  }
 };
 
 type SingleNotePhrase = {
@@ -369,6 +415,16 @@ const foundationalCourses: Course[] = [
         order: 3,
         isFinal: true,
         mode: "timeline",
+        contentKind: "complete-song",
+        defaultPracticeMode: "guided",
+        availablePracticeModes: ["guided", "performance"],
+        behaviour: {
+          defaultPracticeMode: "guided",
+          pauseOnMiss: true,
+          enableTimingScore: true,
+          timingProfile: "standard",
+          allowPerformanceMode: true
+        },
         timeline: odeToJoyTimeline
       }
     ]
@@ -1444,8 +1500,42 @@ const gospelCourses: Course[] = [
   })
 ];
 
+const persistCanonicalPhaseACourse = (course: Course): Course => {
+  if (foundationalCourseSlugs.has(course.slug)) {
+    return {
+      ...course,
+      lessons: course.lessons.map((lesson) => {
+        if (lesson.mode === "timeline") {
+          return lesson;
+        }
+
+        if (isGuidedStepLesson(lesson)) {
+          return legacyStepsToInstructionalTimeline(lesson, undefined, "foundational-drill");
+        }
+
+        return lesson;
+      })
+    };
+  }
+
+  return {
+    ...course,
+    lessons: course.lessons.map((lesson) => {
+      if (lesson.mode === "timeline") {
+        return lesson;
+      }
+
+      if (isGuidedStepLesson(lesson)) {
+        return blockGuidedSongLesson(lesson, lesson.isFinal ? "complete-song" : "song-phrase");
+      }
+
+      return lesson;
+    })
+  };
+};
+
 export const seedCourses: Course[] = [
   ...foundationalCourses,
   ...reggaeCourses,
   ...gospelCourses
-].map((course) => courseSchema.parse(course));
+].map((course) => courseSchema.parse(persistCanonicalPhaseACourse(course)));

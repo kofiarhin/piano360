@@ -49,7 +49,9 @@ describe("seed course validation", () => {
         const lessonNotes =
           lesson.mode === "timeline"
             ? lesson.timeline.events.flatMap((event) => (event.type === "note" ? event.notes : []))
-            : lesson.steps.flatMap((step) => step.targetNotes);
+            : lesson.mode === "migration-blocked"
+              ? (lesson.legacySteps ?? []).flatMap((step) => step.targetNotes)
+              : lesson.steps.flatMap((step) => step.targetNotes);
         for (const note of lessonNotes) {
           expect(noteIdSchema.parse(note)).toBe(note);
         }
@@ -70,9 +72,61 @@ describe("seed course validation", () => {
     for (const course of seedCourses) {
       for (const lesson of course.lessons) {
         const eventCount =
-          lesson.mode === "timeline" ? lesson.timeline.events.length : lesson.steps.length;
+          lesson.mode === "timeline"
+            ? lesson.timeline.events.length
+            : lesson.mode === "migration-blocked"
+              ? (lesson.legacySteps ?? []).length
+              : lesson.steps.length;
         expect(eventCount).toBeGreaterThanOrEqual(12);
       }
+    }
+  });
+
+  it("persists foundational courses as canonical instructional timeline lessons", () => {
+    const foundationalCourses = seedCourses.filter((course) =>
+      ["finger-placement", "beginner-chords"].includes(course.slug)
+    );
+
+    for (const course of foundationalCourses) {
+      for (const lesson of course.lessons) {
+        expect(lesson.mode).toBe("timeline");
+        expect(lesson.contentKind).toBe("foundational-drill");
+        if (lesson.mode === "timeline") {
+          expect(lesson.timeline).toMatchObject({
+            schemaVersion: 2,
+            timingSource: "instructional",
+            originalBpm: 60,
+            countInBeats: 4,
+            source: {
+              type: "instructional-template",
+              reviewStatus: "instructional"
+            }
+          });
+          expect(lesson.behaviour).toMatchObject({
+            defaultPracticeMode: "guided",
+            pauseOnMiss: true,
+            enableTimingScore: false,
+            timingProfile: "generous",
+            allowPerformanceMode: false
+          });
+        }
+      }
+    }
+  });
+
+  it("blocks seeded song and melody guided-step lessons instead of fabricating rhythm", () => {
+    const blockedLessons = seedCourses
+      .flatMap((course) => course.lessons.map((lesson) => ({ course, lesson })))
+      .filter(({ lesson }) => lesson.mode === "migration-blocked");
+
+    expect(blockedLessons.length).toBeGreaterThan(0);
+    for (const { course, lesson } of blockedLessons) {
+      expect(["finger-placement", "beginner-chords"]).not.toContain(course.slug);
+      expect(lesson).toMatchObject({
+        migrationStatus: "needs-transcription"
+      });
+      expect(lesson).not.toHaveProperty("steps");
+      expect(lesson).not.toHaveProperty("timeline");
     }
   });
 
@@ -117,7 +171,14 @@ describe("seed course validation", () => {
         expect(lessonSlugs.has(lesson.slug)).toBe(false);
         lessonSlugs.add(lesson.slug);
 
-        for (const step of lesson.steps) {
+        const steps =
+          lesson.mode === "migration-blocked"
+            ? (lesson.legacySteps ?? [])
+            : "steps" in lesson
+              ? lesson.steps
+              : [];
+
+        for (const step of steps) {
           expect(stepIds.has(step.id)).toBe(false);
           stepIds.add(step.id);
         }
@@ -155,8 +216,16 @@ describe("seed course validation", () => {
     for (const course of seedCourses.filter((course) => gospelCourseSlugs.includes(course.slug))) {
       const phraseNotes = course.lessons
         .slice(0, 3)
-        .flatMap((lesson) => lesson.steps.map((step) => step.targetNotes[0]));
-      const completeNotes = course.lessons.at(-1)?.steps.map((step) => step.targetNotes[0]);
+        .flatMap((lesson) =>
+          (lesson.mode === "migration-blocked" ? (lesson.legacySteps ?? []) : []).map(
+            (step) => step.targetNotes[0]
+          )
+        );
+      const finalLesson = course.lessons.at(-1);
+      const completeNotes =
+        finalLesson?.mode === "migration-blocked"
+          ? finalLesson.legacySteps?.map((step) => step.targetNotes[0])
+          : [];
 
       expect(completeNotes).toEqual(phraseNotes);
     }

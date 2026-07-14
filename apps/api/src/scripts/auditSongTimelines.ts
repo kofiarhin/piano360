@@ -6,14 +6,15 @@ const ready = records.filter((record) => record.migrationStatus === "ready").len
 const needsTranscription = records.filter(
   (record) => record.migrationStatus === "needs-transcription"
 ).length;
+const needsReview = records.filter((record) => record.migrationStatus === "needs-review").length;
+const blocked = records.filter((record) => record.migrationStatus === "blocked").length;
 
 process.stdout.write(
   `${JSON.stringify(
     {
       generatedAt: new Date().toISOString(),
-      requestedCatalogueSize: 50,
-      actualCatalogueSize: records.length,
-      summary: { ready, needsTranscription },
+      auditedSongLessonCount: records.length,
+      summary: { ready, needsTranscription, needsReview, blocked },
       records
     },
     null,

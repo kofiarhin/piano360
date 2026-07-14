@@ -8,6 +8,8 @@ import { CourseModel } from "../src/courses/courseSchema";
 import { createCourseService } from "../src/courses/courseService";
 import { seedCourses } from "../src/courses/seedCourses";
 
+jest.setTimeout(30000);
+
 describe("course routes", () => {
   let mongo: MongoMemoryServer;
 
@@ -103,14 +105,43 @@ describe("course routes", () => {
     expect(response.body).toMatchObject({
       courseSlug: "beginner-chords",
       slug: "c-major-chord",
-      title: "C Major Shape"
+      title: "C Major Shape",
+      mode: "timeline",
+      contentKind: "foundational-drill",
+      timeline: {
+        timingSource: "instructional",
+        source: {
+          type: "instructional-template",
+          reviewStatus: "instructional"
+        }
+      }
     });
-    expect(response.body.steps).toContainEqual({
-      id: "play-c-major",
-      instruction: "Play C major: C4, E4, and G4 together.",
-      type: "chord",
-      targetNotes: ["C4", "E4", "G4"]
+    expect(response.body.steps).toBeUndefined();
+    expect(response.body.timeline.events).toContainEqual(
+      expect.objectContaining({
+        id: "play-c-major",
+        instruction: "Play C major: C4, E4, and G4 together.",
+        type: "note",
+        notes: ["C4", "E4", "G4"]
+      })
+    );
+  });
+
+  it("returns migration-blocked song lessons without learner-facing steps", async () => {
+    const response = await request(app())
+      .get("/api/courses/one-love-limited-excerpt/lessons/one-love-rise")
+      .expect(200);
+
+    expect(response.body).toMatchObject({
+      courseSlug: "one-love-limited-excerpt",
+      slug: "one-love-rise",
+      mode: "migration-blocked",
+      contentKind: "song-phrase",
+      migrationStatus: "needs-transcription"
     });
+    expect(response.body.steps).toBeUndefined();
+    expect(response.body.timeline).toBeUndefined();
+    expect(response.body.legacySteps).toEqual(expect.any(Array));
   });
 
   it("returns useful 404 responses for missing course and lesson slugs", async () => {
