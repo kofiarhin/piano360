@@ -8,7 +8,14 @@ import {
 } from "./guidedPlayScoring";
 import type { TimelineJudgeState } from "./timingJudge";
 
-export type GuidedPlayPhase = "idle" | "count-in" | "playing" | "paused" | "completed";
+export type GuidedPlayPhase =
+  | "idle"
+  | "count-in"
+  | "playing"
+  | "paused"
+  | "recovery"
+  | "recovery-confirmation"
+  | "completed";
 
 export type GuidedPlayState = {
   phase: GuidedPlayPhase;
@@ -16,6 +23,7 @@ export type GuidedPlayState = {
   combo: number;
   maxCombo: number;
   resultsByEventId: Record<string, EventResult>;
+  recoveredEventIds: string[];
   feedback?: TimingFeedback;
   wrongInputCount: number;
   restartCount: number;
@@ -29,7 +37,10 @@ export type GuidedPlayAction =
   | { type: "complete" }
   | { type: "event-result"; result: EventResult }
   | { type: "wrong-input"; feedback: TimingFeedback }
-  | { type: "feedback"; feedback?: TimingFeedback };
+  | { type: "feedback"; feedback?: TimingFeedback }
+  | { type: "recovery-start"; feedback: TimingFeedback }
+  | { type: "recovery-complete"; eventId: string }
+  | { type: "recovery-confirmation-end" };
 
 export const createGuidedPlayState = (): GuidedPlayState => ({
   phase: "idle",
@@ -37,6 +48,7 @@ export const createGuidedPlayState = (): GuidedPlayState => ({
   combo: 0,
   maxCombo: 0,
   resultsByEventId: {},
+  recoveredEventIds: [],
   wrongInputCount: 0,
   restartCount: 0
 });
@@ -49,9 +61,13 @@ export const guidedPlayReducer = (
     case "play":
       return { ...state, phase: "count-in" };
     case "pause":
-      return state.phase === "completed" ? state : { ...state, phase: "paused" };
+      return state.phase === "completed" || state.phase === "recovery"
+        ? state
+        : { ...state, phase: "paused" };
     case "resume":
-      return state.phase === "completed" ? state : { ...state, phase: "playing" };
+      return state.phase === "completed" || state.phase === "recovery"
+        ? state
+        : { ...state, phase: "playing" };
     case "restart":
       return { ...createGuidedPlayState(), restartCount: state.restartCount + 1 };
     case "complete":
@@ -86,6 +102,24 @@ export const guidedPlayReducer = (
       };
     case "feedback":
       return { ...state, feedback: action.feedback };
+    case "recovery-start":
+      return {
+        ...state,
+        phase: "recovery",
+        combo: 0,
+        feedback: action.feedback
+      };
+    case "recovery-complete":
+      return {
+        ...state,
+        phase: "recovery-confirmation",
+        recoveredEventIds: state.recoveredEventIds.includes(action.eventId)
+          ? state.recoveredEventIds
+          : [...state.recoveredEventIds, action.eventId],
+        feedback: { classification: "good", label: "Recovered" }
+      };
+    case "recovery-confirmation-end":
+      return state.phase === "recovery-confirmation" ? { ...state, phase: "playing" } : state;
     default:
       return state;
   }
