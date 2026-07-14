@@ -1,65 +1,108 @@
-# Timeline lesson authoring
+# Timeline authoring
 
-Timeline lessons use beat-based musical events. Milliseconds are derived at runtime from the learner's selected practice BPM; changing tempo never rewrites event positions or durations.
+Timeline lessons are the canonical learner-facing content model. A playable lesson must either contain a schema version 2 timeline or be resolved from a temporary legacy foundational drill adapter. Song and melody lessons must not be converted from note order alone.
 
-## Lesson format
+## Canonical playable lesson
 
 ```ts
 {
   mode: "timeline",
+  contentKind: "foundational-drill" | "rhythm-drill" | "song-phrase" | "complete-song",
+  defaultPracticeMode: "guided",
+  availablePracticeModes: ["guided"],
+  behaviour: {
+    defaultPracticeMode: "guided",
+    pauseOnMiss: true,
+    enableTimingScore: false,
+    timingProfile: "generous",
+    allowPerformanceMode: false
+  },
   timeline: {
-    originalBpm: 120,
+    schemaVersion: 2,
+    timingSource: "instructional" | "verified",
+    originalBpm: 60,
     timeSignature: { numerator: 4, denominator: 4 },
     countInBeats: 4,
-    totalBeats: 16,
-    events: [
-      {
-        id: "bar-1-c4",
-        type: "note",
-        notes: ["C4"],
-        startBeat: 0,
-        durationBeats: 1,
-        hand: "right"
-      },
-      {
-        id: "bar-1-rest",
-        type: "rest",
-        startBeat: 1,
-        durationBeats: 1
-      }
-    ]
+    totalBeats: 24,
+    events: []
   }
 }
 ```
 
-Chords are a single note event containing multiple pitches. Repeated pitches require separate stable event IDs. Events must be ordered by `startBeat`, durations must be positive, and every event must end on or before `totalBeats`.
+Events are beat-based. `startBeat` controls horizontal position, `durationBeats` controls visual width and reference note length, and chords are one event with multiple notes. The viewport renders one visual block per chord pitch.
 
-## Source policy
+## Instructional timing
 
-Use reviewed MIDI, sheet music, or manual transcription as the timing source. An ordered note list does not contain enough information to infer rhythm and must remain `guided-steps` until it is transcribed.
+Foundational drills may use generated instructional timing. The Phase A seed migration persists `finger-placement` and `beginner-chords` as canonical instructional timelines.
 
-Run the read-only catalogue audit with:
+Default template:
+
+- `templateId`: `foundational-quarter-note-v1`
+- `originalBpm`: `60`
+- `timeSignature`: `4/4`
+- `countInBeats`: `4`
+- `firstEventBeat`: `0`
+- `eventSpacingBeats`: `2`
+- `noteDurationBeats`: `1`
+- timing windows: `180 / 350 / 700 ms`
+- source type: `instructional-template`
+- review status: `instructional`
+
+Instructional timing is valid for drills only. It must not be labelled or presented as original song rhythm.
+
+## Verified song timing
+
+Song phrases and complete songs require approved verified timing from one of:
+
+- MIDI
+- sheet music
+- reviewed manual transcription
+- reviewed recorded-performance capture
+
+Required fields:
+
+- original BPM
+- time signature
+- event start beats
+- event durations
+- stable event IDs
+- source type
+- `reviewStatus: "approved"`
+
+`complete-ode-to-joy` is the only approved verified song timeline in Phase A. Its provenance is stored as `manual-transcription` with approved review status.
+
+## Blocked migration state
+
+Unverified song and melody lessons are persisted as:
+
+```ts
+{
+  mode: "migration-blocked",
+  contentKind: "song-phrase" | "complete-song",
+  migrationStatus: "needs-transcription",
+  unavailableReason: "...",
+  requiredTimingSource: "...",
+  legacySteps: []
+}
+```
+
+`legacySteps` are retained only for transcription and audit support. Normal learner routes do not render them through the old guided-step player.
+
+## Migration workflow
+
+Run the read-only audit:
 
 ```bash
 npm run audit:songs -w @piano360/api
 ```
 
-The current seed contains 35 course-level songs or studies, not the 50 expected in the original request. The audit derives its record count from the catalogue and flags this discrepancy in its JSON output.
+Before unblocking a song lesson:
 
-## Version-one assumptions
-
-- One BPM applies to the entire timeline. Tempo maps are deferred; do not flatten a known tempo change into inaccurate data.
-- `durationBeats` represents the authored sounding duration. Sustain-pedal events and key-release validation are deferred.
-- Pickup notes can use a shortened first measure while keeping non-negative beat positions. `countInBeats` is separate from authored song beats.
-- Practice tempo is stored per lesson in local storage and defaults to 60%.
-- Large tempo changes pause the transport before applying the new BPM.
-
-## Migration checklist
-
-1. Confirm the source and licensing status.
-2. Transcribe note onsets and durations in beats.
+1. Confirm the legal/source basis.
+2. Capture or transcribe beat positions and durations.
 3. Group simultaneous chord pitches into one event.
-4. Set the original BPM, time signature, count-in, and total beats.
-5. Run API validation and the catalogue audit.
-6. Verify playback at 50%, 60%, 80%, and 100%.
-7. Test guided and performance modes at desktop and mobile landscape sizes.
+4. Add source provenance and reviewer metadata.
+5. Set `reviewStatus: "approved"`.
+6. Run validation and tests.
+
+Persisted database migration commands remain a follow-up phase. Do not reset production data to apply seed changes.

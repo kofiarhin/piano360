@@ -5,3 +5,5 @@ coverage
 .env.local
 .codex
 npm-debug.log*
+app_data.json
+app_data.*.json
