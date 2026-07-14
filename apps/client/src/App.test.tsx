@@ -81,6 +81,46 @@ const blockedLesson = {
     "Approved MIDI, sheet music, reviewed manual transcription, or reviewed recorded-performance timing."
 };
 
+const preparedSongLesson: TimelineLesson = {
+  slug: "three-little-birds-lift",
+  title: "Lift Phrase",
+  description: "Shape the opening lift with relaxed repeated notes.",
+  order: 1,
+  isFinal: true,
+  mode: "timeline",
+  contentKind: "song-phrase",
+  defaultPracticeMode: "guided",
+  availablePracticeModes: ["guided", "performance"],
+  behaviour: {
+    defaultPracticeMode: "guided",
+    pauseOnMiss: true,
+    enableTimingScore: true,
+    timingProfile: "standard",
+    allowPerformanceMode: true
+  },
+  timeline: {
+    schemaVersion: 2,
+    timingSource: "verified",
+    originalBpm: 76,
+    timeSignature: { numerator: 4, denominator: 4 },
+    countInBeats: 4,
+    totalBeats: 2,
+    source: {
+      type: "manual-transcription",
+      reviewStatus: "approved"
+    },
+    events: [
+      {
+        id: "tlb-lift-01",
+        type: "note",
+        notes: ["C4"],
+        startBeat: 0,
+        durationBeats: 1
+      }
+    ]
+  }
+};
+
 const guidedStepLesson: GuidedStepLesson = {
   slug: "c-major-shape",
   title: "C Major Shape",
@@ -118,6 +158,17 @@ const blockedCourse: Course = {
   difficulty: "beginner",
   order: 2,
   lessons: [blockedLesson]
+};
+
+const preparedSongCourse: Course = {
+  slug: "three-little-birds-limited-excerpt",
+  title: "Three Little Birds Limited Excerpt",
+  description: "A prepared limited excerpt with reviewed timing.",
+  contentType: "single-note",
+  hand: "right",
+  difficulty: "beginner",
+  order: 4,
+  lessons: [preparedSongLesson]
 };
 
 const generatedCourse: Course = {
@@ -175,6 +226,7 @@ const mockFetch = () => {
           json: async () => [
             courseSummary(course),
             courseSummary(blockedCourse),
+            courseSummary(preparedSongCourse),
             courseSummary(generatedCourse)
           ]
         };
@@ -186,6 +238,10 @@ const mockFetch = () => {
 
       if (url === "/api/courses/one-love-limited-excerpt") {
         return { ok: true, json: async () => blockedCourse };
+      }
+
+      if (url === "/api/courses/three-little-birds-limited-excerpt") {
+        return { ok: true, json: async () => preparedSongCourse };
       }
 
       if (url === "/api/courses/beginner-chords") {
@@ -263,6 +319,22 @@ describe("Piano360 lesson routes", () => {
     expect(
       within(lessonCard as HTMLElement).queryByRole("link", { name: /start|replay/i })
     ).not.toBeInTheDocument();
+  });
+
+  it("shows prepared song timelines as playable from course detail", async () => {
+    window.history.pushState({}, "", "/courses/three-little-birds-limited-excerpt");
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: "Three Little Birds Limited Excerpt" })
+    ).toBeInTheDocument();
+    const lessonCard = screen.getByText("Lift Phrase").closest("article");
+    expect(lessonCard).not.toBeNull();
+    expect(within(lessonCard as HTMLElement).getByText("Verified rhythm")).toBeInTheDocument();
+    expect(
+      within(lessonCard as HTMLElement).getByRole("link", { name: /start/i })
+    ).toBeInTheDocument();
+    expect(within(lessonCard as HTMLElement).queryByText("Coming soon")).not.toBeInTheDocument();
   });
 
   it("shows a recoverable blocked message for direct unverified song lesson URLs", async () => {

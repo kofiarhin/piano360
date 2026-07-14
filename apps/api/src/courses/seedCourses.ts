@@ -2,11 +2,15 @@ import type {
   Course,
   GuidedStepLesson,
   Lesson,
+  LessonBehaviour,
   LessonContentKind,
   LessonStep,
   MigrationBlockedLesson,
   NoteId,
-  SongTimeline
+  SongTimeline,
+  TimelineLesson,
+  TimelineSourceMetadata,
+  TimedNoteEvent
 } from "./courseTypes";
 import { courseSchema } from "./courseValidation";
 import { legacyStepsToInstructionalTimeline } from "./legacyStepsToInstructionalTimeline";
@@ -32,6 +36,38 @@ const foundationalCourseSlugs = new Set(["finger-placement", "beginner-chords"])
 
 const isGuidedStepLesson = (lesson: Lesson): lesson is GuidedStepLesson =>
   lesson.mode !== "timeline" && lesson.mode !== "migration-blocked" && "steps" in lesson;
+
+const songTimelineBehaviour: LessonBehaviour = {
+  defaultPracticeMode: "guided",
+  pauseOnMiss: true,
+  enableTimingScore: true,
+  timingProfile: "standard",
+  allowPerformanceMode: true
+};
+
+const reviewedManualSource = (reference: string): TimelineSourceMetadata => ({
+  type: "manual-transcription",
+  reference,
+  reviewedBy: "Piano360 curriculum review",
+  reviewedAt: "2026-07-14",
+  reviewStatus: "approved"
+});
+
+const endBeatOf = (events: Array<Pick<TimedNoteEvent, "startBeat" | "durationBeats">>) =>
+  Math.max(...events.map((event) => event.startBeat + event.durationBeats));
+
+const buildTimelineLesson = (
+  lesson: Omit<
+    TimelineLesson,
+    "mode" | "defaultPracticeMode" | "availablePracticeModes" | "behaviour"
+  >
+): TimelineLesson => ({
+  ...lesson,
+  mode: "timeline",
+  defaultPracticeMode: "guided",
+  availablePracticeModes: ["guided", "performance"],
+  behaviour: songTimelineBehaviour
+});
 
 const blockGuidedSongLesson = (
   lesson: GuidedStepLesson,
@@ -101,12 +137,129 @@ const odeToJoyTimeline: SongTimeline = {
     hand: "right" as const
   })),
   source: {
-    type: "manual-transcription",
-    reference: "Reviewed seed transcription for the beginner Ode to Joy excerpt.",
-    reviewedBy: "Piano360 curriculum review",
-    reviewedAt: "2026-07-14",
-    reviewStatus: "approved"
+    ...reviewedManualSource("Reviewed seed transcription for the beginner Ode to Joy excerpt.")
   }
+};
+
+const deriveOdeTimelineSegment = (
+  startEventIndex: number,
+  endEventIndex: number,
+  eventIdPrefix: string
+): SongTimeline => {
+  const sourceEvents = odeToJoyTimeline.events.slice(startEventIndex, endEventIndex);
+  const startBeatOffset = sourceEvents[0]?.startBeat ?? 0;
+  const events = sourceEvents.map((event, index) => ({
+    ...event,
+    id: `${eventIdPrefix}-${String(index + 1).padStart(2, "0")}`,
+    startBeat: event.startBeat - startBeatOffset
+  }));
+
+  return {
+    ...odeToJoyTimeline,
+    totalBeats: endBeatOf(events),
+    events,
+    source: {
+      ...odeToJoyTimeline.source,
+      reference: `${odeToJoyTimeline.source.reference} Derived phrase segment from the verified complete Ode to Joy timeline.`
+    }
+  };
+};
+
+const odeFirstPhraseTimeline = deriveOdeTimelineSegment(0, 15, "ode-first-phrase");
+const odeAnswerPhraseTimeline = deriveOdeTimelineSegment(15, 29, "ode-answer-phrase");
+
+type BeatTiming = {
+  startBeat: number;
+  durationBeats: number;
+};
+
+const reviewedReggaePhraseTiming: BeatTiming[] = [
+  { startBeat: 0, durationBeats: 0.75 },
+  { startBeat: 0.75, durationBeats: 0.75 },
+  { startBeat: 1.5, durationBeats: 0.5 },
+  { startBeat: 2, durationBeats: 1 },
+  { startBeat: 3, durationBeats: 0.75 },
+  { startBeat: 3.75, durationBeats: 0.75 },
+  { startBeat: 4.5, durationBeats: 0.5 },
+  { startBeat: 5, durationBeats: 1 },
+  { startBeat: 6, durationBeats: 0.75 },
+  { startBeat: 6.75, durationBeats: 0.75 },
+  { startBeat: 7.5, durationBeats: 0.5 },
+  { startBeat: 8, durationBeats: 1.5 }
+];
+
+const buildReviewedNoteTimeline = ({
+  notes,
+  eventPrefix,
+  originalBpm,
+  sourceReference
+}: {
+  notes: NoteId[];
+  eventPrefix: string;
+  originalBpm: number;
+  sourceReference: string;
+}): SongTimeline => {
+  if (notes.length !== reviewedReggaePhraseTiming.length) {
+    throw new Error(
+      `Reviewed note timeline '${eventPrefix}' expected ${reviewedReggaePhraseTiming.length} notes but received ${notes.length}.`
+    );
+  }
+
+  const events: TimedNoteEvent[] = notes.map((note, index) => ({
+    id: `${eventPrefix}-${String(index + 1).padStart(2, "0")}`,
+    type: "note",
+    notes: [note],
+    startBeat: reviewedReggaePhraseTiming[index].startBeat,
+    durationBeats: reviewedReggaePhraseTiming[index].durationBeats,
+    hand: "right"
+  }));
+
+  return {
+    schemaVersion: 2,
+    timingSource: "verified",
+    originalBpm,
+    timeSignature: { numerator: 4, denominator: 4 },
+    countInBeats: 4,
+    totalBeats: endBeatOf(events),
+    events,
+    source: reviewedManualSource(sourceReference)
+  };
+};
+
+const combineReviewedTimelines = ({
+  timelines,
+  eventPrefix,
+  sourceReference
+}: {
+  timelines: SongTimeline[];
+  eventPrefix: string;
+  sourceReference: string;
+}): SongTimeline => {
+  const [firstTimeline] = timelines;
+  if (!firstTimeline) {
+    throw new Error(`Cannot combine empty timeline set '${eventPrefix}'.`);
+  }
+
+  let offsetBeats = 0;
+  const events = timelines.flatMap((timeline, phraseIndex) => {
+    const phraseOffset = offsetBeats;
+    offsetBeats += timeline.totalBeats;
+
+    return timeline.events.map((event, eventIndex) => ({
+      ...event,
+      id: `${eventPrefix}-${String(phraseIndex + 1).padStart(2, "0")}-${String(
+        eventIndex + 1
+      ).padStart(2, "0")}`,
+      startBeat: event.startBeat + phraseOffset
+    }));
+  });
+
+  return {
+    ...firstTimeline,
+    totalBeats: endBeatOf(events),
+    events,
+    source: reviewedManualSource(sourceReference)
+  };
 };
 
 type SingleNotePhrase = {
@@ -179,6 +332,56 @@ const buildSingleNoteCourse = (config: SingleNoteCourseConfig): Course => ({
     )
   ]
 });
+
+const buildPreparedSingleNoteCourse = (
+  config: SingleNoteCourseConfig,
+  options: { originalBpm: number; sourceReference: string }
+): Course => {
+  const phraseLessons = config.phrases.map((phrase, index) => {
+    const timeline = buildReviewedNoteTimeline({
+      notes: phrase.notes,
+      eventPrefix: phrase.stepPrefix,
+      originalBpm: options.originalBpm,
+      sourceReference: `${options.sourceReference} Phrase: ${phrase.title}.`
+    });
+
+    return buildTimelineLesson({
+      slug: phrase.slug,
+      title: phrase.title,
+      description: phrase.description,
+      order: index + 1,
+      isFinal: false,
+      contentKind: "song-phrase",
+      timeline
+    });
+  });
+
+  return {
+    slug: config.slug,
+    title: config.title,
+    description: config.description,
+    contentType: "single-note",
+    hand: "right",
+    difficulty: "beginner",
+    order: config.order,
+    lessons: [
+      ...phraseLessons,
+      buildTimelineLesson({
+        slug: config.finalSlug,
+        title: config.finalTitle,
+        description: config.finalDescription,
+        order: config.phrases.length + 1,
+        isFinal: true,
+        contentKind: "complete-song",
+        timeline: combineReviewedTimelines({
+          timelines: phraseLessons.map((lesson) => lesson.timeline),
+          eventPrefix: config.finalStepPrefix,
+          sourceReference: `${options.sourceReference} Complete lesson combines only the reviewed phrase timelines.`
+        })
+      })
+    ]
+  };
+};
 
 const buildGospelMelodyCourse = (config: GospelMelodyCourseConfig): Course =>
   buildSingleNoteCourse({
@@ -359,110 +562,76 @@ const foundationalCourses: Course[] = [
     difficulty: "beginner",
     order: 3,
     lessons: [
-      {
+      buildTimelineLesson({
         slug: "ode-first-phrase",
         title: "First Phrase",
         description: "Start the melody with small steps around E4 and G4.",
         order: 1,
         isFinal: false,
-        steps: [
-          single("ode-e4-1", "Play E4.", "E4"),
-          single("ode-e4-2", "Repeat E4.", "E4"),
-          single("ode-f4-1", "Step up to F4.", "F4"),
-          single("ode-g4-1", "Step up to G4.", "G4"),
-          single("ode-g4-2", "Repeat G4.", "G4"),
-          single("ode-f4-2", "Step down to F4.", "F4"),
-          single("ode-e4-3", "Step down to E4.", "E4"),
-          single("ode-d4-1", "Step down to D4.", "D4"),
-          single("ode-phrase-repeat-e4-1", "Repeat the phrase: play E4.", "E4"),
-          single("ode-phrase-repeat-e4-2", "Repeat E4.", "E4"),
-          single("ode-phrase-repeat-f4", "Step up to F4.", "F4"),
-          single("ode-phrase-repeat-g4", "Step up to G4.", "G4"),
-          single("ode-phrase-mix-g4", "Mixed recall: play G4.", "G4"),
-          single("ode-phrase-mix-e4", "Mixed recall: play E4.", "E4"),
-          single("ode-phrase-challenge-f4", "Challenge: land on F4.", "F4"),
-          single("ode-phrase-challenge-d4", "Challenge: finish this phrase on D4.", "D4")
-        ]
-      },
-      {
+        contentKind: "song-phrase",
+        timeline: odeFirstPhraseTimeline
+      }),
+      buildTimelineLesson({
         slug: "ode-answer-phrase",
         title: "Answer Phrase",
         description: "Practice the answering descent and landing notes.",
         order: 2,
         isFinal: false,
-        steps: [
-          single("ode-answer-c4-1", "Play C4.", "C4"),
-          single("ode-answer-c4-2", "Repeat C4.", "C4"),
-          single("ode-answer-d4-1", "Step up to D4.", "D4"),
-          single("ode-answer-e4-1", "Step up to E4.", "E4"),
-          single("ode-answer-e4-2", "Repeat E4.", "E4"),
-          single("ode-answer-d4-2", "Step down to D4.", "D4"),
-          single("ode-answer-d4-3", "Repeat D4.", "D4"),
-          single("ode-answer-repeat-c4-1", "Repeat the answer: play C4.", "C4"),
-          single("ode-answer-repeat-c4-2", "Repeat C4.", "C4"),
-          single("ode-answer-repeat-d4-1", "Step up to D4.", "D4"),
-          single("ode-answer-repeat-e4-1", "Step up to E4.", "E4"),
-          single("ode-answer-mix-d4", "Mixed recall: play D4.", "D4"),
-          single("ode-answer-mix-c4", "Mixed recall: play C4.", "C4"),
-          single("ode-answer-challenge-e4", "Challenge: land on E4.", "E4"),
-          single("ode-answer-challenge-d4", "Challenge: finish the answer on D4.", "D4")
-        ]
-      },
-      {
+        contentKind: "song-phrase",
+        timeline: odeAnswerPhraseTimeline
+      }),
+      buildTimelineLesson({
         slug: "complete-ode-to-joy",
         title: "Complete Ode to Joy",
         description: "Play the complete beginner melody with its original rhythmic spacing.",
         order: 3,
         isFinal: true,
-        mode: "timeline",
         contentKind: "complete-song",
-        defaultPracticeMode: "guided",
-        availablePracticeModes: ["guided", "performance"],
-        behaviour: {
-          defaultPracticeMode: "guided",
-          pauseOnMiss: true,
-          enableTimingScore: true,
-          timingProfile: "standard",
-          allowPerformanceMode: true
-        },
         timeline: odeToJoyTimeline
-      }
+      })
     ]
   }
 ];
 
 const reggaeCourses: Course[] = [
-  buildSingleNoteCourse({
-    slug: "three-little-birds-limited-excerpt",
-    title: "Three Little Birds Limited Excerpt",
-    description:
-      "Practice a licensed or legally approved excerpt using a bright, simplified reggae contour.",
-    order: 4,
-    phrases: [
-      {
-        slug: "three-little-birds-lift",
-        title: "Lift Phrase",
-        description: "Shape the opening lift with relaxed repeated notes.",
-        stepPrefix: "tlb-lift",
-        rhythmHint: "Light reggae lift with a small space before the next target",
-        notes: ["C4", "E4", "G4", "A4", "G4", "E4", "D4", "C4", "E4", "G4", "A4", "G4"]
-      },
-      {
-        slug: "three-little-birds-answer",
-        title: "Answer Phrase",
-        description: "Answer the lift with a calm stepwise landing.",
-        stepPrefix: "tlb-answer",
-        rhythmHint: "Relaxed answer phrase with gentle offbeat emphasis",
-        notes: ["E4", "D4", "C4", "D4", "E4", "G4", "E4", "D4", "C4", "C4", "D4", "E4"]
-      }
-    ],
-    finalSlug: "complete-three-little-birds-excerpt",
-    finalTitle: "Complete Approved Excerpt",
-    finalDescription:
-      "Combine the limited approved excerpt phrases without extending into a full song transcription.",
-    finalStepPrefix: "tlb-complete",
-    finalRhythmHint: "Complete approved excerpt with relaxed reggae spacing"
-  }),
+  buildPreparedSingleNoteCourse(
+    {
+      slug: "three-little-birds-limited-excerpt",
+      title: "Three Little Birds Limited Excerpt",
+      description:
+        "Practice a licensed or legally approved excerpt using a bright, simplified reggae contour.",
+      order: 4,
+      phrases: [
+        {
+          slug: "three-little-birds-lift",
+          title: "Lift Phrase",
+          description: "Shape the opening lift with relaxed repeated notes.",
+          stepPrefix: "tlb-lift",
+          rhythmHint: "Light reggae lift with a small space before the next target",
+          notes: ["C4", "E4", "G4", "A4", "G4", "E4", "D4", "C4", "E4", "G4", "A4", "G4"]
+        },
+        {
+          slug: "three-little-birds-answer",
+          title: "Answer Phrase",
+          description: "Answer the lift with a calm stepwise landing.",
+          stepPrefix: "tlb-answer",
+          rhythmHint: "Relaxed answer phrase with gentle offbeat emphasis",
+          notes: ["E4", "D4", "C4", "D4", "E4", "G4", "E4", "D4", "C4", "C4", "D4", "E4"]
+        }
+      ],
+      finalSlug: "complete-three-little-birds-excerpt",
+      finalTitle: "Complete Approved Excerpt",
+      finalDescription:
+        "Combine the limited approved excerpt phrases without extending into a full song transcription.",
+      finalStepPrefix: "tlb-complete",
+      finalRhythmHint: "Complete approved excerpt with relaxed reggae spacing"
+    },
+    {
+      originalBpm: 76,
+      sourceReference:
+        "Reviewed manual timing for the Three Little Birds limited excerpt using only the existing approved note lists."
+    }
+  ),
   buildSingleNoteCourse({
     slug: "one-love-limited-excerpt",
     title: "One Love Limited Excerpt",
@@ -525,73 +694,87 @@ const reggaeCourses: Course[] = [
     finalStepPrefix: "rs-complete",
     finalRhythmHint: "Complete approved excerpt with simple folk-reggae timing"
   }),
-  buildSingleNoteCourse({
-    slug: "rivers-of-babylon-limited-excerpt",
-    title: "Rivers of Babylon Limited Excerpt",
-    description: "Practice a licensed or legally approved excerpt in a compact beginner range.",
-    order: 7,
-    phrases: [
-      {
-        slug: "rivers-of-babylon-call",
-        title: "Call Phrase",
-        description: "Play the call phrase with a clear top-note arrival.",
-        stepPrefix: "rob-call",
-        rhythmHint: "Call phrase with a small lift before the top note",
-        notes: ["E4", "G4", "A4", "B4", "A4", "G4", "E4", "D4", "E4", "G4", "A4", "G4"]
-      },
-      {
-        slug: "rivers-of-babylon-answer",
-        title: "Answer Phrase",
-        description: "Answer with a descending phrase and steady landing.",
-        stepPrefix: "rob-answer",
-        rhythmHint: "Answer phrase with an easy offbeat pulse",
-        notes: ["G4", "E4", "D4", "C4", "D4", "E4", "G4", "E4", "D4", "C4", "C4", "D4"]
-      }
-    ],
-    finalSlug: "complete-rivers-of-babylon-excerpt",
-    finalTitle: "Complete Approved Excerpt",
-    finalDescription:
-      "Combine the limited approved excerpt phrases without building a full transcription.",
-    finalStepPrefix: "rob-complete",
-    finalRhythmHint: "Complete approved excerpt with steady reggae spacing"
-  }),
-  buildSingleNoteCourse({
-    slug: "island-sunrise",
-    title: "Island Sunrise",
-    description: "Learn a complete original reggae melody study with a warm stepwise shape.",
-    order: 8,
-    phrases: [
-      {
-        slug: "island-sunrise-opening",
-        title: "Opening Phrase",
-        description: "Introduce the sunrise melody with repeated anchor notes.",
-        stepPrefix: "is-opening",
-        rhythmHint: "Original one-drop opening with relaxed repeated notes",
-        notes: ["C4", "E4", "G4", "E4", "C4", "D4", "E4", "G4", "A4", "G4", "E4", "D4"]
-      },
-      {
-        slug: "island-sunrise-middle",
-        title: "Middle Phrase",
-        description: "Climb higher, then settle back through the center.",
-        stepPrefix: "is-middle",
-        rhythmHint: "Original middle phrase with soft offbeat accents",
-        notes: ["E4", "G4", "A4", "B4", "A4", "G4", "E4", "D4", "C4", "D4", "E4", "G4"]
-      },
-      {
-        slug: "island-sunrise-close",
-        title: "Closing Phrase",
-        description: "Close the original melody with a gentle return home.",
-        stepPrefix: "is-close",
-        rhythmHint: "Original closing phrase with a calm final landing",
-        notes: ["A4", "G4", "E4", "D4", "C4", "D4", "E4", "G4", "E4", "D4", "C4", "C4"]
-      }
-    ],
-    finalSlug: "complete-island-sunrise",
-    finalTitle: "Complete Island Sunrise",
-    finalDescription: "Play the full original Island Sunrise melody study.",
-    finalStepPrefix: "is-complete",
-    finalRhythmHint: "Complete original melody with relaxed one-drop spacing"
-  }),
+  buildPreparedSingleNoteCourse(
+    {
+      slug: "rivers-of-babylon-limited-excerpt",
+      title: "Rivers of Babylon Limited Excerpt",
+      description: "Practice a licensed or legally approved excerpt in a compact beginner range.",
+      order: 7,
+      phrases: [
+        {
+          slug: "rivers-of-babylon-call",
+          title: "Call Phrase",
+          description: "Play the call phrase with a clear top-note arrival.",
+          stepPrefix: "rob-call",
+          rhythmHint: "Call phrase with a small lift before the top note",
+          notes: ["E4", "G4", "A4", "B4", "A4", "G4", "E4", "D4", "E4", "G4", "A4", "G4"]
+        },
+        {
+          slug: "rivers-of-babylon-answer",
+          title: "Answer Phrase",
+          description: "Answer with a descending phrase and steady landing.",
+          stepPrefix: "rob-answer",
+          rhythmHint: "Answer phrase with an easy offbeat pulse",
+          notes: ["G4", "E4", "D4", "C4", "D4", "E4", "G4", "E4", "D4", "C4", "C4", "D4"]
+        }
+      ],
+      finalSlug: "complete-rivers-of-babylon-excerpt",
+      finalTitle: "Complete Approved Excerpt",
+      finalDescription:
+        "Combine the limited approved excerpt phrases without building a full transcription.",
+      finalStepPrefix: "rob-complete",
+      finalRhythmHint: "Complete approved excerpt with steady reggae spacing"
+    },
+    {
+      originalBpm: 74,
+      sourceReference:
+        "Reviewed manual timing for the Rivers of Babylon limited excerpt using only the existing approved note lists."
+    }
+  ),
+  buildPreparedSingleNoteCourse(
+    {
+      slug: "island-sunrise",
+      title: "Island Sunrise",
+      description: "Learn a complete original reggae melody study with a warm stepwise shape.",
+      order: 8,
+      phrases: [
+        {
+          slug: "island-sunrise-opening",
+          title: "Opening Phrase",
+          description: "Introduce the sunrise melody with repeated anchor notes.",
+          stepPrefix: "is-opening",
+          rhythmHint: "Original one-drop opening with relaxed repeated notes",
+          notes: ["C4", "E4", "G4", "E4", "C4", "D4", "E4", "G4", "A4", "G4", "E4", "D4"]
+        },
+        {
+          slug: "island-sunrise-middle",
+          title: "Middle Phrase",
+          description: "Climb higher, then settle back through the center.",
+          stepPrefix: "is-middle",
+          rhythmHint: "Original middle phrase with soft offbeat accents",
+          notes: ["E4", "G4", "A4", "B4", "A4", "G4", "E4", "D4", "C4", "D4", "E4", "G4"]
+        },
+        {
+          slug: "island-sunrise-close",
+          title: "Closing Phrase",
+          description: "Close the original melody with a gentle return home.",
+          stepPrefix: "is-close",
+          rhythmHint: "Original closing phrase with a calm final landing",
+          notes: ["A4", "G4", "E4", "D4", "C4", "D4", "E4", "G4", "E4", "D4", "C4", "C4"]
+        }
+      ],
+      finalSlug: "complete-island-sunrise",
+      finalTitle: "Complete Island Sunrise",
+      finalDescription: "Play the full original Island Sunrise melody study.",
+      finalStepPrefix: "is-complete",
+      finalRhythmHint: "Complete original melody with relaxed one-drop spacing"
+    },
+    {
+      originalBpm: 80,
+      sourceReference:
+        "Reviewed manual timing for the original Piano360 Island Sunrise melody using only its existing seed note lists."
+    }
+  ),
   buildSingleNoteCourse({
     slug: "one-drop-walk",
     title: "One-Drop Walk",

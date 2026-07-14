@@ -1,5 +1,77 @@
 import { seedCourses } from "../src/courses/seedCourses";
 import { courseSchema, noteIdSchema } from "../src/courses/courseValidation";
+import type { Course, TimelineEvent } from "../src/courses/courseTypes";
+
+const targetPlayableCourseSlugs = [
+  "ode-to-joy",
+  "three-little-birds-limited-excerpt",
+  "rivers-of-babylon-limited-excerpt",
+  "island-sunrise"
+] as const;
+
+const expectedSingleNoteMaterial = {
+  "three-little-birds-limited-excerpt": [
+    ["C4", "E4", "G4", "A4", "G4", "E4", "D4", "C4", "E4", "G4", "A4", "G4"],
+    ["E4", "D4", "C4", "D4", "E4", "G4", "E4", "D4", "C4", "C4", "D4", "E4"]
+  ],
+  "rivers-of-babylon-limited-excerpt": [
+    ["E4", "G4", "A4", "B4", "A4", "G4", "E4", "D4", "E4", "G4", "A4", "G4"],
+    ["G4", "E4", "D4", "C4", "D4", "E4", "G4", "E4", "D4", "C4", "C4", "D4"]
+  ],
+  "island-sunrise": [
+    ["C4", "E4", "G4", "E4", "C4", "D4", "E4", "G4", "A4", "G4", "E4", "D4"],
+    ["E4", "G4", "A4", "B4", "A4", "G4", "E4", "D4", "C4", "D4", "E4", "G4"],
+    ["A4", "G4", "E4", "D4", "C4", "D4", "E4", "G4", "E4", "D4", "C4", "C4"]
+  ]
+} as const;
+
+const expectedOdeToJoyNotes = [
+  "E4",
+  "E4",
+  "F4",
+  "G4",
+  "G4",
+  "F4",
+  "E4",
+  "D4",
+  "C4",
+  "C4",
+  "D4",
+  "E4",
+  "E4",
+  "D4",
+  "D4",
+  "E4",
+  "E4",
+  "F4",
+  "G4",
+  "G4",
+  "F4",
+  "E4",
+  "D4",
+  "C4",
+  "C4",
+  "D4",
+  "E4",
+  "D4",
+  "C4"
+] as const;
+
+const getCourse = (slug: string): Course => {
+  const course = seedCourses.find((item) => item.slug === slug);
+  if (!course) {
+    throw new Error(`Expected seeded course '${slug}'.`);
+  }
+  return course;
+};
+
+const noteEvents = (events: TimelineEvent[]) => events.filter((event) => event.type === "note");
+
+const timelineNotes = (events: TimelineEvent[]) =>
+  noteEvents(events).flatMap((event) => event.notes);
+
+const lastEventEndBeat = (events: TimelineEvent[]) =>
+  Math.max(...events.map((event) => event.startBeat + event.durationBeats));
 
 describe("seed course validation", () => {
   const reggaeCourseSlugs = [
@@ -127,6 +199,122 @@ describe("seed course validation", () => {
       });
       expect(lesson).not.toHaveProperty("steps");
       expect(lesson).not.toHaveProperty("timeline");
+    }
+  });
+
+  it("publishes the prepared song courses as playable timeline lessons", () => {
+    for (const courseSlug of targetPlayableCourseSlugs) {
+      const course = getCourse(courseSlug);
+
+      expect(course.lessons.every((lesson) => lesson.mode === "timeline")).toBe(true);
+      expect(course.lessons.some((lesson) => lesson.mode === "migration-blocked")).toBe(false);
+    }
+  });
+
+  it("keeps prepared song timelines valid, ordered, and fully bounded by totalBeats", () => {
+    for (const courseSlug of targetPlayableCourseSlugs) {
+      const course = getCourse(courseSlug);
+
+      expect(() => courseSchema.parse(course)).not.toThrow();
+      for (const lesson of course.lessons) {
+        expect(lesson.mode).toBe("timeline");
+        if (lesson.mode !== "timeline") continue;
+
+        expect(lesson.timeline).toMatchObject({
+          schemaVersion: 2,
+          timingSource: "verified",
+          source: {
+            type: "manual-transcription",
+            reviewStatus: "approved"
+          }
+        });
+        expect(lesson.timeline.totalBeats).toBeGreaterThanOrEqual(
+          lastEventEndBeat(lesson.timeline.events)
+        );
+
+        const eventIds = lesson.timeline.events.map((event) => event.id);
+        expect(new Set(eventIds).size).toBe(eventIds.length);
+        expect(
+          [...lesson.timeline.events].sort((first, second) => first.startBeat - second.startBeat)
+        ).toEqual(lesson.timeline.events);
+      }
+    }
+  });
+
+  it("derives every Ode to Joy lesson from the complete verified timeline", () => {
+    const course = getCourse("ode-to-joy");
+    const [firstLesson, answerLesson, completeLesson] = course.lessons;
+
+    expect(firstLesson?.mode).toBe("timeline");
+    expect(answerLesson?.mode).toBe("timeline");
+    expect(completeLesson?.mode).toBe("timeline");
+    if (
+      firstLesson?.mode !== "timeline" ||
+      answerLesson?.mode !== "timeline" ||
+      completeLesson?.mode !== "timeline"
+    ) {
+      throw new Error("Expected Ode to Joy to be fully playable timelines.");
+    }
+
+    const completeEvents = noteEvents(completeLesson.timeline.events);
+    const firstEvents = noteEvents(firstLesson.timeline.events);
+    const answerEvents = noteEvents(answerLesson.timeline.events);
+
+    expect(timelineNotes(completeLesson.timeline.events)).toEqual(expectedOdeToJoyNotes);
+    expect([
+      ...timelineNotes(firstLesson.timeline.events),
+      ...timelineNotes(answerLesson.timeline.events)
+    ]).toEqual(expectedOdeToJoyNotes);
+
+    const firstSourceSlice = completeEvents.slice(0, firstEvents.length);
+    const answerSourceSlice = completeEvents.slice(firstEvents.length);
+    const answerOffset = answerSourceSlice[0]?.startBeat ?? 0;
+
+    expect(
+      firstEvents.map(({ notes, startBeat, durationBeats }) => ({
+        notes,
+        startBeat,
+        durationBeats
+      }))
+    ).toEqual(
+      firstSourceSlice.map(({ notes, startBeat, durationBeats }) => ({
+        notes,
+        startBeat,
+        durationBeats
+      }))
+    );
+    expect(
+      answerEvents.map(({ notes, startBeat, durationBeats }) => ({
+        notes,
+        startBeat,
+        durationBeats
+      }))
+    ).toEqual(
+      answerSourceSlice.map(({ notes, startBeat, durationBeats }) => ({
+        notes,
+        startBeat: startBeat - answerOffset,
+        durationBeats
+      }))
+    );
+  });
+
+  it("preserves approved limited excerpt and Island Sunrise note boundaries", () => {
+    for (const [courseSlug, phraseNotes] of Object.entries(expectedSingleNoteMaterial)) {
+      const course = getCourse(courseSlug);
+      const phraseLessons = course.lessons.slice(0, phraseNotes.length);
+      const finalLesson = course.lessons.at(-1);
+
+      for (const [index, lesson] of phraseLessons.entries()) {
+        expect(lesson.mode).toBe("timeline");
+        if (lesson.mode === "timeline") {
+          expect(timelineNotes(lesson.timeline.events)).toEqual(phraseNotes[index]);
+        }
+      }
+
+      expect(finalLesson?.mode).toBe("timeline");
+      if (finalLesson?.mode === "timeline") {
+        expect(timelineNotes(finalLesson.timeline.events)).toEqual(phraseNotes.flat());
+      }
     }
   });
 

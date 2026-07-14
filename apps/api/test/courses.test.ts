@@ -144,6 +144,31 @@ describe("course routes", () => {
     expect(response.body.legacySteps).toEqual(expect.any(Array));
   });
 
+  it("returns prepared song lessons as playable timelines", async () => {
+    const response = await request(app())
+      .get("/api/courses/three-little-birds-limited-excerpt/lessons/three-little-birds-lift")
+      .expect(200);
+
+    expect(response.body).toMatchObject({
+      courseSlug: "three-little-birds-limited-excerpt",
+      slug: "three-little-birds-lift",
+      mode: "timeline",
+      contentKind: "song-phrase",
+      timeline: {
+        timingSource: "verified",
+        source: {
+          type: "manual-transcription",
+          reviewStatus: "approved"
+        }
+      }
+    });
+    expect(response.body.steps).toBeUndefined();
+    expect(response.body.legacySteps).toBeUndefined();
+    expect(
+      response.body.timeline.events.map((event: { notes: string[] }) => event.notes[0])
+    ).toEqual(["C4", "E4", "G4", "A4", "G4", "E4", "D4", "C4", "E4", "G4", "A4", "G4"]);
+  });
+
   it("returns useful 404 responses for missing course and lesson slugs", async () => {
     await request(app()).get("/api/courses/missing").expect(404, {
       error: "course_not_found",
