@@ -28,7 +28,24 @@ describe("useTimelineInput", () => {
     expect(onInput).toHaveBeenCalledWith({
       note: "C4",
       source: "computer-keyboard",
-      timestampMs: 1234
+      timestampMs: 1234,
+      phase: "press"
+    });
+  });
+
+  it("emits release attempts on computer-keyboard keyup", () => {
+    const onInput = vi.fn();
+    render(<TestHarness onInput={onInput} />);
+    const event = new KeyboardEvent("keyup", { key: "d", bubbles: true, cancelable: true });
+
+    window.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(onInput).toHaveBeenCalledWith({
+      note: "C4",
+      source: "computer-keyboard",
+      timestampMs: 1234,
+      phase: "release"
     });
   });
 

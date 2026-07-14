@@ -66,19 +66,54 @@ const timelineLesson: TimelineLesson = {
   }
 };
 
-const blockedLesson = {
+const blockedLesson: TimelineLesson = {
   slug: "one-love-rise",
   title: "Rising Phrase",
-  description: "Awaiting verified timing.",
+  description: "A normalized legacy phrase with curriculum-authored practice timing.",
   order: 1,
   isFinal: true,
-  mode: "migration-blocked" as const,
-  contentKind: "complete-song" as const,
-  migrationStatus: "needs-transcription" as const,
-  unavailableReason:
-    "Verified beat positions, note durations, BPM, time signature, and approved source provenance are required before timeline playback.",
-  requiredTimingSource:
-    "Approved MIDI, sheet music, reviewed manual transcription, or reviewed recorded-performance timing."
+  mode: "timeline",
+  contentKind: "complete-song",
+  defaultPracticeMode: "guided",
+  availablePracticeModes: ["guided", "performance"],
+  behaviour: {
+    defaultPracticeMode: "guided",
+    pauseOnMiss: true,
+    enableTimingScore: true,
+    timingProfile: "standard",
+    allowPerformanceMode: true
+  },
+  timeline: {
+    schemaVersion: 2,
+    timingSource: "instructional",
+    originalBpm: 80,
+    timeSignature: { numerator: 4, denominator: 4 },
+    countInBeats: 4,
+    totalBeats: 2,
+    source: {
+      type: "instructional-template",
+      reference: "unified-song-practice-v1",
+      reviewStatus: "instructional"
+    },
+    instructionalTemplate: {
+      templateId: "unified-song-practice-v1",
+      eventSpacingBeats: 1,
+      noteDurationBeats: 0.75,
+      firstEventBeat: 0,
+      originalBpm: 80,
+      countInBeats: 4,
+      timingWindows: { perfectMs: 140, goodMs: 280, acceptedMs: 520 }
+    },
+    events: [
+      {
+        id: "one-love-rise-01",
+        type: "note",
+        notes: ["C4"],
+        startBeat: 0,
+        durationBeats: 1
+      }
+    ]
+  }
 };
 
 const preparedSongLesson: TimelineLesson = {
@@ -303,7 +338,7 @@ describe("Piano360 lesson routes", () => {
     expect(screen.queryByLabelText("Lesson instruction")).not.toBeInTheDocument();
   });
 
-  it("keeps blocked song lessons visible but disables playback from course detail", async () => {
+  it("shows normalized legacy song lessons as playable from course detail", async () => {
     window.history.pushState({}, "", "/courses/one-love-limited-excerpt");
     render(<App />);
 
@@ -312,13 +347,11 @@ describe("Piano360 lesson routes", () => {
     ).toBeInTheDocument();
     const lessonCard = screen.getByText("Rising Phrase").closest("article");
     expect(lessonCard).not.toBeNull();
+    expect(within(lessonCard as HTMLElement).getByText("Instructional timing")).toBeInTheDocument();
     expect(
-      within(lessonCard as HTMLElement).getByText("Timing source required")
+      within(lessonCard as HTMLElement).getByRole("link", { name: /start/i })
     ).toBeInTheDocument();
-    expect(within(lessonCard as HTMLElement).getByText("Coming soon")).toBeInTheDocument();
-    expect(
-      within(lessonCard as HTMLElement).queryByRole("link", { name: /start|replay/i })
-    ).not.toBeInTheDocument();
+    expect(within(lessonCard as HTMLElement).queryByText("Coming soon")).not.toBeInTheDocument();
   });
 
   it("shows prepared song timelines as playable from course detail", async () => {
@@ -337,13 +370,12 @@ describe("Piano360 lesson routes", () => {
     expect(within(lessonCard as HTMLElement).queryByText("Coming soon")).not.toBeInTheDocument();
   });
 
-  it("shows a recoverable blocked message for direct unverified song lesson URLs", async () => {
+  it("routes normalized legacy song lesson URLs into the falling-notes player", async () => {
     window.history.pushState({}, "", "/courses/one-love-limited-excerpt/lessons/one-love-rise");
     render(<App />);
 
-    expect(await screen.findByText("Timing source required")).toBeInTheDocument();
+    expect(await screen.findByLabelText("Falling notes")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Rising Phrase" })).toBeInTheDocument();
-    expect(screen.getByText(/Verified beat positions/i)).toBeInTheDocument();
-    expect(screen.queryByLabelText("Falling notes")).not.toBeInTheDocument();
+    expect(screen.queryByText("Timing source required")).not.toBeInTheDocument();
   });
 });

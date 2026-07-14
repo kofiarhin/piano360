@@ -163,7 +163,66 @@ describe("timeline lesson validation", () => {
     ).toThrow(/steps/);
   });
 
-  it("rejects song timelines without approved verified provenance", () => {
+  it("accepts instructional song practice timelines when provenance is honest", () => {
+    const course = courseSchema.parse({
+      ...baseCourse,
+      lessons: [
+        {
+          slug: "instructional-song",
+          title: "Instructional Song",
+          description: "Uses curriculum-authored practice timing.",
+          order: 1,
+          isFinal: true,
+          mode: "timeline",
+          contentKind: "complete-song",
+          defaultPracticeMode: "guided",
+          availablePracticeModes: ["guided", "performance"],
+          behaviour: {
+            defaultPracticeMode: "guided",
+            pauseOnMiss: true,
+            enableTimingScore: true,
+            timingProfile: "standard",
+            allowPerformanceMode: true
+          },
+          timeline: {
+            schemaVersion: 2,
+            timingSource: "instructional",
+            originalBpm: 80,
+            timeSignature: { numerator: 4, denominator: 4 },
+            countInBeats: 4,
+            totalBeats: 2,
+            events: [
+              {
+                id: "event-c4",
+                type: "note",
+                notes: ["C4"],
+                startBeat: 0,
+                durationBeats: 1
+              }
+            ],
+            source: {
+              type: "instructional-template",
+              reference: "unified-song-practice-v1",
+              reviewStatus: "instructional"
+            },
+            instructionalTemplate: {
+              templateId: "unified-song-practice-v1",
+              eventSpacingBeats: 1,
+              noteDurationBeats: 0.75,
+              firstEventBeat: 0,
+              originalBpm: 80,
+              countInBeats: 4,
+              timingWindows: { perfectMs: 140, goodMs: 280, acceptedMs: 520 }
+            }
+          }
+        }
+      ]
+    });
+
+    expect(course.lessons[0]?.timeline?.timingSource).toBe("instructional");
+  });
+
+  it("rejects verified song timelines without approved provenance", () => {
     expect(() =>
       courseSchema.parse({
         ...baseCourse,
@@ -187,7 +246,7 @@ describe("timeline lesson validation", () => {
             },
             timeline: {
               schemaVersion: 2,
-              timingSource: "instructional",
+              timingSource: "verified",
               originalBpm: 60,
               timeSignature: { numerator: 4, denominator: 4 },
               countInBeats: 4,
@@ -202,23 +261,14 @@ describe("timeline lesson validation", () => {
                 }
               ],
               source: {
-                type: "instructional-template",
-                reviewStatus: "instructional"
-              },
-              instructionalTemplate: {
-                templateId: "foundational-quarter-note-v1",
-                eventSpacingBeats: 2,
-                noteDurationBeats: 1,
-                firstEventBeat: 0,
-                originalBpm: 60,
-                countInBeats: 4,
-                timingWindows: { perfectMs: 180, goodMs: 350, acceptedMs: 700 }
+                type: "manual-transcription",
+                reviewStatus: "reviewed"
               }
             }
           }
         ]
       })
-    ).toThrow(/verified timing/);
+    ).toThrow(/approved provenance/);
   });
 
   it("accepts migration-blocked song lessons without exposing playable steps", () => {

@@ -25,9 +25,18 @@ type PendingChord = {
   attempts: Array<{ note: NoteId; deltaMs: number }>;
 };
 
+type PendingHold = {
+  eventId: string;
+  playedNotes: NoteId[];
+  onsetDeltaMs: number;
+  onsetClassification: Exclude<TimingClassification, "partial" | "missed" | "wrong">;
+  pressElapsedMs: number;
+};
+
 export type TimelineJudgeState = {
   judgedEventIds: string[];
   pendingChord?: PendingChord;
+  pendingHold?: PendingHold;
 };
 
 export const createTimelineJudgeState = (): TimelineJudgeState => ({ judgedEventIds: [] });
@@ -43,6 +52,13 @@ export type JudgeOutcome =
       eventId: string;
       playedNotes: NoteId[];
       remainingNotes: NoteId[];
+    }
+  | {
+      type: "holding";
+      state: TimelineJudgeState;
+      eventId: string;
+      playedNotes: NoteId[];
+      onsetDeltaMs: number;
     }
   | {
       type: "wrong";
@@ -101,6 +117,16 @@ const leastAccurateAttempt = (attempts: Array<{ note: NoteId; deltaMs: number }>
     return nextError >= leastError ? attempt : least;
   });
 
+const durationReleaseToleranceMs = (event: TimedNoteEvent, bpm: number, windows: TimingWindows) => {
+  const durationMs = beatToMilliseconds(event.durationBeats, bpm);
+  return Math.min(windows.acceptedMs, durationMs * 0.35);
+};
+
+const minimumHoldMilliseconds = (event: TimedNoteEvent, bpm: number, windows: TimingWindows) => {
+  const durationMs = beatToMilliseconds(event.durationBeats, bpm);
+  return Math.max(0, durationMs - durationReleaseToleranceMs(event, bpm, windows));
+};
+
 export const judgeTimelineInput = (
   state: TimelineJudgeState,
   events: TimedNoteEvent[],
@@ -109,6 +135,10 @@ export const judgeTimelineInput = (
   bpm: number,
   windows: TimingWindows = DEFAULT_TIMING_WINDOWS
 ): JudgeOutcome => {
+  if (state.pendingHold) {
+    return { type: "ignored", state };
+  }
+
   const pendingEvent = state.pendingChord
     ? events.find((event) => event.id === state.pendingChord?.eventId)
     : undefined;
@@ -133,21 +163,23 @@ export const judgeTimelineInput = (
   }
 
   if (event.notes.length === 1) {
+    const onsetClassification = classifyDelta(deltaMs, windows);
     return {
-      type: "scored",
+      type: "holding",
       state: {
         ...state,
-        judgedEventIds: [...state.judgedEventIds, event.id],
-        pendingChord: undefined
-      },
-      result: {
-        ...scoreEventResult({
+        pendingChord: undefined,
+        pendingHold: {
           eventId: event.id,
-          classification: classifyDelta(deltaMs, windows),
-          deltaMs,
-          playedNotes: [note]
-        })
-      }
+          playedNotes: [note],
+          onsetDeltaMs: deltaMs,
+          onsetClassification,
+          pressElapsedMs: elapsedMs
+        }
+      },
+      eventId: event.id,
+      playedNotes: [note],
+      onsetDeltaMs: deltaMs
     };
   }
 
@@ -174,17 +206,84 @@ export const judgeTimelineInput = (
   }
 
   const chordAttempt = leastAccurateAttempt(attempts);
+  const onsetClassification = classifyDelta(chordAttempt.deltaMs, windows);
+  return {
+    type: "holding",
+    state: {
+      ...state,
+      pendingChord: undefined,
+      pendingHold: {
+        eventId: event.id,
+        playedNotes,
+        onsetDeltaMs: chordAttempt.deltaMs,
+        onsetClassification,
+        pressElapsedMs: elapsedMs
+      }
+    },
+    eventId: event.id,
+    playedNotes,
+    onsetDeltaMs: chordAttempt.deltaMs
+  };
+};
+
+export const judgeTimelineRelease = (
+  state: TimelineJudgeState,
+  events: TimedNoteEvent[],
+  note: NoteId,
+  elapsedMs: number,
+  bpm: number,
+  windows: TimingWindows = DEFAULT_TIMING_WINDOWS
+): JudgeOutcome => {
+  if (state.pendingChord?.playedNotes.includes(note)) {
+    const playedNotes = state.pendingChord.playedNotes.filter((playedNote) => playedNote !== note);
+    const attempts = state.pendingChord.attempts.filter((attempt) => attempt.note !== note);
+
+    return {
+      type: "ignored",
+      state: {
+        ...state,
+        pendingChord: playedNotes.length
+          ? {
+              ...state.pendingChord,
+              playedNotes,
+              attempts
+            }
+          : undefined
+      }
+    };
+  }
+
+  const pendingHold = state.pendingHold;
+  if (!pendingHold || !pendingHold.playedNotes.includes(note)) {
+    return { type: "ignored", state };
+  }
+
+  const event = events.find((item) => item.id === pendingHold.eventId);
+  if (!event) {
+    return { type: "ignored", state: { ...state, pendingHold: undefined } };
+  }
+
+  const eventEndMs = beatToMilliseconds(event.startBeat + event.durationBeats, bpm);
+  const releaseDeltaMs = elapsedMs - eventEndMs;
+  const heldMs = elapsedMs - pendingHold.pressElapsedMs;
+  const heldLongEnough = heldMs >= minimumHoldMilliseconds(event, bpm, windows);
+  const releasedNearEnd = Math.abs(releaseDeltaMs) <= windows.acceptedMs;
+  const classification =
+    heldLongEnough && releasedNearEnd ? pendingHold.onsetClassification : "partial";
+
   return {
     type: "scored",
     state: {
-      judgedEventIds: [...state.judgedEventIds, event.id]
+      judgedEventIds: [...state.judgedEventIds, event.id],
+      pendingChord: undefined,
+      pendingHold: undefined
     },
     result: {
       ...scoreEventResult({
         eventId: event.id,
-        classification: classifyDelta(chordAttempt.deltaMs, windows),
-        deltaMs: chordAttempt.deltaMs,
-        playedNotes
+        classification,
+        deltaMs: pendingHold.onsetDeltaMs,
+        playedNotes: pendingHold.playedNotes
       })
     }
   };
@@ -199,10 +298,12 @@ export const expireMissedEvents = (
 ): { state: TimelineJudgeState; results: EventResult[] } => {
   const judged = new Set(state.judgedEventIds);
   const pendingEventId = state.pendingChord?.eventId;
+  const pendingHoldEventId = state.pendingHold?.eventId;
   const missed = events.filter(
     (event) =>
       !judged.has(event.id) &&
       event.id !== pendingEventId &&
+      event.id !== pendingHoldEventId &&
       elapsedMs > beatToMilliseconds(event.startBeat, bpm) + windows.acceptedMs
   );
   const results: EventResult[] = missed.map((event) =>
@@ -228,8 +329,28 @@ export const expireMissedEvents = (
           playedNotes: state.pendingChord?.playedNotes ?? []
         })
       : undefined;
+  const pendingHoldEvent = state.pendingHold
+    ? events.find((event) => event.id === state.pendingHold?.eventId)
+    : undefined;
+  const pendingHoldExpired =
+    pendingHoldEvent !== undefined &&
+    elapsedMs >
+      beatToMilliseconds(pendingHoldEvent.startBeat + pendingHoldEvent.durationBeats, bpm) +
+        windows.acceptedMs;
+  const pendingHoldResult =
+    pendingHoldEvent && pendingHoldExpired
+      ? scoreEventResult({
+          eventId: pendingHoldEvent.id,
+          classification: "partial",
+          deltaMs: state.pendingHold?.onsetDeltaMs ?? 0,
+          playedNotes: state.pendingHold?.playedNotes ?? []
+        })
+      : undefined;
   if (partialResult) {
     results.push(partialResult);
+  }
+  if (pendingHoldResult) {
+    results.push(pendingHoldResult);
   }
 
   return {
@@ -237,9 +358,11 @@ export const expireMissedEvents = (
       judgedEventIds: [
         ...state.judgedEventIds,
         ...missed.map((event) => event.id),
-        ...(partialResult ? [partialResult.eventId] : [])
+        ...(partialResult ? [partialResult.eventId] : []),
+        ...(pendingHoldResult ? [pendingHoldResult.eventId] : [])
       ],
-      pendingChord: partialResult ? undefined : state.pendingChord
+      pendingChord: partialResult ? undefined : state.pendingChord,
+      pendingHold: pendingHoldResult ? undefined : state.pendingHold
     },
     results
   };

@@ -3,6 +3,7 @@ import {
   createTimelineJudgeState,
   expireMissedEvents,
   judgeTimelineInput,
+  judgeTimelineRelease,
   type JudgeOutcome
 } from "./timingJudge";
 
@@ -24,10 +25,29 @@ const expectScored = (outcome: JudgeOutcome) => {
   return outcome.result;
 };
 
+const expectHolding = (outcome: JudgeOutcome) => {
+  expect(outcome.type).toBe("holding");
+  if (outcome.type !== "holding") throw new Error(`Expected holding, received ${outcome.type}`);
+  return outcome;
+};
+
+const scorePressRelease = (
+  state: ReturnType<typeof createTimelineJudgeState>,
+  note: "C4" | "D4" | "E4" | "F4" | "G4",
+  pressMs: number,
+  releaseMs: number,
+  bpm = 120,
+  targetEvents = events
+) => {
+  const pressed = judgeTimelineInput(state, targetEvents, note, pressMs, bpm);
+  expectHolding(pressed);
+  return judgeTimelineRelease(pressed.state, targetEvents, note, releaseMs, bpm);
+};
+
 describe("timeline input judgement", () => {
   it("matches repeated pitches to distinct nearby event ids", () => {
-    const first = judgeTimelineInput(createTimelineJudgeState(), events, "C4", 510, 120);
-    const second = judgeTimelineInput(first.state, events, "C4", 1020, 120);
+    const first = scorePressRelease(createTimelineJudgeState(), "C4", 510, 1000);
+    const second = scorePressRelease(first.state, "C4", 1020, 1500);
 
     expect(expectScored(first)).toMatchObject({
       eventId: "first-c",
@@ -42,8 +62,8 @@ describe("timeline input judgement", () => {
   });
 
   it("records early and late raw timing deltas", () => {
-    const early = judgeTimelineInput(createTimelineJudgeState(), events, "C4", 260, 120);
-    const late = judgeTimelineInput(createTimelineJudgeState(), events, "C4", 720, 120);
+    const early = scorePressRelease(createTimelineJudgeState(), "C4", 260, 1000);
+    const late = scorePressRelease(createTimelineJudgeState(), "C4", 720, 1050);
 
     expect(expectScored(early)).toMatchObject({
       classification: "early",
@@ -65,7 +85,9 @@ describe("timeline input judgement", () => {
     ] as const;
 
     for (const [delta, classification] of expected) {
-      const judged = judgeTimelineInput(createTimelineJudgeState(), events, "C4", 500 + delta, 120);
+      const pressMs = 500 + delta;
+      const releaseMs = Math.max(1000, pressMs + 350);
+      const judged = scorePressRelease(createTimelineJudgeState(), "C4", pressMs, releaseMs);
       expect(expectScored(judged)).toMatchObject({ classification, deltaMs: delta });
     }
 
@@ -82,6 +104,7 @@ describe("timeline input judgement", () => {
     const second = judgeTimelineInput(first.state, events, "G4", 2040, 120);
     const duplicate = judgeTimelineInput(second.state, events, "G4", 2060, 120);
     const third = judgeTimelineInput(duplicate.state, events, "E4", 2161, 120);
+    const release = judgeTimelineRelease(third.state, events, "C4", 2500, 120);
 
     expect(first).toMatchObject({
       type: "pending-chord",
@@ -99,13 +122,36 @@ describe("timeline input judgement", () => {
       playedNotes: ["C4", "G4"],
       remainingNotes: ["E4"]
     });
-    expect(expectScored(third)).toMatchObject({
+    expect(expectHolding(third)).toMatchObject({
+      eventId: "chord",
+      playedNotes: ["C4", "G4", "E4"],
+      onsetDeltaMs: 161
+    });
+    expect(expectScored(release)).toMatchObject({
       eventId: "chord",
       classification: "late",
       deltaMs: 161,
       playedNotes: ["C4", "G4", "E4"]
     });
-    expect(third.state.judgedEventIds).toContain("chord");
+    expect(release.state.judgedEventIds).toContain("chord");
+  });
+
+  it("requires chord notes to stay active together before the chord target completes", () => {
+    const first = judgeTimelineInput(createTimelineJudgeState(), events, "C4", 2000, 120);
+    const releasedFirst = judgeTimelineRelease(first.state, events, "C4", 2020, 120);
+    const second = judgeTimelineInput(releasedFirst.state, events, "E4", 2040, 120);
+    const third = judgeTimelineInput(second.state, events, "G4", 2060, 120);
+
+    expect(first).toMatchObject({ type: "pending-chord", playedNotes: ["C4"] });
+    expect(releasedFirst).toMatchObject({
+      type: "ignored",
+      state: { pendingChord: undefined }
+    });
+    expect(third).toMatchObject({
+      type: "pending-chord",
+      playedNotes: ["E4", "G4"],
+      remainingNotes: ["C4"]
+    });
   });
 
   it("expires incomplete chords as partial and untouched chords as missed", () => {
@@ -123,7 +169,7 @@ describe("timeline input judgement", () => {
 
   it("marks passed events missed without consuming later inputs", () => {
     const missed = expireMissedEvents(createTimelineJudgeState(), events, 800, 120);
-    const next = judgeTimelineInput(missed.state, events, "C4", 1010, 120);
+    const next = scorePressRelease(missed.state, "C4", 1010, 1500);
 
     expect(missed.results.map((result) => result.eventId)).toEqual(["first-c"]);
     expect(expectScored(next).eventId).toBe("second-c");
@@ -147,7 +193,7 @@ describe("timeline input judgement", () => {
 
     const judged = judgeTimelineInput(createTimelineJudgeState(), simultaneous, "D4", 500, 120);
 
-    expect(expectScored(judged)).toMatchObject({ eventId: "far-match" });
+    expect(expectHolding(judged)).toMatchObject({ eventId: "far-match" });
   });
 
   it("ignores input between events, before the first window, and after all events", () => {
@@ -170,6 +216,77 @@ describe("timeline input judgement", () => {
 
     const judged = judgeTimelineInput(createTimelineJudgeState(), overlapping, "D4", 550, 120);
 
-    expect(expectScored(judged)).toMatchObject({ eventId: "early-d" });
+    expect(expectHolding(judged)).toMatchObject({ eventId: "early-d" });
+  });
+
+  it("requires release near the note end before an event is scored correct", () => {
+    const pressed = judgeTimelineInput(createTimelineJudgeState(), events, "C4", 500, 120);
+    expectHolding(pressed);
+
+    const earlyRelease = judgeTimelineRelease(pressed.state, events, "C4", 650, 120);
+    const correctRelease = scorePressRelease(createTimelineJudgeState(), "C4", 500, 1000);
+
+    expect(expectScored(earlyRelease)).toMatchObject({
+      eventId: "first-c",
+      classification: "partial"
+    });
+    expect(expectScored(correctRelease)).toMatchObject({
+      eventId: "first-c",
+      classification: "perfect"
+    });
+  });
+
+  it("makes long notes require a longer hold than short notes", () => {
+    const durationEvents: TimedNoteEvent[] = [
+      { id: "short", type: "note", notes: ["C4"], startBeat: 0, durationBeats: 0.5 },
+      { id: "long", type: "note", notes: ["D4"], startBeat: 3, durationBeats: 2 }
+    ];
+
+    const shortEnough = scorePressRelease(
+      createTimelineJudgeState(),
+      "C4",
+      0,
+      350,
+      60,
+      durationEvents
+    );
+    const longTooShort = scorePressRelease(
+      createTimelineJudgeState(),
+      "D4",
+      3000,
+      3350,
+      60,
+      durationEvents
+    );
+    const longEnough = scorePressRelease(
+      createTimelineJudgeState(),
+      "D4",
+      3000,
+      5000,
+      60,
+      durationEvents
+    );
+
+    expect(expectScored(shortEnough)).toMatchObject({
+      eventId: "short",
+      classification: "perfect"
+    });
+    expect(expectScored(longTooShort)).toMatchObject({
+      eventId: "long",
+      classification: "partial"
+    });
+    expect(expectScored(longEnough)).toMatchObject({ eventId: "long", classification: "perfect" });
+  });
+
+  it("does not let one continuous hold satisfy separate repeated-note events", () => {
+    const firstPress = judgeTimelineInput(createTimelineJudgeState(), events, "C4", 500, 120);
+    const secondPressWhileHeld = judgeTimelineInput(firstPress.state, events, "C4", 1000, 120);
+    const expiredHold = expireMissedEvents(firstPress.state, events, 1300, 120);
+
+    expectHolding(firstPress);
+    expect(secondPressWhileHeld).toMatchObject({ type: "ignored" });
+    expect(expiredHold.results).toContainEqual(
+      expect.objectContaining({ eventId: "first-c", classification: "partial" })
+    );
   });
 });

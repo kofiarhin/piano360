@@ -106,6 +106,10 @@ export const isGuidedPlayCompletionEligible = ({
     return false;
   }
 
+  if (judgeState.pendingHold) {
+    return false;
+  }
+
   if (currentBeat < totalBeats) {
     return false;
   }

@@ -297,18 +297,14 @@ const timelineLessonSchema = z
     }
 
     const isSong = lesson.contentKind === "song-phrase" || lesson.contentKind === "complete-song";
-    if (isSong && lesson.timeline.timingSource !== "verified") {
+    if (
+      isSong &&
+      lesson.timeline.timingSource === "verified" &&
+      lesson.timeline.source.reviewStatus !== "approved"
+    ) {
       context.addIssue({
         code: "custom",
-        message: "Song phrase and complete song lessons require verified timing.",
-        path: ["timeline", "timingSource"]
-      });
-    }
-
-    if (isSong && lesson.timeline.source.reviewStatus !== "approved") {
-      context.addIssue({
-        code: "custom",
-        message: "Song phrase and complete song lessons require approved source provenance.",
+        message: "Verified song phrase and complete song lessons require approved provenance.",
         path: ["timeline", "source", "reviewStatus"]
       });
     }

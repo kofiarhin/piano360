@@ -127,7 +127,13 @@ describe("course routes", () => {
     );
   });
 
-  it("returns migration-blocked song lessons without learner-facing steps", async () => {
+  it("normalizes legacy migration-blocked song lessons into playable timelines", async () => {
+    const rawCourse = seedCourses.find((course) => course.slug === "one-love-limited-excerpt");
+    const rawLesson = rawCourse?.lessons.find((lesson) => lesson.slug === "one-love-rise");
+    if (!rawLesson || rawLesson.mode !== "migration-blocked") {
+      throw new Error("Expected One Love source lesson to retain legacy steps.");
+    }
+
     const response = await request(app())
       .get("/api/courses/one-love-limited-excerpt/lessons/one-love-rise")
       .expect(200);
@@ -135,13 +141,34 @@ describe("course routes", () => {
     expect(response.body).toMatchObject({
       courseSlug: "one-love-limited-excerpt",
       slug: "one-love-rise",
-      mode: "migration-blocked",
+      mode: "timeline",
       contentKind: "song-phrase",
-      migrationStatus: "needs-transcription"
+      timeline: {
+        timingSource: "instructional",
+        source: {
+          type: "instructional-template",
+          reviewStatus: "instructional"
+        }
+      }
     });
     expect(response.body.steps).toBeUndefined();
-    expect(response.body.timeline).toBeUndefined();
-    expect(response.body.legacySteps).toEqual(expect.any(Array));
+    expect(response.body.legacySteps).toBeUndefined();
+    expect(
+      response.body.timeline.events.flatMap((event: { notes: string[] }) => event.notes)
+    ).toEqual(rawLesson.legacySteps?.flatMap((step) => step.targetNotes));
+  });
+
+  it("persists normalized timeline lessons when replacing all courses", async () => {
+    const repository = createCourseRepository(CourseModel);
+
+    await repository.replaceAll(seedCourses);
+
+    const storedCourses = await CourseModel.find({}).lean().exec();
+    const storedLessons = storedCourses.flatMap((course) => course.lessons);
+
+    expect(storedLessons.length).toBeGreaterThan(0);
+    expect(storedLessons.every((lesson) => lesson.mode === "timeline")).toBe(true);
+    expect(storedLessons.some((lesson) => lesson.mode === "migration-blocked")).toBe(false);
   });
 
   it("returns prepared song lessons as playable timelines", async () => {

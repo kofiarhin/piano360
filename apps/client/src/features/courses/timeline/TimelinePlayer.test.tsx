@@ -102,6 +102,8 @@ describe("TimelinePlayer", () => {
     const { unmount } = renderPlayer();
     clickPlay();
     fireEvent.keyDown(window, { key: "d" });
+    now = 1000;
+    fireEvent.keyUp(window, { key: "d" });
 
     expect(screen.getByText("100")).toBeInTheDocument();
     expect(playNote).toHaveBeenCalledWith("C4");
@@ -111,6 +113,10 @@ describe("TimelinePlayer", () => {
     renderPlayer();
     clickPlay();
     fireEvent.pointerDown(screen.getByRole("button", { name: /C4, white key/i }), {
+      pointerId: 1
+    });
+    now = 2000;
+    fireEvent.pointerUp(screen.getByRole("button", { name: /C4, white key/i }), {
       pointerId: 1
     });
 
@@ -173,7 +179,9 @@ describe("TimelinePlayer", () => {
 
     clickPlay();
     fireEvent.keyDown(window, { key: "d" });
-    await advanceClock(2100);
+    await advanceClock(1000);
+    fireEvent.keyUp(window, { key: "d" });
+    await advanceClock(1100);
 
     expect(screen.getAllByText("Lesson complete").length).toBeGreaterThan(0);
     expect(onProgressSaved).toHaveBeenCalledTimes(1);
@@ -182,7 +190,9 @@ describe("TimelinePlayer", () => {
     fireEvent.click(screen.getByRole("button", { name: /replay/i }));
     clickPlay();
     fireEvent.keyDown(window, { key: "d" });
-    await advanceClock(2100);
+    await advanceClock(1000);
+    fireEvent.keyUp(window, { key: "d" });
+    await advanceClock(1100);
 
     expect(onProgressSaved).toHaveBeenCalledTimes(2);
     expect(window.localStorage.getItem(PROGRESS_STORAGE_KEY)).toContain('"completionCount":2');

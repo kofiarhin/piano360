@@ -25,6 +25,7 @@ import {
   createTimelineJudgeState,
   expireMissedEvents,
   judgeTimelineInput,
+  judgeTimelineRelease,
   type TimelineJudgeState,
   type TimingClassification
 } from "./timingJudge";
@@ -42,8 +43,9 @@ type TimelinePlayerProps = {
 const feedbackLabel = (feedback?: TimingFeedback) => {
   if (!feedback) return "Ready";
   if (feedback.label === "Complete the chord") return feedback.label;
+  if (feedback.label === "Hold") return feedback.label;
   if (feedback.classification === "wrong") return "Wrong note";
-  if (feedback.classification === "partial") return "Partial chord";
+  if (feedback.classification === "partial") return "Partial target";
   if (feedback.classification === "missed") return "Missed";
   const delta = feedback.deltaMs ?? 0;
   const label = feedback.classification[0].toUpperCase() + feedback.classification.slice(1);
@@ -118,6 +120,7 @@ export const TimelinePlayer = ({
   const [state, dispatch] = useReducer(guidedPlayReducer, undefined, createGuidedPlayState);
   const judgeStateRef = useRef<TimelineJudgeState>(createTimelineJudgeState());
   const savedCompletionRef = useRef(false);
+  const [activeNotes, setActiveNotes] = useState<NoteId[]>([]);
 
   const nextEvent = useMemo(() => {
     const judged = new Set(judgeStateRef.current.judgedEventIds);
@@ -189,6 +192,7 @@ export const TimelinePlayer = ({
     transport.restart();
     judgeStateRef.current = createTimelineJudgeState();
     savedCompletionRef.current = false;
+    setActiveNotes([]);
     dispatch({ type: "restart" });
   }, [transport]);
 
@@ -215,23 +219,42 @@ export const TimelinePlayer = ({
       }
 
       const activeBeat = transport.getBeatAtTimestamp(attempt.timestampMs);
-      if (!transport.isPlaying || activeBeat < 0 || completed) {
+      const isReleaseForPendingHold =
+        attempt.phase === "release" && judgeStateRef.current.pendingHold !== undefined;
+      if ((!transport.isPlaying && !isReleaseForPendingHold) || activeBeat < 0 || completed) {
         return;
       }
 
-      try {
-        playNote(attempt.note);
-      } catch {
-        // Visual scoring must keep working if audio is unavailable.
+      if (attempt.phase === "press") {
+        setActiveNotes((current) =>
+          current.includes(attempt.note) ? current : [...current, attempt.note]
+        );
+        try {
+          playNote(attempt.note);
+        } catch {
+          // Visual scoring must keep working if audio is unavailable.
+        }
+      } else {
+        setActiveNotes((current) => current.filter((note) => note !== attempt.note));
       }
 
-      const judged = judgeTimelineInput(
-        judgeStateRef.current,
-        noteEvents,
-        attempt.note,
-        transport.getElapsedMillisecondsAt(attempt.timestampMs),
-        transport.selectedBpm
-      );
+      const elapsedMs = transport.getElapsedMillisecondsAt(attempt.timestampMs);
+      const judged =
+        attempt.phase === "press"
+          ? judgeTimelineInput(
+              judgeStateRef.current,
+              noteEvents,
+              attempt.note,
+              elapsedMs,
+              transport.selectedBpm
+            )
+          : judgeTimelineRelease(
+              judgeStateRef.current,
+              noteEvents,
+              attempt.note,
+              elapsedMs,
+              transport.selectedBpm
+            );
 
       judgeStateRef.current = judged.state;
       if (judged.type === "ignored") {
@@ -242,6 +265,14 @@ export const TimelinePlayer = ({
         dispatch({
           type: "feedback",
           feedback: { classification: "partial", label: "Complete the chord" }
+        });
+        return;
+      }
+
+      if (judged.type === "holding") {
+        dispatch({
+          type: "feedback",
+          feedback: { classification: "good", deltaMs: judged.onsetDeltaMs, label: "Hold" }
         });
         return;
       }
@@ -263,7 +294,24 @@ export const TimelinePlayer = ({
 
   const handlePianoInput = useCallback(
     (note: NoteId) => {
-      handleAttempt({ note, source: "on-screen-piano", timestampMs: performance.now() });
+      handleAttempt({
+        note,
+        source: "on-screen-piano",
+        timestampMs: performance.now(),
+        phase: "press"
+      });
+    },
+    [handleAttempt]
+  );
+
+  const handlePianoRelease = useCallback(
+    (note: NoteId) => {
+      handleAttempt({
+        note,
+        source: "on-screen-piano",
+        timestampMs: performance.now(),
+        phase: "release"
+      });
     },
     [handleAttempt]
   );
@@ -403,12 +451,13 @@ export const TimelinePlayer = ({
               ref={pianoRef}
               className="timeline-player-piano"
               targetNotes={completed ? [] : targetNotes}
-              activeNotes={[]}
+              activeNotes={activeNotes}
               autoScrollNotes={targetNotes}
               fitToContainer={mobileLandscapeActive}
               size={mobileLandscapeActive ? "compact" : "standard"}
               orientationMode={mobileLandscapeActive ? "mobile-landscape" : "responsive"}
               onInput={handlePianoInput}
+              onRelease={handlePianoRelease}
               onPrepareAudio={warmAudio}
             />
           </section>
