@@ -74,6 +74,10 @@ export const useTimelineTransport = ({
   return {
     currentBeat,
     getCurrentBeat: () => clock.currentBeat(),
+    getCurrentTimestampMs: () => clock.currentTimestampMs(),
+    getBeatAtTimestamp: (timestampMs: number) => clock.beatAtTimestamp(timestampMs),
+    getElapsedMillisecondsAt: (timestampMs: number) => clock.elapsedMillisecondsAt(timestampMs),
+    beatToTimestampMs: (beat: number) => clock.beatToTimestampMs(beat),
     isPlaying,
     isComplete: currentBeat >= totalBeats,
     selectedBpm,

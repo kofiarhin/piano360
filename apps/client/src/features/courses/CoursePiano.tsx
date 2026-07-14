@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { forwardRef, useCallback, useEffect, useRef } from "react";
 import type { CSSProperties, PointerEvent } from "react";
 
 import { keyboardKeys } from "./courseKeyboard";
@@ -280,7 +280,8 @@ const PianoKeyButton = ({
   );
 };
 
-export const CoursePiano = ({
+export const CoursePiano = forwardRef<HTMLElement, CoursePianoProps>(function CoursePiano(
+  {
   targetNotes,
   activeNotes = [],
   correctNotes = [],
@@ -296,8 +297,11 @@ export const CoursePiano = ({
   onPress,
   onRelease,
   onPrepareAudio
-}: CoursePianoProps) => {
+},
+  forwardedRef
+) {
   const sizeConfig = pianoSizeConfigs[size];
+  const rootRef = useRef<HTMLElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const isUserInteractingRef = useRef(false);
   const isProgrammaticScrollRef = useRef(false);
@@ -306,6 +310,17 @@ export const CoursePiano = ({
   const autoScrollNotesRef = useRef(autoScrollNotes);
   const visualStateFor = (noteId: NoteId) =>
     getVisualState(noteId, targetNotes, activeNotes, correctNotes, wrongNotes);
+  const setRootRef = useCallback(
+    (node: HTMLElement | null) => {
+      rootRef.current = node;
+      if (typeof forwardedRef === "function") {
+        forwardedRef(node);
+      } else if (forwardedRef) {
+        forwardedRef.current = node;
+      }
+    },
+    [forwardedRef]
+  );
 
   const centerAutoScrollNote = useCallback(() => {
     const scrollContainer = scrollContainerRef.current;
@@ -383,6 +398,7 @@ export const CoursePiano = ({
 
   return (
     <section
+      ref={setRootRef}
       aria-label="Virtual piano"
       aria-disabled={disabled}
       className={[
@@ -484,4 +500,4 @@ export const CoursePiano = ({
       ) : null}
     </section>
   );
-};
+});

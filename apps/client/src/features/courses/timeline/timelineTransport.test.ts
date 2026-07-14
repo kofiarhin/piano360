@@ -21,6 +21,7 @@ describe("TimelineClock", () => {
 
     clock.seek(8);
     clock.setBpm(60);
+    expect(clock.currentBeat()).toBe(8);
     clock.play();
     now += 2000;
     expect(clock.currentBeat()).toBe(10);
@@ -28,6 +29,26 @@ describe("TimelineClock", () => {
     clock.restart();
     expect(clock.currentBeat()).toBe(-4);
     expect(clock.isPlaying()).toBe(false);
+  });
+
+  it("converts absolute timestamps to musical time and target timestamps", () => {
+    let now = 1000;
+    const clock = new TimelineClock({
+      bpm: 120,
+      totalBeats: 8,
+      countInBeats: 4,
+      now: () => now
+    });
+
+    clock.play();
+    expect(clock.beatAtTimestamp(1500)).toBe(-3);
+    expect(clock.elapsedMillisecondsAt(3000)).toBe(0);
+    now = 2000;
+    expect(clock.beatToTimestampMs(0)).toBe(3000);
+
+    clock.pause();
+    now = 9000;
+    expect(clock.beatAtTimestamp(9500)).toBe(-2);
   });
 
   it("clamps at the song end", () => {

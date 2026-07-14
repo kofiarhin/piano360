@@ -12,8 +12,15 @@ export type LessonMetrics = {
   accuracy: number;
   durationMs: number;
   restartCount: number;
+  score?: number;
+  maxPossibleScore?: number;
+  scorePercent?: number;
+  maxCombo?: number;
   perfectInputs?: number;
   goodInputs?: number;
+  earlyInputs?: number;
+  lateInputs?: number;
+  partialInputs?: number;
   acceptedInputs?: number;
   missedInputs?: number;
   wrongInputs?: number;

@@ -16,7 +16,9 @@ type TimelineViewportProps = {
 const resultClass = (classification?: TimingClassification) => {
   if (classification === "perfect") return "border-emerald-200 bg-emerald-400 text-emerald-950";
   if (classification === "good") return "border-lime-200 bg-lime-400 text-lime-950";
-  if (classification === "accepted") return "border-amber-100 bg-amber-300 text-stone-950";
+  if (classification === "early" || classification === "late")
+    return "border-amber-100 bg-amber-300 text-stone-950";
+  if (classification === "partial") return "border-sky-100 bg-sky-300 text-sky-950";
   if (classification === "missed" || classification === "wrong")
     return "border-rose-200 bg-rose-400/70 text-rose-950";
   return "border-stone-300/60 bg-stone-100 text-stone-950";

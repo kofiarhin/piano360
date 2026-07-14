@@ -1,4 +1,4 @@
-import { millisecondsToBeat } from "./timelineMath";
+import { beatToMilliseconds, millisecondsToBeat } from "./timelineMath";
 
 type TimelineClockOptions = {
   bpm: number;
@@ -44,6 +44,31 @@ export class TimelineClock {
     return beat;
   }
 
+  currentTimestampMs() {
+    return this.now();
+  }
+
+  beatAtTimestamp(timestampMs: number) {
+    if (!this.playing) {
+      return this.anchorBeat;
+    }
+
+    return Math.min(
+      this.totalBeats,
+      this.anchorBeat + millisecondsToBeat(timestampMs - this.anchorTimeMs, this.bpm)
+    );
+  }
+
+  elapsedMillisecondsAt(timestampMs: number) {
+    return beatToMilliseconds(this.beatAtTimestamp(timestampMs), this.bpm);
+  }
+
+  beatToTimestampMs(beat: number) {
+    const currentBeat = this.currentBeat();
+    const currentTimestampMs = this.now();
+    return currentTimestampMs + beatToMilliseconds(beat - currentBeat, this.bpm);
+  }
+
   play() {
     if (this.playing || this.anchorBeat >= this.totalBeats) return;
     this.anchorTimeMs = this.now();
@@ -70,6 +95,7 @@ export class TimelineClock {
 
   restart() {
     this.anchorBeat = -this.countInBeats;
+    this.anchorTimeMs = this.now();
     this.playing = false;
   }
 

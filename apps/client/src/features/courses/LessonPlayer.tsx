@@ -28,10 +28,7 @@ import {
 } from "./lessonEngine";
 import { isLessonUnlocked, loadProgress, recordLessonCompletion } from "./progressStorage";
 import { TimelinePlayer } from "./timeline/TimelinePlayer";
-import {
-  isLessonPlayableInPhaseA,
-  resolveLessonToTimeline
-} from "./timeline/resolveLessonToTimeline";
+import { resolveGuidedTimeline } from "./timeline/resolveGuidedTimeline";
 
 const isEditableTarget = (target: EventTarget | null) => {
   if (!(target instanceof HTMLElement)) {
@@ -518,7 +515,7 @@ export const LessonPlayer = ({ onProgressSaved }: LessonPlayerProps) => {
   const blockedLesson =
     courseSlug !== undefined &&
     courseLesson !== undefined &&
-    !isLessonPlayableInPhaseA(courseSlug, courseLesson);
+    courseLesson.mode === "migration-blocked";
   const unlocked =
     courseQuery.data !== undefined &&
     courseLesson !== undefined &&
@@ -621,7 +618,7 @@ export const LessonPlayer = ({ onProgressSaved }: LessonPlayerProps) => {
     );
   }
 
-  const resolvedLesson = resolveLessonToTimeline(lessonQuery.data);
+  const resolvedLesson = resolveGuidedTimeline(lessonQuery.data);
   if (resolvedLesson.status === "playable") {
     const orderedLessonSlugs = [...course.lessons]
       .sort((first, second) => first.order - second.order)
@@ -630,7 +627,8 @@ export const LessonPlayer = ({ onProgressSaved }: LessonPlayerProps) => {
       orderedLessonSlugs[orderedLessonSlugs.indexOf(lessonQuery.data.slug) + 1];
     return (
       <TimelinePlayer
-        lesson={resolvedLesson.lesson}
+        lesson={lessonQuery.data}
+        timeline={resolvedLesson.timeline}
         nextLessonSlug={nextLessonSlug}
         onProgressSaved={onProgressSaved}
       />
@@ -645,14 +643,16 @@ export const LessonPlayer = ({ onProgressSaved }: LessonPlayerProps) => {
             <p className="font-mono text-xs font-black uppercase tracking-[0.18em] text-amber-200">
               Timing source required
             </p>
-            <h1 className="mt-2 text-3xl font-black">{resolvedLesson.lesson.title}</h1>
-            <p className="mt-3 text-stone-200">{resolvedLesson.lesson.unavailableReason}</p>
-            <p className="mt-3 text-sm font-bold text-stone-300">
-              {resolvedLesson.lesson.requiredTimingSource}
-            </p>
+            <h1 className="mt-2 text-3xl font-black">{lessonQuery.data.title}</h1>
+            <p className="mt-3 text-stone-200">{resolvedLesson.reason}</p>
+            {"requiredTimingSource" in lessonQuery.data ? (
+              <p className="mt-3 text-sm font-bold text-stone-300">
+                {lessonQuery.data.requiredTimingSource}
+              </p>
+            ) : null}
             <Link
               className="mt-5 inline-block rounded-lg bg-amber-200 px-4 py-2 font-black text-stone-950"
-              to={`/courses/${resolvedLesson.lesson.courseSlug}`}
+              to={`/courses/${lessonQuery.data.courseSlug}`}
             >
               Return to course
             </Link>

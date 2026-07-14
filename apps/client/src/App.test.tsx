@@ -4,6 +4,7 @@ import { App } from "./App";
 import type {
   Course,
   CourseSummary,
+  GuidedStepLesson,
   LessonDetail,
   TimelineLesson
 } from "./features/courses/courseTypes";
@@ -80,6 +81,23 @@ const blockedLesson = {
     "Approved MIDI, sheet music, reviewed manual transcription, or reviewed recorded-performance timing."
 };
 
+const guidedStepLesson: GuidedStepLesson = {
+  slug: "c-major-shape",
+  title: "C Major Shape",
+  description: "Play a generated chord prompt.",
+  order: 1,
+  isFinal: false,
+  mode: "guided-steps",
+  steps: [
+    {
+      id: "play-c-major",
+      type: "chord",
+      instruction: "Play C major.",
+      targetNotes: ["C4", "E4", "G4"]
+    }
+  ]
+};
+
 const course: Course = {
   slug: "finger-placement",
   title: "Finger Placement",
@@ -100,6 +118,17 @@ const blockedCourse: Course = {
   difficulty: "beginner",
   order: 2,
   lessons: [blockedLesson]
+};
+
+const generatedCourse: Course = {
+  slug: "beginner-chords",
+  title: "Beginner Chords",
+  description: "Build simple chord shapes.",
+  contentType: "chord",
+  hand: "right",
+  difficulty: "beginner",
+  order: 3,
+  lessons: [guidedStepLesson]
 };
 
 const courseSummary = (value: Course): CourseSummary => ({
@@ -127,6 +156,13 @@ const blockedLessonDetail: LessonDetail = {
   courseHand: blockedCourse.hand
 };
 
+const guidedLessonDetail: LessonDetail = {
+  ...guidedStepLesson,
+  courseSlug: generatedCourse.slug,
+  courseTitle: generatedCourse.title,
+  courseHand: generatedCourse.hand
+};
+
 const mockFetch = () => {
   vi.stubGlobal(
     "fetch",
@@ -136,7 +172,11 @@ const mockFetch = () => {
       if (url === "/api/courses") {
         return {
           ok: true,
-          json: async () => [courseSummary(course), courseSummary(blockedCourse)]
+          json: async () => [
+            courseSummary(course),
+            courseSummary(blockedCourse),
+            courseSummary(generatedCourse)
+          ]
         };
       }
 
@@ -148,12 +188,20 @@ const mockFetch = () => {
         return { ok: true, json: async () => blockedCourse };
       }
 
+      if (url === "/api/courses/beginner-chords") {
+        return { ok: true, json: async () => generatedCourse };
+      }
+
       if (url === "/api/courses/finger-placement/lessons/middle-c-anchor") {
         return { ok: true, json: async () => lessonDetail };
       }
 
       if (url === "/api/courses/one-love-limited-excerpt/lessons/one-love-rise") {
         return { ok: true, json: async () => blockedLessonDetail };
+      }
+
+      if (url === "/api/courses/beginner-chords/lessons/c-major-shape") {
+        return { ok: true, json: async () => guidedLessonDetail };
       }
 
       return {
@@ -165,7 +213,7 @@ const mockFetch = () => {
   );
 };
 
-describe("Piano360 Phase A routes", () => {
+describe("Piano360 lesson routes", () => {
   beforeEach(() => {
     mockFetch();
     window.localStorage.clear();
@@ -178,14 +226,24 @@ describe("Piano360 Phase A routes", () => {
     vi.clearAllMocks();
   });
 
-  it("renders playable foundational lessons through the timeline player", async () => {
+  it("renders playable lessons through the falling-notes player", async () => {
     window.history.pushState({}, "", "/courses/finger-placement/lessons/middle-c-anchor");
     render(<App />);
 
-    expect(await screen.findByLabelText("Rhythm timeline")).toBeInTheDocument();
-    expect(screen.getByLabelText("Judgement line")).toBeInTheDocument();
+    expect(await screen.findByLabelText("Falling notes")).toBeInTheDocument();
+    expect(screen.getByTestId("falling-notes-strike-line")).toBeInTheDocument();
     expect(screen.getByLabelText("Practice tempo")).toBeInTheDocument();
-    expect(screen.getByText(/Instructional timing/i)).toBeInTheDocument();
+    expect(screen.getByText(/authored timing/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText("Lesson instruction")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Seek through lesson")).not.toBeInTheDocument();
+  });
+
+  it("renders legacy guided-step lessons through generated falling notes", async () => {
+    window.history.pushState({}, "", "/courses/beginner-chords/lessons/c-major-shape");
+    render(<App />);
+
+    expect(await screen.findByLabelText("Falling notes")).toBeInTheDocument();
+    expect(screen.getByText(/generated timing/i)).toBeInTheDocument();
     expect(screen.queryByLabelText("Lesson instruction")).not.toBeInTheDocument();
   });
 
@@ -214,6 +272,6 @@ describe("Piano360 Phase A routes", () => {
     expect(await screen.findByText("Timing source required")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Rising Phrase" })).toBeInTheDocument();
     expect(screen.getByText(/Verified beat positions/i)).toBeInTheDocument();
-    expect(screen.queryByLabelText("Rhythm timeline")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Falling notes")).not.toBeInTheDocument();
   });
 });
