@@ -28,6 +28,9 @@ const noteStateClass: Record<FallingNoteVisualState, string> = {
   upcoming: "border-stone-100/70 bg-stone-100"
 };
 
+const successfulResultStates = new Set<TimingClassification>(["perfect", "good", "early", "late"]);
+const hitParticles = Array.from({ length: 6 }, (_, index) => index);
+
 const useReducedMotion = () => {
   const [reduced, setReduced] = useState(false);
 
@@ -113,49 +116,89 @@ export const FallingNotesStage = forwardRef<HTMLElement, FallingNotesStageProps>
           currentBeat: visualBeat,
           stageHeight
         }),
-      [events, geometry, visualBeat]
+      [events, geometry, stageHeight, visualBeat]
     );
 
     return (
       <section
         ref={setStageRef}
         aria-label="Falling notes"
-        className="relative min-h-[180px] overflow-hidden rounded-md border border-white/10 bg-[#171411] md:min-h-[240px]"
+        className="timeline-falling-notes-stage relative min-h-[180px] rounded-md border border-white/10 md:min-h-[240px]"
         data-testid="falling-notes-stage"
         style={{ height: "clamp(180px, 34dvh, 440px)" }}
       >
-        <div
-          aria-hidden="true"
-          className="absolute inset-x-0 bottom-0 h-px bg-amber-100"
-          data-testid="falling-notes-strike-line"
-        />
+        <div className="timeline-falling-notes-viewport" aria-hidden="true">
+          <div
+            className="absolute inset-x-0 bottom-0 z-20 h-px bg-amber-100 shadow-[0_0_12px_rgba(253,230,138,0.65)]"
+            data-testid="falling-notes-strike-line"
+          />
+          {layouts.map((layout) => {
+            const result = results[layout.eventId];
+            const state: FallingNoteVisualState =
+              result ?? (targetEventId === layout.eventId ? "target" : "upcoming");
+            const successfulHit = result !== undefined && successfulResultStates.has(result);
+            const resolvedTranslateY = successfulHit
+              ? Math.max(0, stageHeight - layout.height)
+              : layout.translateY;
+
+            return (
+              <div key={`${layout.eventId}-${layout.note}-visual`}>
+                <div
+                  data-testid="falling-note"
+                  data-event-id={layout.eventId}
+                  data-note-id={layout.note}
+                  data-state={state}
+                  data-hit={successfulHit ? "true" : "false"}
+                  className={[
+                    "timeline-falling-note absolute top-0 rounded-sm border text-[0.65rem] font-black leading-none text-stone-950",
+                    successfulHit ? "timeline-falling-note--hit" : "",
+                    noteStateClass[state]
+                  ].join(" ")}
+                  style={{
+                    left: layout.left,
+                    width: layout.width,
+                    height: layout.height,
+                    zIndex: layout.zIndex,
+                    transform: `translate3d(0, ${resolvedTranslateY}px, 0)`,
+                    transition: reducedMotion ? "none" : undefined
+                  }}
+                >
+                  <span className="sr-only">{layout.note}</span>
+                </div>
+
+                {successfulHit ? (
+                  <div
+                    aria-hidden="true"
+                    className="timeline-hit-impact"
+                    data-testid="timeline-hit-impact"
+                    style={{ left: layout.left + layout.width / 2 }}
+                  >
+                    {hitParticles.map((particle) => (
+                      <span key={particle} className="timeline-hit-particle" />
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+
         {layouts.map((layout) => {
           const result = results[layout.eventId];
-          const state: FallingNoteVisualState =
-            result ?? (targetEventId === layout.eventId ? "target" : "upcoming");
+          const successfulHit = result !== undefined && successfulResultStates.has(result);
+
+          if (!successfulHit) {
+            return null;
+          }
 
           return (
             <div
-              key={`${layout.eventId}-${layout.note}`}
-              data-testid="falling-note"
-              data-event-id={layout.eventId}
-              data-note-id={layout.note}
-              data-state={state}
-              className={[
-                "absolute top-0 rounded-sm border text-[0.65rem] font-black leading-none text-stone-950",
-                noteStateClass[state]
-              ].join(" ")}
-              style={{
-                left: layout.left,
-                width: layout.width,
-                height: layout.height,
-                zIndex: layout.zIndex,
-                transform: `translate3d(0, ${layout.translateY}px, 0)`,
-                transition: reducedMotion ? "none" : undefined
-              }}
-            >
-              <span className="sr-only">{layout.note}</span>
-            </div>
+              key={`${layout.eventId}-${layout.note}-key-glow`}
+              aria-hidden="true"
+              className="timeline-key-hit-glow"
+              data-testid="timeline-key-hit-glow"
+              style={{ left: layout.left, width: layout.width }}
+            />
           );
         })}
       </section>
