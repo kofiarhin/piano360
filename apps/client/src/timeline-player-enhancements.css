@@ -11,45 +11,47 @@
   padding-bottom: 0.9rem;
 }
 
-.timeline-player-workspace > nav {
+.timeline-player-header {
   min-height: 0;
 }
 
-.timeline-player-workspace > nav h1 {
+.timeline-player-header h1 {
   margin-top: 0.125rem;
   font-size: clamp(1.35rem, 2vw, 1.8rem);
   line-height: 1.05;
 }
 
-.timeline-player-workspace > section:not(.timeline-player-note-lane) {
+.timeline-transport,
+.timeline-status,
+.timeline-player-completion {
   gap: 0.65rem;
 }
 
-.timeline-player-workspace > section:nth-of-type(1) {
+.timeline-transport {
   padding-top: 0.6rem;
   padding-bottom: 0.6rem;
 }
 
-.timeline-player-workspace > section:nth-of-type(1) button,
-.timeline-player-workspace > section:nth-of-type(1) select {
+.timeline-transport button,
+.timeline-transport select {
   min-height: 2.5rem;
 }
 
-.timeline-player-workspace > section:nth-of-type(1) button {
+.timeline-transport button {
   padding-left: 0.85rem;
   padding-right: 0.85rem;
 }
 
-.timeline-player-workspace > section:nth-of-type(1) .h-2 {
+.timeline-progress-track {
   height: 0.3rem;
 }
 
-.timeline-player-workspace > section:nth-of-type(2) {
+.timeline-status {
   min-height: 0;
   align-items: center;
 }
 
-.timeline-player-workspace > section:nth-of-type(2) [aria-live="polite"] {
+.timeline-status [aria-live="polite"] {
   min-height: 2.5rem;
 }
 
@@ -253,14 +255,14 @@
     padding-bottom: 0.7rem;
   }
 
-  .timeline-player-workspace > section:nth-of-type(1) {
+  .timeline-transport {
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
     padding-top: 0.45rem;
     padding-bottom: 0.45rem;
   }
 
-  .timeline-player-workspace > section:nth-of-type(2) {
+  .timeline-status {
     grid-template-columns: minmax(0, 1fr) auto;
   }
 
@@ -277,6 +279,18 @@
 
   .timeline-falling-notes-stage {
     height: clamp(220px, 38dvh, 440px) !important;
+  }
+}
+
+@media (max-width: 767px) and (max-height: 1024px), (max-height: 767px) and (max-width: 1024px) {
+  .mobile-landscape-shell--active .timeline-falling-notes-stage {
+    height: 5rem !important;
+    min-height: 0;
+  }
+
+  .mobile-landscape-shell--active .timeline-key-hit-glow {
+    top: calc(100% + 0.25rem);
+    height: clamp(3rem, 24dvh, 6rem);
   }
 }
 

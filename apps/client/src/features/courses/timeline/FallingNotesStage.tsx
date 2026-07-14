@@ -123,7 +123,7 @@ export const FallingNotesStage = forwardRef<HTMLElement, FallingNotesStageProps>
       <section
         ref={setStageRef}
         aria-label="Falling notes"
-        className="timeline-falling-notes-stage relative min-h-[180px] rounded-md border border-white/10 md:min-h-[240px]"
+        className="timeline-falling-notes-stage timeline-viewport relative min-h-[180px] rounded-md border border-white/10 md:min-h-[240px]"
         data-testid="falling-notes-stage"
         style={{ height: "clamp(180px, 34dvh, 440px)" }}
       >

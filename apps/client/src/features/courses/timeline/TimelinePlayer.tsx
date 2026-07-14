@@ -298,7 +298,7 @@ export const TimelinePlayer = ({
       <SiteHeader />
       <main className="timeline-player-main min-h-[100dvh] bg-[#12110f] text-stone-100">
         <div className="timeline-player-workspace mx-auto grid w-full max-w-7xl gap-3 px-4 py-4 md:px-6">
-          <nav className="flex min-w-0 flex-wrap items-center justify-between gap-3">
+          <nav className="timeline-player-header flex min-w-0 flex-wrap items-center justify-between gap-3">
             <div className="min-w-0">
               <Link className="font-bold text-amber-100 hover:underline" to={coursePath}>
                 {lesson.courseTitle}
@@ -310,7 +310,7 @@ export const TimelinePlayer = ({
             </div>
           </nav>
 
-          <section className="grid gap-3 border-y border-white/10 py-3 lg:grid-cols-[1fr_auto] lg:items-end">
+          <section className="timeline-transport grid gap-3 border-y border-white/10 py-3 lg:grid-cols-[1fr_auto] lg:items-end">
             <div className="grid gap-2">
               <div className="flex flex-wrap items-center gap-2">
                 <button
@@ -333,7 +333,10 @@ export const TimelinePlayer = ({
                   Beat {Math.max(0, transport.currentBeat).toFixed(1)} / {timeline.totalBeats}
                 </span>
               </div>
-              <div className="h-2 overflow-hidden rounded-full bg-white/10" aria-hidden="true">
+              <div
+                className="timeline-progress-track h-2 overflow-hidden rounded-full bg-white/10"
+                aria-hidden="true"
+              >
                 <div className="h-full bg-amber-200" style={{ width: `${progressPercent}%` }} />
               </div>
             </div>
@@ -345,7 +348,7 @@ export const TimelinePlayer = ({
             />
           </section>
 
-          <section className="grid gap-3 md:grid-cols-[1fr_auto] md:items-center">
+          <section className="timeline-status grid gap-3 md:grid-cols-[1fr_auto] md:items-center">
             <div aria-live="polite" className="min-h-12 border-l-4 border-amber-200 pl-3">
               <p className="text-xs font-bold text-stone-400">
                 {transport.currentBeat < 0
@@ -411,7 +414,7 @@ export const TimelinePlayer = ({
           </section>
 
           {completed ? (
-            <section className="grid gap-3 border-l-4 border-emerald-300 bg-emerald-950/25 p-4 md:grid-cols-[1fr_auto] md:items-center">
+            <section className="timeline-player-completion grid gap-3 border-l-4 border-emerald-300 bg-emerald-950/25 p-4 md:grid-cols-[1fr_auto] md:items-center">
               <div>
                 <h2 className="text-2xl font-black">Lesson complete</h2>
                 <p className="text-emerald-100">

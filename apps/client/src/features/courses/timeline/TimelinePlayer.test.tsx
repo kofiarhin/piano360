@@ -85,6 +85,19 @@ describe("TimelinePlayer", () => {
     });
   };
 
+  it("renders compact timeline layout hooks without removing controls", () => {
+    const { container } = renderPlayer();
+
+    expect(container.querySelector(".timeline-player-header")).toBeInTheDocument();
+    expect(container.querySelector(".timeline-transport")).toBeInTheDocument();
+    expect(container.querySelector(".timeline-status")).toBeInTheDocument();
+    expect(container.querySelector(".timeline-player-note-lane")).toBeInTheDocument();
+    expect(container.querySelector(".timeline-player-piano")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /play lesson/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /restart lesson/i })).toBeInTheDocument();
+    expect(screen.getByLabelText("Practice tempo")).toBeInTheDocument();
+  });
+
   it("scores keyboard and on-screen piano input through the same path", () => {
     const { unmount } = renderPlayer();
     clickPlay();
