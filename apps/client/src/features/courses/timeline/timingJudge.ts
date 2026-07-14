@@ -15,7 +15,13 @@ export const DEFAULT_TIMING_WINDOWS: TimingWindows = {
 };
 
 export type TimingClassification =
-  "perfect" | "good" | "early" | "late" | "partial" | "missed" | "wrong";
+  | "perfect"
+  | "good"
+  | "early"
+  | "late"
+  | "partial"
+  | "missed"
+  | "wrong";
 
 export type TimingResult = EventResult | WrongTimingResult;
 
@@ -42,10 +48,7 @@ export type TimelineJudgeState = {
 export const createTimelineJudgeState = (): TimelineJudgeState => ({ judgedEventIds: [] });
 
 export type JudgeOutcome =
-  | {
-      type: "ignored";
-      state: TimelineJudgeState;
-    }
+  | { type: "ignored"; state: TimelineJudgeState }
   | {
       type: "pending-chord";
       state: TimelineJudgeState;
@@ -60,16 +63,8 @@ export type JudgeOutcome =
       playedNotes: NoteId[];
       onsetDeltaMs: number;
     }
-  | {
-      type: "wrong";
-      state: TimelineJudgeState;
-      result: WrongTimingResult;
-    }
-  | {
-      type: "scored";
-      state: TimelineJudgeState;
-      result: EventResult;
-    };
+  | { type: "wrong"; state: TimelineJudgeState; result: WrongTimingResult }
+  | { type: "scored"; state: TimelineJudgeState; result: EventResult };
 
 const classifyDelta = (
   deltaMs: number,
@@ -97,25 +92,17 @@ const candidateEvent = (
     .sort((first, second) => {
       const firstContains = first.event.notes.includes(note);
       const secondContains = second.event.notes.includes(note);
-      if (firstContains !== secondContains) {
-        return firstContains ? -1 : 1;
-      }
-
+      if (firstContains !== secondContains) return firstContains ? -1 : 1;
       const deltaDifference = Math.abs(first.deltaMs) - Math.abs(second.deltaMs);
-      if (deltaDifference !== 0) {
-        return deltaDifference;
-      }
-
+      if (deltaDifference !== 0) return deltaDifference;
       return first.event.startBeat - second.event.startBeat;
     })[0];
 };
 
 const leastAccurateAttempt = (attempts: Array<{ note: NoteId; deltaMs: number }>) =>
-  attempts.reduce((least, attempt) => {
-    const leastError = Math.abs(least.deltaMs);
-    const nextError = Math.abs(attempt.deltaMs);
-    return nextError >= leastError ? attempt : least;
-  });
+  attempts.reduce((least, attempt) =>
+    Math.abs(attempt.deltaMs) >= Math.abs(least.deltaMs) ? attempt : least
+  );
 
 const durationReleaseToleranceMs = (event: TimedNoteEvent, bpm: number, windows: TimingWindows) => {
   const durationMs = beatToMilliseconds(event.durationBeats, bpm);
@@ -135,18 +122,13 @@ export const judgeTimelineInput = (
   bpm: number,
   windows: TimingWindows = DEFAULT_TIMING_WINDOWS
 ): JudgeOutcome => {
-  if (state.pendingHold) {
-    return { type: "ignored", state };
-  }
+  if (state.pendingHold) return { type: "ignored", state };
 
   const pendingEvent = state.pendingChord
     ? events.find((event) => event.id === state.pendingChord?.eventId)
     : undefined;
   const candidate = pendingEvent
-    ? {
-        event: pendingEvent,
-        deltaMs: elapsedMs - beatToMilliseconds(pendingEvent.startBeat, bpm)
-      }
+    ? { event: pendingEvent, deltaMs: elapsedMs - beatToMilliseconds(pendingEvent.startBeat, bpm) }
     : candidateEvent(state, events, note, elapsedMs, bpm, windows.acceptedMs);
 
   if (!candidate || Math.abs(candidate.deltaMs) > windows.acceptedMs) {
@@ -192,16 +174,12 @@ export const judgeTimelineInput = (
   const complete = event.notes.every((target) => playedNotes.includes(target));
 
   if (!complete) {
-    const remainingNotes = event.notes.filter((target) => !playedNotes.includes(target));
     return {
       type: "pending-chord",
-      state: {
-        ...state,
-        pendingChord: { eventId: event.id, playedNotes, attempts }
-      },
+      state: { ...state, pendingChord: { eventId: event.id, playedNotes, attempts } },
       eventId: event.id,
       playedNotes,
-      remainingNotes
+      remainingNotes: event.notes.filter((target) => !playedNotes.includes(target))
     };
   }
 
@@ -237,17 +215,12 @@ export const judgeTimelineRelease = (
   if (state.pendingChord?.playedNotes.includes(note)) {
     const playedNotes = state.pendingChord.playedNotes.filter((playedNote) => playedNote !== note);
     const attempts = state.pendingChord.attempts.filter((attempt) => attempt.note !== note);
-
     return {
       type: "ignored",
       state: {
         ...state,
         pendingChord: playedNotes.length
-          ? {
-              ...state.pendingChord,
-              playedNotes,
-              attempts
-            }
+          ? { ...state.pendingChord, playedNotes, attempts }
           : undefined
       }
     };
@@ -259,9 +232,7 @@ export const judgeTimelineRelease = (
   }
 
   const event = events.find((item) => item.id === pendingHold.eventId);
-  if (!event) {
-    return { type: "ignored", state: { ...state, pendingHold: undefined } };
-  }
+  if (!event) return { type: "ignored", state: { ...state, pendingHold: undefined } };
 
   const eventEndMs = beatToMilliseconds(event.startBeat + event.durationBeats, bpm);
   const releaseDeltaMs = elapsedMs - eventEndMs;
@@ -278,15 +249,17 @@ export const judgeTimelineRelease = (
       pendingChord: undefined,
       pendingHold: undefined
     },
-    result: {
-      ...scoreEventResult({
-        eventId: event.id,
-        classification,
-        deltaMs: pendingHold.onsetDeltaMs,
-        playedNotes: pendingHold.playedNotes
-      })
-    }
+    result: scoreEventResult({
+      eventId: event.id,
+      classification,
+      deltaMs: pendingHold.onsetDeltaMs,
+      playedNotes: pendingHold.playedNotes
+    })
   };
+};
+
+export type ExpireMissedEventsOptions = {
+  stopAfterFirstFailure?: boolean;
 };
 
 export const expireMissedEvents = (
@@ -294,18 +267,20 @@ export const expireMissedEvents = (
   events: TimedNoteEvent[],
   elapsedMs: number,
   bpm: number,
-  windows: TimingWindows = DEFAULT_TIMING_WINDOWS
+  windows: TimingWindows = DEFAULT_TIMING_WINDOWS,
+  options: ExpireMissedEventsOptions = {}
 ): { state: TimelineJudgeState; results: EventResult[] } => {
   const judged = new Set(state.judgedEventIds);
   const pendingEventId = state.pendingChord?.eventId;
   const pendingHoldEventId = state.pendingHold?.eventId;
-  const missed = events.filter(
+  const overdue = events.filter(
     (event) =>
       !judged.has(event.id) &&
       event.id !== pendingEventId &&
       event.id !== pendingHoldEventId &&
       elapsedMs > beatToMilliseconds(event.startBeat, bpm) + windows.acceptedMs
   );
+  const missed = options.stopAfterFirstFailure ? overdue.slice(0, 1) : overdue;
   const results: EventResult[] = missed.map((event) =>
     scoreEventResult({
       eventId: event.id,
@@ -314,10 +289,13 @@ export const expireMissedEvents = (
       playedNotes: []
     })
   );
+
+  const canProcessPendingFailure = !options.stopAfterFirstFailure || results.length === 0;
   const pendingEvent = state.pendingChord
     ? events.find((event) => event.id === state.pendingChord?.eventId)
     : undefined;
   const pendingExpired =
+    canProcessPendingFailure &&
     pendingEvent !== undefined &&
     elapsedMs > beatToMilliseconds(pendingEvent.startBeat, bpm) + windows.acceptedMs;
   const partialResult =
@@ -329,10 +307,13 @@ export const expireMissedEvents = (
           playedNotes: state.pendingChord?.playedNotes ?? []
         })
       : undefined;
+
   const pendingHoldEvent = state.pendingHold
     ? events.find((event) => event.id === state.pendingHold?.eventId)
     : undefined;
   const pendingHoldExpired =
+    canProcessPendingFailure &&
+    !partialResult &&
     pendingHoldEvent !== undefined &&
     elapsedMs >
       beatToMilliseconds(pendingHoldEvent.startBeat + pendingHoldEvent.durationBeats, bpm) +
@@ -346,12 +327,9 @@ export const expireMissedEvents = (
           playedNotes: state.pendingHold?.playedNotes ?? []
         })
       : undefined;
-  if (partialResult) {
-    results.push(partialResult);
-  }
-  if (pendingHoldResult) {
-    results.push(pendingHoldResult);
-  }
+
+  if (partialResult) results.push(partialResult);
+  if (pendingHoldResult) results.push(pendingHoldResult);
 
   return {
     state: {
