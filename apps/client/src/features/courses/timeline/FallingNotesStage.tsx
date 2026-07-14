@@ -12,10 +12,11 @@ type FallingNotesStageProps = {
   getCurrentBeat?: () => number;
   results: Record<string, TimingClassification>;
   targetEventId?: string;
+  recoveryEventId?: string;
 };
 
 const fallbackStageHeight = 320;
-type FallingNoteVisualState = TimingClassification | "target" | "upcoming";
+type FallingNoteVisualState = TimingClassification | "target" | "recovery" | "upcoming";
 const noteStateClass: Record<FallingNoteVisualState, string> = {
   perfect: "border-emerald-50 bg-emerald-200",
   good: "border-lime-50 bg-lime-300",
@@ -25,6 +26,7 @@ const noteStateClass: Record<FallingNoteVisualState, string> = {
   missed: "border-rose-100 bg-rose-300 opacity-70",
   wrong: "border-rose-100 bg-rose-300 opacity-70",
   target: "border-white bg-amber-200",
+  recovery: "border-white bg-sky-200 shadow-[0_0_24px_rgba(125,211,252,0.8)]",
   upcoming: "border-stone-100/70 bg-stone-100"
 };
 
@@ -48,7 +50,7 @@ const useReducedMotion = () => {
 
 export const FallingNotesStage = forwardRef<HTMLElement, FallingNotesStageProps>(
   function FallingNotesStage(
-    { events, geometry, currentBeat, getCurrentBeat, results, targetEventId },
+    { events, geometry, currentBeat, getCurrentBeat, results, targetEventId, recoveryEventId },
     forwardedRef
   ) {
     const reducedMotion = useReducedMotion();
@@ -78,9 +80,7 @@ export const FallingNotesStage = forwardRef<HTMLElement, FallingNotesStageProps>
 
       const updateHeight = () => {
         const nextHeight = stage.getBoundingClientRect().height;
-        if (nextHeight > 0) {
-          setStageHeight(nextHeight);
-        }
+        if (nextHeight > 0) setStageHeight(nextHeight);
       };
 
       updateHeight();
@@ -102,9 +102,7 @@ export const FallingNotesStage = forwardRef<HTMLElement, FallingNotesStageProps>
       };
       frameRef.current = window.requestAnimationFrame(tick);
       return () => {
-        if (frameRef.current !== undefined) {
-          window.cancelAnimationFrame(frameRef.current);
-        }
+        if (frameRef.current !== undefined) window.cancelAnimationFrame(frameRef.current);
       };
     }, [getCurrentBeat, reducedMotion]);
 
@@ -125,21 +123,29 @@ export const FallingNotesStage = forwardRef<HTMLElement, FallingNotesStageProps>
         aria-label="Falling notes"
         className="timeline-falling-notes-stage timeline-viewport relative min-h-[180px] rounded-md border border-white/10 md:min-h-[240px]"
         data-testid="falling-notes-stage"
+        data-recovery-locked={recoveryEventId ? "true" : "false"}
         style={{ height: "clamp(180px, 34dvh, 440px)" }}
       >
         <div className="timeline-falling-notes-viewport" aria-hidden="true">
           <div
-            className="absolute inset-x-0 bottom-0 z-20 h-px bg-amber-100 shadow-[0_0_12px_rgba(253,230,138,0.65)]"
+            className={`absolute inset-x-0 bottom-0 z-20 h-px ${
+              recoveryEventId
+                ? "bg-sky-200 shadow-[0_0_20px_rgba(125,211,252,0.9)]"
+                : "bg-amber-100 shadow-[0_0_12px_rgba(253,230,138,0.65)]"
+            }`}
             data-testid="falling-notes-strike-line"
           />
           {layouts.map((layout) => {
             const result = results[layout.eventId];
             const state: FallingNoteVisualState =
-              result ?? (targetEventId === layout.eventId ? "target" : "upcoming");
+              recoveryEventId === layout.eventId
+                ? "recovery"
+                : result ?? (targetEventId === layout.eventId ? "target" : "upcoming");
             const successfulHit = result !== undefined && successfulResultStates.has(result);
             const resolvedTranslateY = successfulHit
               ? Math.max(0, stageHeight - layout.height)
               : layout.translateY;
+            const dimmedByRecovery = recoveryEventId !== undefined && layout.eventId !== recoveryEventId;
 
             return (
               <div key={`${layout.eventId}-${layout.note}-visual`}>
@@ -149,9 +155,11 @@ export const FallingNotesStage = forwardRef<HTMLElement, FallingNotesStageProps>
                   data-note-id={layout.note}
                   data-state={state}
                   data-hit={successfulHit ? "true" : "false"}
+                  data-dimmed={dimmedByRecovery ? "true" : "false"}
                   className={[
                     "timeline-falling-note absolute top-0 rounded-sm border text-[0.65rem] font-black leading-none text-stone-950",
                     successfulHit ? "timeline-falling-note--hit" : "",
+                    dimmedByRecovery ? "opacity-25" : "",
                     noteStateClass[state]
                   ].join(" ")}
                   style={{
@@ -186,10 +194,7 @@ export const FallingNotesStage = forwardRef<HTMLElement, FallingNotesStageProps>
         {layouts.map((layout) => {
           const result = results[layout.eventId];
           const successfulHit = result !== undefined && successfulResultStates.has(result);
-
-          if (!successfulHit) {
-            return null;
-          }
+          if (!successfulHit) return null;
 
           return (
             <div
