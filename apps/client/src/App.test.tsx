@@ -1,29 +1,84 @@
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 
-import { playNote, warmAudio } from "./audio/NotePlayer";
 import { App } from "./App";
-import type { Course, CourseSummary, LessonDetail } from "./features/courses/courseTypes";
+import type {
+  Course,
+  CourseSummary,
+  LessonDetail,
+  TimelineLesson
+} from "./features/courses/courseTypes";
 
-type MockAudioStatus = "idle" | "loading" | "ready" | "unavailable";
-
-const audioMock = vi.hoisted(() => ({
-  status: "idle" as MockAudioStatus,
-  listeners: new Set<(status: MockAudioStatus) => void>(),
+vi.mock("./audio/NotePlayer", () => ({
+  getAudioStatus: vi.fn(() => "ready"),
   playNote: vi.fn(),
+  subscribeToAudioStatus: vi.fn(() => () => undefined),
   warmAudio: vi.fn()
 }));
 
-vi.mock("./audio/NotePlayer", () => ({
-  getAudioStatus: vi.fn(() => audioMock.status),
-  playNote: audioMock.playNote,
-  subscribeToAudioStatus: vi.fn((listener: (status: MockAudioStatus) => void) => {
-    audioMock.listeners.add(listener);
-    return () => {
-      audioMock.listeners.delete(listener);
-    };
-  }),
-  warmAudio: audioMock.warmAudio
-}));
+const timelineLesson: TimelineLesson = {
+  slug: "middle-c-anchor",
+  title: "Middle C Anchor",
+  description: "Find C4.",
+  order: 1,
+  isFinal: false,
+  mode: "timeline",
+  contentKind: "foundational-drill",
+  defaultPracticeMode: "guided",
+  availablePracticeModes: ["guided"],
+  behaviour: {
+    defaultPracticeMode: "guided",
+    pauseOnMiss: true,
+    enableTimingScore: false,
+    timingProfile: "generous",
+    allowPerformanceMode: false
+  },
+  timeline: {
+    schemaVersion: 2,
+    timingSource: "instructional",
+    originalBpm: 60,
+    timeSignature: { numerator: 4, denominator: 4 },
+    countInBeats: 4,
+    totalBeats: 2,
+    source: {
+      type: "instructional-template",
+      reviewStatus: "instructional"
+    },
+    instructionalTemplate: {
+      templateId: "foundational-quarter-note-v1",
+      eventSpacingBeats: 2,
+      noteDurationBeats: 1,
+      firstEventBeat: 0,
+      originalBpm: 60,
+      countInBeats: 4,
+      timingWindows: { perfectMs: 180, goodMs: 350, acceptedMs: 700 }
+    },
+    events: [
+      {
+        id: "find-c4",
+        type: "note",
+        notes: ["C4"],
+        startBeat: 0,
+        durationBeats: 1,
+        instruction: "Play C4."
+      }
+    ]
+  }
+};
+
+const blockedLesson = {
+  slug: "one-love-rise",
+  title: "Rising Phrase",
+  description: "Awaiting verified timing.",
+  order: 1,
+  isFinal: true,
+  mode: "migration-blocked" as const,
+  contentKind: "complete-song" as const,
+  migrationStatus: "needs-transcription" as const,
+  unavailableReason:
+    "Verified beat positions, note durations, BPM, time signature, and approved source provenance are required before timeline playback.",
+  requiredTimingSource:
+    "Approved MIDI, sheet music, reviewed manual transcription, or reviewed recorded-performance timing."
+};
 
 const course: Course = {
   slug: "finger-placement",
@@ -33,102 +88,43 @@ const course: Course = {
   hand: "right",
   difficulty: "beginner",
   order: 1,
-  lessons: [
-    {
-      slug: "middle-c-anchor",
-      title: "Middle C Anchor",
-      description: "Find C4.",
-      order: 1,
-      isFinal: false,
-      steps: [
-        {
-          id: "c4",
-          type: "single-note",
-          instruction: "Play C4.",
-          targetNotes: ["C4"]
-        }
-      ]
-    },
-    {
-      slug: "complete-finger-placement",
-      title: "Complete Finger Placement",
-      description: "Complete the drill.",
-      order: 2,
-      isFinal: true,
-      steps: [
-        {
-          id: "d4",
-          type: "single-note",
-          instruction: "Play D4.",
-          targetNotes: ["D4"]
-        }
-      ]
-    }
-  ]
+  lessons: [timelineLesson]
 };
 
-const courseSummary: CourseSummary = (({ lessons, ...summary }) => ({
-  ...summary,
-  lessonCount: lessons.length
-}))(course);
-
-const createCourseSummary = (index: number): CourseSummary => ({
-  slug: `course-${index}`,
-  title: `Course ${index}`,
-  description: `Practice plan ${index}`,
-  contentType: index % 2 === 0 ? "chord" : "single-note",
-  hand: index % 2 === 0 ? "left" : "right",
+const blockedCourse: Course = {
+  slug: "one-love-limited-excerpt",
+  title: "One Love Limited Excerpt",
+  description: "A song excerpt awaiting verified timing.",
+  contentType: "single-note",
+  hand: "right",
   difficulty: "beginner",
-  order: index,
-  lessonCount: 3
+  order: 2,
+  lessons: [blockedLesson]
+};
+
+const courseSummary = (value: Course): CourseSummary => ({
+  slug: value.slug,
+  title: value.title,
+  description: value.description,
+  contentType: value.contentType,
+  hand: value.hand,
+  difficulty: value.difficulty,
+  order: value.order,
+  lessonCount: value.lessons.length
 });
 
 const lessonDetail: LessonDetail = {
-  ...course.lessons[0],
+  ...timelineLesson,
   courseSlug: course.slug,
   courseTitle: course.title,
   courseHand: course.hand
 };
 
-let currentCourse = course;
-let currentCourseSummaries = [courseSummary];
-let currentLessonDetail = lessonDetail;
-
-const courseLessonFromDetail = ({
-  courseSlug,
-  courseTitle,
-  courseHand,
-  ...lesson
-}: LessonDetail) => {
-  void courseSlug;
-  void courseTitle;
-  void courseHand;
-  return lesson;
-};
-
-const setCurrentLesson = (lesson: LessonDetail) => {
-  currentLessonDetail = lesson;
-  currentCourse = {
-    ...course,
-    lessons: [courseLessonFromDetail(lesson), course.lessons[1]]
-  };
-  currentCourseSummaries = [
-    {
-      ...courseSummary,
-      lessonCount: currentCourse.lessons.length
-    }
-  ];
-};
-
-const setAudioStatus = (status: MockAudioStatus) => {
-  audioMock.status = status;
-  audioMock.listeners.forEach((listener) => listener(status));
-};
-
-const renderUnlockedLesson = async () => {
-  window.history.pushState({}, "", "/courses/finger-placement/lessons/middle-c-anchor");
-  render(<App />);
-  await screen.findByLabelText("Lesson instruction");
+const blockedLessonDetail: LessonDetail = {
+  ...blockedLesson,
+  courseSlug: blockedCourse.slug,
+  courseTitle: blockedCourse.title,
+  courseHand: blockedCourse.hand
 };
 
 const mockFetch = () => {
@@ -140,22 +136,24 @@ const mockFetch = () => {
       if (url === "/api/courses") {
         return {
           ok: true,
-          json: async () => currentCourseSummaries
+          json: async () => [courseSummary(course), courseSummary(blockedCourse)]
         };
       }
 
       if (url === "/api/courses/finger-placement") {
-        return {
-          ok: true,
-          json: async () => currentCourse
-        };
+        return { ok: true, json: async () => course };
+      }
+
+      if (url === "/api/courses/one-love-limited-excerpt") {
+        return { ok: true, json: async () => blockedCourse };
       }
 
       if (url === "/api/courses/finger-placement/lessons/middle-c-anchor") {
-        return {
-          ok: true,
-          json: async () => currentLessonDetail
-        };
+        return { ok: true, json: async () => lessonDetail };
+      }
+
+      if (url === "/api/courses/one-love-limited-excerpt/lessons/one-love-rise") {
+        return { ok: true, json: async () => blockedLessonDetail };
       }
 
       return {
@@ -167,52 +165,8 @@ const mockFetch = () => {
   );
 };
 
-const phoneViewportQuery =
-  "((max-width: 767px) and (max-height: 1024px)), " +
-  "((max-height: 767px) and (max-width: 1024px))";
-
-const isPhoneViewportSize = () =>
-  (window.innerWidth <= 767 && window.innerHeight <= 1024) ||
-  (window.innerHeight <= 767 && window.innerWidth <= 1024);
-
-const installViewportMatchMedia = () => {
-  vi.stubGlobal(
-    "matchMedia",
-    vi.fn((query: string) => ({
-      media: query,
-      get matches() {
-        return query === phoneViewportQuery && isPhoneViewportSize();
-      },
-      onchange: null,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      dispatchEvent: vi.fn(() => true)
-    }))
-  );
-};
-
-const setViewportSize = (width: number, height: number) => {
-  Object.defineProperty(window, "innerWidth", { configurable: true, value: width });
-  Object.defineProperty(window, "innerHeight", { configurable: true, value: height });
-  Object.defineProperty(document.documentElement, "clientWidth", {
-    configurable: true,
-    value: width
-  });
-  Object.defineProperty(document.documentElement, "clientHeight", {
-    configurable: true,
-    value: height
-  });
-};
-
-describe("Piano360 course MVP", () => {
+describe("Piano360 Phase A routes", () => {
   beforeEach(() => {
-    setCurrentLesson(lessonDetail);
-    audioMock.status = "idle";
-    audioMock.listeners.clear();
-    audioMock.playNote.mockClear();
-    audioMock.warmAudio.mockClear();
     mockFetch();
     window.localStorage.clear();
     window.history.pushState({}, "", "/");
@@ -220,595 +174,46 @@ describe("Piano360 course MVP", () => {
 
   afterEach(() => {
     cleanup();
-    vi.useRealTimers();
     vi.unstubAllGlobals();
     vi.clearAllMocks();
-    document.body.className = "";
   });
 
-  it("renders the marketing landing page at the root route", async () => {
+  it("renders playable foundational lessons through the timeline player", async () => {
+    window.history.pushState({}, "", "/courses/finger-placement/lessons/middle-c-anchor");
+    render(<App />);
+
+    expect(await screen.findByLabelText("Rhythm timeline")).toBeInTheDocument();
+    expect(screen.getByLabelText("Judgement line")).toBeInTheDocument();
+    expect(screen.getByLabelText("Practice tempo")).toBeInTheDocument();
+    expect(screen.getByText(/Instructional timing/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText("Lesson instruction")).not.toBeInTheDocument();
+  });
+
+  it("keeps blocked song lessons visible but disables playback from course detail", async () => {
+    window.history.pushState({}, "", "/courses/one-love-limited-excerpt");
     render(<App />);
 
     expect(
-      await screen.findByRole("heading", { name: /Piano practice that stays practical/i })
+      await screen.findByRole("heading", { name: "One Love Limited Excerpt" })
     ).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: /Start Learning/i })[0]).toHaveAttribute(
-      "href",
-      "/courses"
-    );
-    expect(await screen.findByRole("link", { name: /Finger Placement/i })).toHaveAttribute(
-      "href",
-      "/courses/finger-placement"
-    );
-  });
-
-  it("renders the Course Catalogue at /courses with filters", async () => {
-    window.history.pushState({}, "", "/courses");
-    render(<App />);
-
-    expect(await screen.findByRole("heading", { name: "Course catalogue" })).toBeInTheDocument();
-    expect(await screen.findByRole("link", { name: /Finger Placement/i })).toBeInTheDocument();
-    expect(screen.getByLabelText("Content type")).toBeInTheDocument();
-    expect(screen.getByLabelText("Hand")).toBeInTheDocument();
-    expect(screen.getByLabelText("Difficulty")).toBeInTheDocument();
-  });
-
-  it("shows Freestyle Mode as the first catalogue item and links it to /freestyle", async () => {
-    window.history.pushState({}, "", "/courses");
-    render(<App />);
-
-    const coursesSection = await screen.findByLabelText("Courses");
-    await within(coursesSection).findByRole("link", { name: /Finger Placement/i });
-    const catalogueLinks = within(coursesSection).getAllByRole("link");
-
-    expect(catalogueLinks[0]).toHaveAttribute("href", "/freestyle");
-    expect(catalogueLinks[0]).toHaveTextContent("Freestyle Mode");
-    expect(catalogueLinks[1]).toHaveAttribute("href", "/courses/finger-placement");
-  });
-
-  it("persists the last keyboard result in Freestyle Mode while clearing key highlights", async () => {
-    window.history.pushState({}, "", "/freestyle");
-    render(<App />);
-
-    expect(await screen.findByRole("heading", { name: "Freestyle Mode" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Freestyle live notes")).toHaveTextContent("Press any key");
-
-    fireEvent.keyDown(window, { key: "g" });
-    expect(screen.getByLabelText("Freestyle live notes")).toHaveTextContent("E4");
-
-    fireEvent.keyUp(window, { key: "g" });
-    expect(screen.getByLabelText("Freestyle live notes")).toHaveTextContent("E4");
-    expect(screen.getByRole("button", { name: /E4, white key/i }).className).not.toContain(
-      "bg-[#8B5CF6]"
-    );
-
-    fireEvent.keyDown(window, { key: "d" });
-    fireEvent.keyDown(window, { key: "g" });
-    fireEvent.keyDown(window, { key: "j" });
-
-    expect(playNote).toHaveBeenCalledWith("C4");
-    expect(playNote).toHaveBeenCalledWith("E4");
-    expect(playNote).toHaveBeenCalledWith("G4");
-    expect(screen.getByLabelText("Freestyle live notes")).toHaveTextContent("C4 + E4 + G4");
-    expect(screen.getByText("C Major")).toBeInTheDocument();
-    expect(screen.getByText("Major")).toBeInTheDocument();
-    expect(screen.getByText("Root Position")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /C4, white key/i }).className).toContain(
-      "bg-[#8B5CF6]"
-    );
-    expect(screen.queryByText("Lesson complete")).not.toBeInTheDocument();
-
-    fireEvent.keyUp(window, { key: "d" });
-    expect(screen.getByLabelText("Freestyle live notes")).toHaveTextContent("C4 + E4 + G4");
-    expect(screen.getByText("C Major")).toBeInTheDocument();
-    expect(screen.getByText("Root Position")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /C4, white key/i }).className).not.toContain(
-      "bg-[#8B5CF6]"
-    );
-
-    fireEvent.keyUp(window, { key: "g" });
-    fireEvent.keyUp(window, { key: "j" });
-    expect(screen.getByLabelText("Freestyle live notes")).toHaveTextContent("C4 + E4 + G4");
-
-    fireEvent.keyDown(window, { key: "f" });
-    expect(screen.getByLabelText("Freestyle live notes")).toHaveTextContent("D4");
-  });
-
-  it("detects Freestyle chord inversions and persists pointer results after release", async () => {
-    window.history.pushState({}, "", "/freestyle");
-    render(<App />);
-
-    await screen.findByRole("heading", { name: "Freestyle Mode" });
-
-    fireEvent.keyDown(window, { key: "g" });
-    fireEvent.keyDown(window, { key: "j" });
-    fireEvent.keyDown(window, { key: ";" });
-
-    expect(screen.getByLabelText("Freestyle live notes")).toHaveTextContent("E4 + G4 + C5");
-    expect(screen.getByText("C Major")).toBeInTheDocument();
-    expect(screen.getByText("1st Inversion")).toBeInTheDocument();
-
-    const c4Key = screen.getByRole("button", { name: /C4, white key/i });
-    fireEvent.pointerDown(c4Key, { pointerId: 9 });
-    expect(screen.getByLabelText("Freestyle live notes")).toHaveTextContent("E4 + G4 + C5 + C4");
-    expect(playNote).toHaveBeenCalledWith("C4");
-
-    fireEvent.pointerUp(c4Key, { pointerId: 9 });
-    expect(screen.getByLabelText("Freestyle live notes")).toHaveTextContent("E4 + G4 + C5 + C4");
-    expect(c4Key.className).not.toContain("bg-[#8B5CF6]");
-  });
-
-  it("clears Freestyle held highlights on focus loss and pointer cancellation without clearing display", async () => {
-    window.history.pushState({}, "", "/freestyle");
-    render(<App />);
-
-    await screen.findByRole("heading", { name: "Freestyle Mode" });
-
-    fireEvent.keyDown(window, { key: "d" });
-    const c4Key = screen.getByRole("button", { name: /C4, white key/i });
-
-    expect(screen.getByLabelText("Freestyle live notes")).toHaveTextContent("C4");
-    expect(c4Key.className).toContain("bg-[#8B5CF6]");
-
-    fireEvent.blur(window);
-
-    expect(screen.getByLabelText("Freestyle live notes")).toHaveTextContent("C4");
-    expect(c4Key.className).not.toContain("bg-[#8B5CF6]");
-
-    fireEvent.pointerDown(c4Key, { pointerId: 12 });
-    expect(screen.getByLabelText("Freestyle live notes")).toHaveTextContent("C4");
-    expect(c4Key.className).toContain("bg-[#8B5CF6]");
-
-    fireEvent.pointerCancel(c4Key, { pointerId: 12 });
-
-    expect(screen.getByLabelText("Freestyle live notes")).toHaveTextContent("C4");
-    expect(c4Key.className).not.toContain("bg-[#8B5CF6]");
-  });
-
-  it("filters courses by URL-backed search and resets pagination on search changes", async () => {
-    currentCourseSummaries = [
-      ...Array.from({ length: 9 }, (_, index) => createCourseSummary(index + 1)),
-      {
-        ...courseSummary,
-        title: "Middle C Basics",
-        description: "Find the center of the keyboard."
-      }
-    ];
-    window.history.pushState({}, "", "/courses?page=2");
-    render(<App />);
-
-    expect(await screen.findByText("Course 9")).toBeInTheDocument();
-
-    fireEvent.change(screen.getByLabelText("Search courses"), {
-      target: { value: "middle" }
-    });
-
-    expect(await screen.findByRole("link", { name: /Middle C Basics/i })).toBeInTheDocument();
-    expect(screen.queryByText("Course 9")).not.toBeInTheDocument();
-    expect(window.location.search).toBe("?q=middle");
-  });
-
-  it("normalizes invalid catalogue query parameters", async () => {
-    currentCourseSummaries = Array.from({ length: 9 }, (_, index) =>
-      createCourseSummary(index + 1)
-    );
-    window.history.pushState(
-      {},
-      "",
-      "/courses?q=&contentType=bad&hand=wrong&difficulty=advanced&page=50"
-    );
-    render(<App />);
-
-    await screen.findByRole("heading", { name: "Course catalogue" });
-
-    await waitFor(() => {
-      expect(window.location.search).toBe("?page=2");
-    });
-  });
-
-  it("paginates the course catalogue eight courses at a time", async () => {
-    currentCourseSummaries = Array.from({ length: 9 }, (_, index) =>
-      createCourseSummary(index + 1)
-    );
-    window.history.pushState({}, "", "/courses");
-    render(<App />);
-
-    expect(await screen.findByText("Course 1")).toBeInTheDocument();
-    expect(screen.queryByText("Course 9")).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Page 2" }));
-
-    expect(await screen.findByText("Course 9")).toBeInTheDocument();
-    expect(window.location.search).toBe("?page=2");
-  });
-
-  it("shows locked lessons on direct navigation without starting playback", async () => {
-    window.history.pushState({}, "", "/courses/finger-placement/lessons/complete-finger-placement");
-    render(<App />);
-
+    const lessonCard = screen.getByText("Rising Phrase").closest("article");
+    expect(lessonCard).not.toBeNull();
     expect(
-      await screen.findByRole("heading", { name: "Complete the previous lesson first" })
+      within(lessonCard as HTMLElement).getByText("Timing source required")
     ).toBeInTheDocument();
-    expect(screen.queryByLabelText("Virtual piano")).not.toBeInTheDocument();
-  });
-
-  it("plays and completes an unlocked single-note lesson", async () => {
-    setAudioStatus("ready");
-    await renderUnlockedLesson();
-
-    fireEvent.keyDown(window, { key: "d" });
-
-    expect(playNote).toHaveBeenCalledWith("C4");
-    expect(await screen.findByText("Lesson complete")).toBeInTheDocument();
-    expect(window.localStorage.getItem("piano360.progress.v1")).toContain("middle-c-anchor");
-  });
-
-  it("starts audio preparation from the first keyboard gesture without validating while idle", async () => {
-    await renderUnlockedLesson();
-
-    expect(screen.getByText("Preparing piano audio…")).toBeInTheDocument();
-
-    fireEvent.keyDown(window, { key: "d" });
-
-    expect(warmAudio).toHaveBeenCalledTimes(1);
-    expect(playNote).toHaveBeenCalledWith("C4");
-    expect(screen.queryByText("Lesson complete")).not.toBeInTheDocument();
-    expect(window.localStorage.getItem("piano360.progress.v1")).toBeNull();
-  });
-
-  it("does not start audio loading multiple times while previewing notes during loading", async () => {
-    await renderUnlockedLesson();
-
-    fireEvent.keyDown(window, { key: "d" });
-    act(() => setAudioStatus("loading"));
-    fireEvent.keyDown(window, { key: "d" });
-    fireEvent.pointerDown(screen.getByLabelText("Virtual piano"));
-
-    expect(warmAudio).toHaveBeenCalledTimes(1);
-    expect(playNote).toHaveBeenCalledTimes(2);
-  });
-
-  it("displays the preparing message and previews keyboard and pointer input while loading", async () => {
-    setAudioStatus("loading");
-    await renderUnlockedLesson();
-
-    expect(screen.getByText("Preparing piano audio…")).toBeInTheDocument();
-
-    fireEvent.keyDown(window, { key: "d" });
-    fireEvent.pointerDown(screen.getByRole("button", { name: /C4, white key/i }));
-
-    expect(playNote).toHaveBeenCalledTimes(2);
-    expect(playNote).toHaveBeenCalledWith("C4");
-    expect(screen.queryByText("Lesson complete")).not.toBeInTheDocument();
-    expect(window.localStorage.getItem("piano360.progress.v1")).toBeNull();
-  });
-
-  it("renders the unavailable audio message exactly and keeps lesson input disabled", async () => {
-    setAudioStatus("unavailable");
-    await renderUnlockedLesson();
-
+    expect(within(lessonCard as HTMLElement).getByText("Coming soon")).toBeInTheDocument();
     expect(
-      screen.getByText("Audio unavailable — refresh or check browser permissions.")
-    ).toBeInTheDocument();
-
-    fireEvent.keyDown(window, { key: "d" });
-    fireEvent.pointerDown(screen.getByRole("button", { name: /C4, white key/i }));
-
-    expect(playNote).not.toHaveBeenCalled();
-    expect(screen.queryByText("Lesson complete")).not.toBeInTheDocument();
-    expect(window.localStorage.getItem("piano360.progress.v1")).toBeNull();
-  });
-
-  it("enables lesson input immediately when audio becomes ready", async () => {
-    setAudioStatus("loading");
-    await renderUnlockedLesson();
-
-    act(() => setAudioStatus("ready"));
-    fireEvent.keyDown(window, { key: "d" });
-
-    expect(playNote).toHaveBeenCalledWith("C4");
-    expect(await screen.findByText("Lesson complete")).toBeInTheDocument();
-  });
-
-  it("renders a centered dynamic note instruction without the lesson heading or visible play text", async () => {
-    setAudioStatus("ready");
-    await renderUnlockedLesson();
-
-    const instructionPanel = screen.getByLabelText("Lesson instruction");
-
-    expect(within(instructionPanel).getByText("C4")).toBeInTheDocument();
-    expect(within(instructionPanel).getByLabelText("Play C4")).toBeInTheDocument();
-    expect(
-      within(instructionPanel).queryByRole("heading", { name: "Middle C Anchor" })
+      within(lessonCard as HTMLElement).queryByRole("link", { name: /start|replay/i })
     ).not.toBeInTheDocument();
-    expect(within(instructionPanel).queryByText("Play C4.")).not.toBeInTheDocument();
-    expect(within(instructionPanel).getByText("1/1")).toBeInTheDocument();
-    expect(within(instructionPanel).getByText("Play the highlighted note")).toBeInTheDocument();
   });
 
-  it("uses the shared forced-landscape shell for lessons on phone portrait viewports", async () => {
-    setViewportSize(462, 849);
-    installViewportMatchMedia();
-
-    await renderUnlockedLesson();
-
-    const shell = screen.getByTestId("lesson-player-shell");
-    const header = screen.getByRole("banner");
-    const instructionPanel = screen.getByLabelText("Lesson instruction");
-    const piano = screen.getByLabelText("Virtual piano");
-
-    expect(shell).toHaveClass("mobile-landscape-shell--active");
-    expect(shell).toHaveAttribute("data-mobile-landscape-shell", "active");
-    expect(shell).toContainElement(header);
-    expect(header).toHaveClass("site-header");
-    expect(document.body).toHaveClass("piano360-mobile-landscape");
-    expect(instructionPanel.compareDocumentPosition(piano)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-
-    const pianoScroll = piano.querySelector(".piano-scroll");
-    expect(pianoScroll).toHaveClass("overflow-x-hidden");
-    expect(pianoScroll).not.toHaveClass("overflow-x-auto");
-  });
-
-  it("keeps the lesson shell active after a phone is physically rotated", async () => {
-    setViewportSize(849, 462);
-    installViewportMatchMedia();
-
-    await renderUnlockedLesson();
-
-    const shell = screen.getByTestId("lesson-player-shell");
-    const pianoScroll = screen.getByLabelText("Virtual piano").querySelector(".piano-scroll");
-
-    expect(shell).toHaveClass("mobile-landscape-shell--active");
-    expect(shell).toHaveAttribute("data-mobile-landscape-shell", "active");
-    expect(document.body).toHaveClass("piano360-mobile-landscape");
-    expect(pianoScroll).toHaveClass("overflow-x-hidden");
-  });
-
-  it("preserves the active lesson step in the forced-landscape phone layout", async () => {
-    setCurrentLesson({
-      ...lessonDetail,
-      steps: [
-        {
-          id: "first-c4",
-          type: "single-note",
-          instruction: "Play C4.",
-          targetNotes: ["C4"]
-        },
-        {
-          id: "second-d4",
-          type: "single-note",
-          instruction: "Play D4.",
-          targetNotes: ["D4"]
-        }
-      ]
-    });
-    setViewportSize(390, 844);
-    installViewportMatchMedia();
-    setAudioStatus("ready");
-    await renderUnlockedLesson();
-
-    fireEvent.keyDown(window, { key: "d" });
-
-    expect(screen.getByTestId("lesson-player-shell")).toHaveClass("mobile-landscape-shell--active");
-    expect(screen.getByLabelText("Lesson instruction")).toHaveTextContent("D4");
-    expect(screen.getByLabelText("Lesson instruction")).toHaveTextContent("2/2");
-  });
-
-  it("uses the shared forced-landscape shell for Freestyle on phone viewports", async () => {
-    setViewportSize(390, 844);
-    installViewportMatchMedia();
-    window.history.pushState({}, "", "/freestyle");
-
+  it("shows a recoverable blocked message for direct unverified song lesson URLs", async () => {
+    window.history.pushState({}, "", "/courses/one-love-limited-excerpt/lessons/one-love-rise");
     render(<App />);
 
-    const shell = await screen.findByTestId("freestyle-mode-shell");
-    const pianoScroll = screen.getByLabelText("Virtual piano").querySelector(".piano-scroll");
-
-    expect(shell).toHaveClass("mobile-landscape-shell--active");
-    expect(shell).toHaveAttribute("data-mobile-landscape-shell", "active");
-    expect(document.body).toHaveClass("piano360-mobile-landscape");
-    expect(screen.getByLabelText("Freestyle live notes")).toHaveTextContent("Press any key");
-    expect(pianoScroll).toHaveClass("overflow-x-hidden");
-    expect(pianoScroll).not.toHaveClass("overflow-x-auto");
-  });
-
-  it("retains the normal lesson layout above the phone breakpoint", async () => {
-    setViewportSize(768, 1024);
-    installViewportMatchMedia();
-
-    await renderUnlockedLesson();
-
-    const shell = screen.getByTestId("lesson-player-shell");
-    const pianoScroll = screen.getByLabelText("Virtual piano").querySelector(".piano-scroll");
-
-    expect(shell).not.toHaveClass("mobile-landscape-shell--active");
-    expect(shell).toHaveAttribute("data-mobile-landscape-shell", "inactive");
-    expect(document.body).not.toHaveClass("piano360-mobile-landscape");
-    expect(pianoScroll).toHaveClass("overflow-x-auto");
-  });
-
-  it("updates the forced-landscape shell when a normal browser window is resized", async () => {
-    setViewportSize(1366, 768);
-    installViewportMatchMedia();
-
-    await renderUnlockedLesson();
-
-    const shell = screen.getByTestId("lesson-player-shell");
-    expect(shell).not.toHaveClass("mobile-landscape-shell--active");
-    expect(document.body).not.toHaveClass("piano360-mobile-landscape");
-
-    act(() => {
-      setViewportSize(462, 849);
-      fireEvent.resize(window);
-    });
-
-    expect(shell).toHaveClass("mobile-landscape-shell--active");
-    expect(document.body).toHaveClass("piano360-mobile-landscape");
-
-    act(() => {
-      setViewportSize(1366, 768);
-      fireEvent.resize(window);
-    });
-
-    expect(shell).not.toHaveClass("mobile-landscape-shell--active");
-    expect(document.body).not.toHaveClass("piano360-mobile-landscape");
-  });
-
-  it("updates the visible note instruction when the lesson advances", async () => {
-    setCurrentLesson({
-      ...lessonDetail,
-      steps: [
-        {
-          id: "first-c4",
-          type: "single-note",
-          instruction: "Play C4.",
-          targetNotes: ["C4"]
-        },
-        {
-          id: "second-d4",
-          type: "single-note",
-          instruction: "Play D4.",
-          targetNotes: ["D4"]
-        }
-      ]
-    });
-    setAudioStatus("ready");
-    await renderUnlockedLesson();
-
-    const instructionPanel = screen.getByLabelText("Lesson instruction");
-    expect(within(instructionPanel).getByText("C4")).toBeInTheDocument();
-
-    fireEvent.keyDown(window, { key: "d" });
-
-    expect(within(instructionPanel).getByText("D4")).toBeInTheDocument();
-    expect(within(instructionPanel).queryByText("C4")).not.toBeInTheDocument();
-    expect(within(instructionPanel).getByText("2/2")).toBeInTheDocument();
-  });
-
-  it("uses keydown, not keyup, for keyboard playback", async () => {
-    setAudioStatus("ready");
-    await renderUnlockedLesson();
-
-    fireEvent.keyUp(window, { key: "d" });
-    expect(playNote).not.toHaveBeenCalled();
-
-    fireEvent.keyDown(window, { key: "d" });
-    expect(playNote).toHaveBeenCalledWith("C4");
-  });
-
-  it("uses pointerdown, not pointerup, for virtual piano playback", async () => {
-    setAudioStatus("ready");
-    await renderUnlockedLesson();
-
-    const c4Key = screen.getByRole("button", { name: /C4, white key/i });
-    fireEvent.pointerUp(c4Key);
-    expect(playNote).not.toHaveBeenCalled();
-
-    fireEvent.pointerDown(c4Key);
-    expect(playNote).toHaveBeenCalledWith("C4");
-  });
-
-  it("keeps correct single-note feedback for exactly 300 ms before restoring a repeated target", async () => {
-    setCurrentLesson({
-      ...lessonDetail,
-      steps: [
-        {
-          id: "first-c4",
-          type: "single-note",
-          instruction: "Play C4.",
-          targetNotes: ["C4"]
-        },
-        {
-          id: "second-c4",
-          type: "single-note",
-          instruction: "Play C4 again.",
-          targetNotes: ["C4"]
-        }
-      ]
-    });
-    setAudioStatus("ready");
-    await renderUnlockedLesson();
-    vi.useFakeTimers();
-
-    const c4Key = screen.getByRole("button", { name: /C4, white key/i });
-    fireEvent.keyDown(window, { key: "d" });
-
-    expect(c4Key.className).toContain("bg-[#10B981]");
-
-    act(() => vi.advanceTimersByTime(299));
-    expect(c4Key.className).toContain("bg-[#10B981]");
-
-    act(() => vi.advanceTimersByTime(1));
-    expect(c4Key.className).toContain("bg-[#F59E0B]");
-  });
-
-  it("keeps incorrect feedback for exactly 300 ms", async () => {
-    setAudioStatus("ready");
-    await renderUnlockedLesson();
-    vi.useFakeTimers();
-
-    const d4Key = screen.getByRole("button", { name: /D4, white key/i });
-    fireEvent.keyDown(window, { key: "f" });
-
-    expect(d4Key.className).toContain("bg-[#EF4444]");
-
-    act(() => vi.advanceTimersByTime(299));
-    expect(d4Key.className).toContain("bg-[#EF4444]");
-
-    act(() => vi.advanceTimersByTime(1));
-    expect(d4Key.className).not.toContain("bg-[#EF4444]");
-  });
-
-  it("keeps correct chord notes active until the chord window expires", async () => {
-    setCurrentLesson({
-      ...lessonDetail,
-      steps: [
-        {
-          id: "c-major",
-          type: "chord",
-          instruction: "Play C major.",
-          targetNotes: ["C4", "E4", "G4"]
-        }
-      ]
-    });
-    setAudioStatus("ready");
-    await renderUnlockedLesson();
-    vi.useFakeTimers();
-
-    const c4Key = screen.getByRole("button", { name: /C4, white key/i });
-    const e4Key = screen.getByRole("button", { name: /E4, white key/i });
-
-    fireEvent.keyDown(window, { key: "d" });
-    fireEvent.keyDown(window, { key: "g" });
-
-    expect(c4Key.className).toContain("bg-[#10B981]");
-    expect(e4Key.className).toContain("bg-[#10B981]");
-
-    act(() => vi.advanceTimersByTime(300));
-    expect(c4Key.className).toContain("bg-[#10B981]");
-    expect(e4Key.className).toContain("bg-[#10B981]");
-
-    act(() => vi.advanceTimersByTime(60));
-    expect(c4Key.className).not.toContain("bg-[#10B981]");
-    expect(e4Key.className).not.toContain("bg-[#10B981]");
-  });
-
-  it("clears transient feedback when restarting and replaying a lesson", async () => {
-    setAudioStatus("ready");
-    await renderUnlockedLesson();
-    vi.useFakeTimers();
-
-    const c4Key = screen.getByRole("button", { name: /C4, white key/i });
-    fireEvent.keyDown(window, { key: "d" });
-    expect(c4Key.className).toContain("bg-[#10B981]");
-
-    fireEvent.click(screen.getByRole("button", { name: "Replay" }));
-    expect(c4Key.className).not.toContain("bg-[#10B981]");
-
-    fireEvent.keyDown(window, { key: "d" });
-    expect(c4Key.className).toContain("bg-[#10B981]");
-
-    fireEvent.click(screen.getByRole("button", { name: "Restart" }));
-    expect(c4Key.className).not.toContain("bg-[#10B981]");
+    expect(await screen.findByText("Timing source required")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Rising Phrase" })).toBeInTheDocument();
+    expect(screen.getByText(/Verified beat positions/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText("Rhythm timeline")).not.toBeInTheDocument();
   });
 });

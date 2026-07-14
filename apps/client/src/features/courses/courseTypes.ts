@@ -22,8 +22,21 @@ export type ContentType = "single-note" | "chord" | "mixed";
 export type Hand = "left" | "right";
 export type Difficulty = "beginner";
 export type LessonStepType = "single-note" | "chord";
-export type LessonMode = "guided-steps" | "timeline";
+export type LessonMode = "guided-steps" | "timeline" | "migration-blocked";
+export type LessonContentKind =
+  "foundational-drill" | "rhythm-drill" | "song-phrase" | "complete-song";
 export type TimelinePracticeMode = "guided" | "performance";
+export type TimingProfile = "generous" | "standard" | "strict";
+export type TimelineTimingSource = "instructional" | "verified";
+export type TimelineSourceType =
+  | "instructional-template"
+  | "midi"
+  | "sheet-music"
+  | "manual-transcription"
+  | "recorded-performance";
+export type TimelineReviewStatus = "instructional" | "unreviewed" | "reviewed" | "approved";
+export type MigrationStatus =
+  "legacy" | "generated-instructional" | "needs-transcription" | "needs-review" | "approved";
 
 export type LessonStep = {
   id: string;
@@ -38,6 +51,7 @@ type LessonBase = {
   description: string;
   order: number;
   isFinal: boolean;
+  contentKind?: LessonContentKind;
 };
 
 export type TimeSignature = {
@@ -53,6 +67,8 @@ export type TimedNoteEvent = {
   durationBeats: number;
   hand?: "left" | "right" | "both";
   velocity?: number;
+  instruction?: string;
+  fingerNumbers?: number[];
 };
 
 export type TimedRestEvent = {
@@ -60,22 +76,70 @@ export type TimedRestEvent = {
   type: "rest";
   startBeat: number;
   durationBeats: number;
+  instruction?: string;
 };
 
 export type TimelineEvent = TimedNoteEvent | TimedRestEvent;
 
+export type TimingWindows = {
+  perfectMs: number;
+  goodMs: number;
+  acceptedMs: number;
+};
+
+export type InstructionalTimingTemplate = {
+  templateId: string;
+  eventSpacingBeats: number;
+  noteDurationBeats: number;
+  firstEventBeat: number;
+  restBetweenGroupsBeats?: number;
+  originalBpm: number;
+  countInBeats: number;
+  timingWindows: TimingWindows;
+};
+
+export type TimelineSourceMetadata = {
+  type: TimelineSourceType;
+  reference?: string;
+  importedAt?: string;
+  importedBy?: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
+  reviewStatus: TimelineReviewStatus;
+};
+
 export type SongTimeline = {
+  schemaVersion: 2;
+  timingSource: TimelineTimingSource;
   originalBpm: number;
   timeSignature: TimeSignature;
   countInBeats: number;
   totalBeats: number;
+  pickupBeats?: number;
   events: TimelineEvent[];
+  source: TimelineSourceMetadata;
+  instructionalTemplate?: InstructionalTimingTemplate;
+};
+
+export type LessonBehaviour = {
+  defaultPracticeMode: TimelinePracticeMode;
+  pauseOnMiss: boolean;
+  enableTimingScore: boolean;
+  timingProfile: TimingProfile;
+  allowPerformanceMode: boolean;
 };
 
 export type Lesson = LessonBase & {
   mode?: LessonMode;
   steps?: LessonStep[];
   timeline?: SongTimeline;
+  defaultPracticeMode?: TimelinePracticeMode;
+  availablePracticeModes?: TimelinePracticeMode[];
+  behaviour?: LessonBehaviour;
+  migrationStatus?: MigrationStatus;
+  unavailableReason?: string;
+  requiredTimingSource?: string;
+  legacySteps?: LessonStep[];
 };
 
 export type GuidedStepLesson = Lesson & {
@@ -85,7 +149,22 @@ export type GuidedStepLesson = Lesson & {
 
 export type TimelineLesson = Lesson & {
   mode: "timeline";
+  contentKind: LessonContentKind;
   timeline: SongTimeline;
+  defaultPracticeMode: TimelinePracticeMode;
+  availablePracticeModes: TimelinePracticeMode[];
+  behaviour: LessonBehaviour;
+  steps?: never;
+};
+
+export type MigrationBlockedLesson = Lesson & {
+  mode: "migration-blocked";
+  contentKind: "song-phrase" | "complete-song";
+  migrationStatus: Extract<MigrationStatus, "needs-transcription" | "needs-review">;
+  unavailableReason: string;
+  requiredTimingSource: string;
+  timeline?: never;
+  steps?: never;
 };
 
 export type Course = {
@@ -126,6 +205,9 @@ export const isTimelineLesson = (lesson: Lesson): lesson is TimelineLesson =>
 
 export const isGuidedStepLesson = (lesson: Lesson): lesson is GuidedStepLesson =>
   lesson.mode !== "timeline" && lesson.steps !== undefined;
+
+export const isMigrationBlockedLesson = (lesson: Lesson): lesson is MigrationBlockedLesson =>
+  lesson.mode === "migration-blocked";
 
 export type CourseFilters = {
   contentType?: ContentType;

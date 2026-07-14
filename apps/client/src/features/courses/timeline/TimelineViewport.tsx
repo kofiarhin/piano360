@@ -87,27 +87,31 @@ export const TimelineViewport = ({
             );
           }
 
-          const lowestLane = Math.min(...event.notes.map((note) => noteIds.indexOf(note)));
-          return (
-            <div
-              key={event.id}
-              data-event-id={event.id}
-              className={[
-                "absolute flex h-6 min-w-8 items-center overflow-hidden rounded border px-1 font-mono text-xs font-black",
-                resultClass(results[event.id]),
-                targetEventId === event.id
-                  ? "ring-2 ring-amber-200 ring-offset-2 ring-offset-stone-950"
-                  : ""
-              ].join(" ")}
-              style={{
-                left: `${beatToPixels(event.startBeat, PIXELS_PER_BEAT)}px`,
-                top: `${(noteIds.length - 1 - lowestLane) * LANE_HEIGHT}px`,
-                width: `${Math.max(32, beatToPixels(event.durationBeats, PIXELS_PER_BEAT) - 3)}px`
-              }}
-            >
-              {event.notes.join("+")}
-            </div>
-          );
+          return event.notes.map((note) => {
+            const lane = noteIds.indexOf(note);
+
+            return (
+              <div
+                key={`${event.id}-${note}`}
+                data-event-id={event.id}
+                data-note-id={note}
+                className={[
+                  "absolute flex h-6 min-w-8 items-center overflow-hidden rounded border px-1 font-mono text-xs font-black",
+                  resultClass(results[event.id]),
+                  targetEventId === event.id
+                    ? "ring-2 ring-amber-200 ring-offset-2 ring-offset-stone-950"
+                    : ""
+                ].join(" ")}
+                style={{
+                  left: `${beatToPixels(event.startBeat, PIXELS_PER_BEAT)}px`,
+                  top: `${(noteIds.length - 1 - lane) * LANE_HEIGHT}px`,
+                  width: `${Math.max(32, beatToPixels(event.durationBeats, PIXELS_PER_BEAT) - 3)}px`
+                }}
+              >
+                {note}
+              </div>
+            );
+          });
         })}
       </div>
     </section>

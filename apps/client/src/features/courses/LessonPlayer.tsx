@@ -15,13 +15,7 @@ import { MobileLandscapeShell, useMobileLandscapeMode } from "../../shared/Mobil
 import { CoursePiano } from "./CoursePiano";
 import { keyboardMap } from "./courseKeyboard";
 import { courseQueryKeys, getCourse, getLesson } from "./courseQueries";
-import {
-  isGuidedStepLesson,
-  isTimelineLesson,
-  type GuidedStepLessonDetail,
-  type LessonDetail,
-  type NoteId
-} from "./courseTypes";
+import { isGuidedStepLesson, type GuidedStepLessonDetail, type NoteId } from "./courseTypes";
 import { formatDuration, formatPercent } from "./formatMetrics";
 import {
   CHORD_INPUT_WINDOW_MS,
@@ -34,6 +28,10 @@ import {
 } from "./lessonEngine";
 import { isLessonUnlocked, loadProgress, recordLessonCompletion } from "./progressStorage";
 import { TimelinePlayer } from "./timeline/TimelinePlayer";
+import {
+  isLessonPlayableInPhaseA,
+  resolveLessonToTimeline
+} from "./timeline/resolveLessonToTimeline";
 
 const isEditableTarget = (target: EventTarget | null) => {
   if (!(target instanceof HTMLElement)) {
@@ -517,10 +515,14 @@ export const LessonPlayer = ({ onProgressSaved }: LessonPlayerProps) => {
     enabled: Boolean(courseSlug)
   });
   const courseLesson = courseQuery.data?.lessons.find((item) => item.slug === lessonSlug);
+  const blockedLesson =
+    courseSlug !== undefined &&
+    courseLesson !== undefined &&
+    !isLessonPlayableInPhaseA(courseSlug, courseLesson);
   const unlocked =
     courseQuery.data !== undefined &&
     courseLesson !== undefined &&
-    isLessonUnlocked(progressState.progress, courseQuery.data, courseLesson);
+    (blockedLesson || isLessonUnlocked(progressState.progress, courseQuery.data, courseLesson));
   const lessonQuery = useQuery({
     queryKey: courseQueryKeys.lesson(courseSlug ?? "", lessonSlug ?? ""),
     queryFn: () => getLesson(courseSlug ?? "", lessonSlug ?? ""),
@@ -603,37 +605,77 @@ export const LessonPlayer = ({ onProgressSaved }: LessonPlayerProps) => {
     );
   }
 
-  if (!isGuidedStepLesson(lessonQuery.data)) {
-    if (isTimelineLesson(lessonQuery.data)) {
-      const orderedLessonSlugs = [...course.lessons]
-        .sort((first, second) => first.order - second.order)
-        .map((lesson) => lesson.slug);
-      const nextLessonSlug =
-        orderedLessonSlugs[orderedLessonSlugs.indexOf(lessonQuery.data.slug) + 1];
-      return (
-        <TimelinePlayer
-          lesson={lessonQuery.data}
-          nextLessonSlug={nextLessonSlug}
-          onProgressSaved={onProgressSaved}
-        />
-      );
-    }
+  const legacyDebugPlayerEnabled =
+    import.meta.env.DEV &&
+    isGuidedStepLesson(lessonQuery.data) &&
+    new URLSearchParams(window.location.search).get("legacyPlayer") === "1";
 
+  if (legacyDebugPlayerEnabled && isGuidedStepLesson(lessonQuery.data)) {
+    return (
+      <PlayerLoaded
+        key={`${lessonQuery.data.courseSlug}/${lessonQuery.data.slug}`}
+        lesson={lessonQuery.data}
+        courseLessons={course.lessons}
+        onProgressSaved={onProgressSaved}
+      />
+    );
+  }
+
+  const resolvedLesson = resolveLessonToTimeline(lessonQuery.data);
+  if (resolvedLesson.status === "playable") {
+    const orderedLessonSlugs = [...course.lessons]
+      .sort((first, second) => first.order - second.order)
+      .map((lesson) => lesson.slug);
+    const nextLessonSlug =
+      orderedLessonSlugs[orderedLessonSlugs.indexOf(lessonQuery.data.slug) + 1];
+    return (
+      <TimelinePlayer
+        lesson={resolvedLesson.lesson}
+        nextLessonSlug={nextLessonSlug}
+        onProgressSaved={onProgressSaved}
+      />
+    );
+  }
+
+  if (resolvedLesson.status === "blocked") {
     return (
       <LessonPageFrame>
         <main className="grid min-h-[100dvh] place-items-center bg-[#12110f] px-4 text-stone-100">
-          <p>Timeline player is loading.</p>
+          <section className="max-w-xl rounded-xl border border-amber-200/25 bg-amber-950/20 p-6">
+            <p className="font-mono text-xs font-black uppercase tracking-[0.18em] text-amber-200">
+              Timing source required
+            </p>
+            <h1 className="mt-2 text-3xl font-black">{resolvedLesson.lesson.title}</h1>
+            <p className="mt-3 text-stone-200">{resolvedLesson.lesson.unavailableReason}</p>
+            <p className="mt-3 text-sm font-bold text-stone-300">
+              {resolvedLesson.lesson.requiredTimingSource}
+            </p>
+            <Link
+              className="mt-5 inline-block rounded-lg bg-amber-200 px-4 py-2 font-black text-stone-950"
+              to={`/courses/${resolvedLesson.lesson.courseSlug}`}
+            >
+              Return to course
+            </Link>
+          </section>
         </main>
       </LessonPageFrame>
     );
   }
 
   return (
-    <PlayerLoaded
-      key={`${lessonQuery.data.courseSlug}/${lessonQuery.data.slug}`}
-      lesson={lessonQuery.data}
-      courseLessons={course.lessons}
-      onProgressSaved={onProgressSaved}
-    />
+    <LessonPageFrame>
+      <main className="grid min-h-[100dvh] place-items-center bg-[#12110f] px-4 text-stone-100">
+        <section className="max-w-xl rounded-xl border border-white/10 bg-white/[0.04] p-6">
+          <h1 className="text-3xl font-black">Lesson unavailable</h1>
+          <p className="mt-3 text-stone-300">{resolvedLesson.reason}</p>
+          <Link
+            className="mt-5 inline-block rounded-lg bg-amber-200 px-4 py-2 font-black text-stone-950"
+            to={`/courses/${course.slug}`}
+          >
+            Return to course
+          </Link>
+        </section>
+      </main>
+    </LessonPageFrame>
   );
 };

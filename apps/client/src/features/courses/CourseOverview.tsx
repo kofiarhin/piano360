@@ -10,6 +10,7 @@ import {
   loadProgress,
   resetStoredProgress
 } from "./progressStorage";
+import { isLessonPlayableInPhaseA } from "./timeline/resolveLessonToTimeline";
 
 type CourseOverviewProps = {
   onProgressReset: () => void;
@@ -99,6 +100,7 @@ export const CourseOverview = ({ onProgressReset }: CourseOverviewProps) => {
           {orderedLessons.map((lesson) => {
             const completed = isLessonCompleted(progressState.progress, course.slug, lesson.slug);
             const unlocked = isLessonUnlocked(progressState.progress, course, lesson);
+            const playable = isLessonPlayableInPhaseA(course.slug, lesson);
             const stats =
               progressState.progress.lessonStats[lessonProgressKey(course.slug, lesson.slug)];
 
@@ -118,7 +120,11 @@ export const CourseOverview = ({ onProgressReset }: CourseOverviewProps) => {
                 <div>
                   <h2 className="text-xl font-black">{lesson.title}</h2>
                   <p className="mt-1 font-mono text-xs font-black uppercase text-stone-500">
-                    {lesson.mode === "timeline" ? "Rhythm timeline" : "Guided steps"}
+                    {playable
+                      ? lesson.mode === "timeline"
+                        ? "Rhythm timeline"
+                        : "Instructional timeline"
+                      : "Timing source required"}
                   </p>
                   <p
                     className={
@@ -137,7 +143,11 @@ export const CourseOverview = ({ onProgressReset }: CourseOverviewProps) => {
                     </p>
                   )}
                 </div>
-                {unlocked ? (
+                {!playable ? (
+                  <span className="rounded-lg border border-amber-700/20 bg-amber-100/60 px-4 py-2 text-center font-black text-amber-950">
+                    Coming soon
+                  </span>
+                ) : unlocked ? (
                   <Link
                     to={`/courses/${course.slug}/lessons/${lesson.slug}`}
                     className="rounded-lg bg-stone-950 px-4 py-2 text-center font-black text-stone-50 transition active:translate-y-0.5"

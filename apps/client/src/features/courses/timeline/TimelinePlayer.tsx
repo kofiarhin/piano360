@@ -86,12 +86,15 @@ export const TimelinePlayer = ({
     loadTempoPercent(lesson.courseSlug, lesson.slug)
   );
   const initialBpm = tempoFromPercent(lesson.timeline.originalBpm, tempoPercent);
+  const timingWindows = lesson.timeline.instructionalTemplate?.timingWindows;
   const transport = useTimelineTransport({
     bpm: initialBpm,
     totalBeats: lesson.timeline.totalBeats,
     countInBeats: lesson.timeline.countInBeats
   });
-  const [practiceMode, setPracticeMode] = useState<TimelinePracticeMode>("guided");
+  const [practiceMode, setPracticeMode] = useState<TimelinePracticeMode>(
+    lesson.defaultPracticeMode
+  );
   const [results, setResults] = useState<TimingResult[]>([]);
   const [feedback, setFeedback] = useState("Ready");
   const [waitingEventId, setWaitingEventId] = useState<string>();
@@ -111,7 +114,8 @@ export const TimelinePlayer = ({
       judgeStateRef.current,
       noteEvents,
       beatToMilliseconds(transport.currentBeat, transport.selectedBpm),
-      transport.selectedBpm
+      transport.selectedBpm,
+      timingWindows
     );
     if (expired.results.length === 0) return;
 
@@ -121,7 +125,7 @@ export const TimelinePlayer = ({
       expired.results.length === 1 ? "Missed note" : `${expired.results.length} notes missed`
     );
 
-    if (practiceMode === "guided") {
+    if (practiceMode === "guided" && lesson.behaviour.pauseOnMiss) {
       transport.pause();
       setWaitingEventId(expired.results[0]?.eventId);
       setWaitingNotes([]);
@@ -129,11 +133,13 @@ export const TimelinePlayer = ({
   }, [
     appendResults,
     noteEvents,
+    lesson.behaviour.pauseOnMiss,
     practiceMode,
     transport.currentBeat,
     transport.isComplete,
     transport.pause,
     transport.selectedBpm,
+    timingWindows,
     waitingEventId
   ]);
 
@@ -166,7 +172,8 @@ export const TimelinePlayer = ({
 
         setWaitingEventId(undefined);
         setWaitingNotes([]);
-        setFeedback("Correct · continue when ready");
+        setFeedback("Recovered · resuming");
+        transport.play();
         return;
       }
 
@@ -177,7 +184,8 @@ export const TimelinePlayer = ({
         noteEvents,
         note,
         elapsedMs,
-        transport.selectedBpm
+        transport.selectedBpm,
+        timingWindows
       );
       judgeStateRef.current = judged.state;
       if (!judged.result) {
@@ -193,7 +201,7 @@ export const TimelinePlayer = ({
           : `${label[0]?.toUpperCase()}${label.slice(1)} · ${judged.result.deltaMs > 0 ? "+" : ""}${Math.round(judged.result.deltaMs)} ms`
       );
     },
-    [appendResults, noteEvents, transport, waitingEventId, waitingNotes]
+    [appendResults, noteEvents, timingWindows, transport, waitingEventId, waitingNotes]
   );
 
   useTimelineInput(handleInput);
@@ -275,7 +283,7 @@ export const TimelinePlayer = ({
               <h1 className="mt-1 break-words text-2xl font-black text-white">{lesson.title}</h1>
             </div>
             <div className="flex rounded-md border border-white/15 p-1" aria-label="Practice mode">
-              {(["guided", "performance"] as const).map((mode) => (
+              {lesson.availablePracticeModes.map((mode) => (
                 <button
                   key={mode}
                   type="button"
@@ -321,6 +329,10 @@ export const TimelinePlayer = ({
                   : waitingEventId
                     ? "Guided recovery"
                     : "Now / Next"}
+                {" / "}
+                {lesson.timeline.timingSource === "instructional"
+                  ? "Instructional timing"
+                  : "Verified timing"}
               </p>
               <p className="break-words text-xl font-black text-white">
                 {transport.currentBeat < 0
@@ -341,7 +353,9 @@ export const TimelinePlayer = ({
               </span>
               <span>
                 <strong className="block text-lg text-amber-200">
-                  {Math.round(summary.rhythmicAccuracy * 100)}%
+                  {lesson.behaviour.enableTimingScore
+                    ? `${Math.round(summary.rhythmicAccuracy * 100)}%`
+                    : "Off"}
                 </strong>
                 Rhythm
               </span>

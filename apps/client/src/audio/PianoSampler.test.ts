@@ -7,19 +7,25 @@ const toneMock = vi.hoisted(() => {
   const instances: MockSampler[] = [];
   const start = vi.fn(async () => undefined);
   const context = { state: "suspended" };
+  type MockSamplerOptions = {
+    urls?: Record<string, string>;
+    baseUrl?: string;
+    onload?: () => void;
+    onerror?: (error: Error) => void;
+  };
 
   class MockSampler {
     static nextShouldError = false;
     loaded = false;
     disposed = false;
-    options: any;
+    options: MockSamplerOptions;
     triggerAttackRelease = vi.fn();
     dispose = vi.fn(() => {
       this.disposed = true;
     });
     toDestination = vi.fn(() => this);
 
-    constructor(options: any) {
+    constructor(options: MockSamplerOptions) {
       this.options = options;
       instances.push(this);
       queueMicrotask(() => {
