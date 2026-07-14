@@ -122,8 +122,10 @@ export const CourseOverview = ({ onProgressReset }: CourseOverviewProps) => {
                   <p className="mt-1 font-mono text-xs font-black uppercase text-stone-500">
                     {playable
                       ? lesson.mode === "timeline"
-                        ? "Rhythm timeline"
-                        : "Instructional timeline"
+                        ? lesson.timeline?.timingSource === "verified"
+                          ? "Verified rhythm"
+                          : "Instructional timing"
+                        : "Instructional timing"
                       : "Timing source required"}
                   </p>
                   <p

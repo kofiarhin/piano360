@@ -32,6 +32,7 @@ describe("resolveGuidedTimeline", () => {
     expect(resolved.timeline).toMatchObject({
       lessonId: "middle-c-anchor",
       source: "generated",
+      timingSource: "instructional",
       originalBpm: 60,
       countInBeats: 4,
       timeSignature: { numerator: 4, denominator: 4 },
@@ -88,6 +89,7 @@ describe("resolveGuidedTimeline", () => {
     if (resolved.status !== "playable") throw new Error("Expected playable timeline.");
     expect(resolved.timeline).toMatchObject({
       source: "authored",
+      timingSource: "verified",
       originalBpm: 92,
       countInBeats: 3,
       totalBeats: 8,
@@ -112,5 +114,22 @@ describe("resolveGuidedTimeline", () => {
         ]
       })
     ).toMatchObject({ status: "invalid" });
+  });
+
+  it("blocks lessons that require verified song timing", () => {
+    expect(
+      resolveGuidedTimeline({
+        ...guidedLesson,
+        mode: "migration-blocked",
+        contentKind: "complete-song",
+        migrationStatus: "needs-transcription",
+        unavailableReason: "Timing source required.",
+        requiredTimingSource: "Approved transcription required.",
+        steps: undefined as never
+      })
+    ).toMatchObject({
+      status: "blocked",
+      reason: "Timing source required."
+    });
   });
 });

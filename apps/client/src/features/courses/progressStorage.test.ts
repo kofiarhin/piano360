@@ -61,6 +61,8 @@ describe("course progress storage", () => {
       maxPossibleScore: 300,
       scorePercent: 170 / 300,
       maxCombo: 2,
+      fullyCorrectInputs: 2,
+      eventAccuracy: 2 / 3,
       perfectInputs: 1,
       goodInputs: 1,
       earlyInputs: 0,
@@ -76,8 +78,67 @@ describe("course progress storage", () => {
     expect(state.progress.lessonStats["finger-placement/middle-c-anchor"]).toMatchObject({
       score: 170,
       maxCombo: 2,
+      fullyCorrectInputs: 2,
+      eventAccuracy: 2 / 3,
       wrongInputs: 3,
       completionCount: 1
+    });
+  });
+
+  it("loads existing progress records that do not have guided-play rhythm fields", () => {
+    window.localStorage.setItem(
+      "piano360.progress.v1",
+      JSON.stringify({
+        schemaVersion: 1,
+        completedLessons: { "finger-placement": ["middle-c-anchor"] },
+        lessonStats: {
+          "finger-placement/middle-c-anchor": {
+            courseSlug: "finger-placement",
+            lessonSlug: "middle-c-anchor",
+            completedAt: "2026-01-01T00:00:05.000Z",
+            correctInputs: 3,
+            incorrectInputs: 1,
+            accuracy: 0.75,
+            durationMs: 4000,
+            restartCount: 0,
+            completionCount: 1
+          }
+        }
+      })
+    );
+
+    expect(loadProgress().progress.lessonStats["finger-placement/middle-c-anchor"]).toMatchObject({
+      correctInputs: 3,
+      completionCount: 1
+    });
+  });
+
+  it("increments completion count once per explicit recorded completion", () => {
+    const first = recordLessonCompletion(loadProgress().progress, {
+      courseSlug: "finger-placement",
+      lessonSlug: "middle-c-anchor",
+      completedAt: "2026-01-01T00:00:05.000Z",
+      correctInputs: 1,
+      incorrectInputs: 0,
+      accuracy: 1,
+      durationMs: 1000,
+      restartCount: 0
+    });
+    const second = recordLessonCompletion(first.progress, {
+      courseSlug: "finger-placement",
+      lessonSlug: "middle-c-anchor",
+      completedAt: "2026-01-01T00:00:10.000Z",
+      correctInputs: 1,
+      incorrectInputs: 0,
+      accuracy: 1,
+      durationMs: 1000,
+      restartCount: 1
+    });
+
+    expect(second.progress.completedLessons["finger-placement"]).toEqual(["middle-c-anchor"]);
+    expect(second.progress.lessonStats["finger-placement/middle-c-anchor"]).toMatchObject({
+      completionCount: 2,
+      restartCount: 1
     });
   });
 });

@@ -16,6 +16,8 @@ export type LessonMetrics = {
   maxPossibleScore?: number;
   scorePercent?: number;
   maxCombo?: number;
+  fullyCorrectInputs?: number;
+  eventAccuracy?: number;
   perfectInputs?: number;
   goodInputs?: number;
   earlyInputs?: number;

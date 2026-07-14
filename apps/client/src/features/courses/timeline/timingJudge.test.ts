@@ -1,5 +1,10 @@
 import type { TimedNoteEvent } from "../courseTypes";
-import { createTimelineJudgeState, expireMissedEvents, judgeTimelineInput } from "./timingJudge";
+import {
+  createTimelineJudgeState,
+  expireMissedEvents,
+  judgeTimelineInput,
+  type JudgeOutcome
+} from "./timingJudge";
 
 const events: TimedNoteEvent[] = [
   { id: "first-c", type: "note", notes: ["C4"], startBeat: 1, durationBeats: 1 },
@@ -13,17 +18,23 @@ const events: TimedNoteEvent[] = [
   }
 ];
 
+const expectScored = (outcome: JudgeOutcome) => {
+  expect(outcome.type).toBe("scored");
+  if (outcome.type !== "scored") throw new Error(`Expected scored, received ${outcome.type}`);
+  return outcome.result;
+};
+
 describe("timeline input judgement", () => {
   it("matches repeated pitches to distinct nearby event ids", () => {
     const first = judgeTimelineInput(createTimelineJudgeState(), events, "C4", 510, 120);
     const second = judgeTimelineInput(first.state, events, "C4", 1020, 120);
 
-    expect(first.result).toMatchObject({
+    expect(expectScored(first)).toMatchObject({
       eventId: "first-c",
       classification: "perfect",
       deltaMs: 10
     });
-    expect(second.result).toMatchObject({
+    expect(expectScored(second)).toMatchObject({
       eventId: "second-c",
       classification: "perfect",
       deltaMs: 20
@@ -34,11 +45,15 @@ describe("timeline input judgement", () => {
     const early = judgeTimelineInput(createTimelineJudgeState(), events, "C4", 260, 120);
     const late = judgeTimelineInput(createTimelineJudgeState(), events, "C4", 720, 120);
 
-    expect(early.result).toMatchObject({ classification: "early", deltaMs: -240, points: 40 });
-    expect(late.result).toMatchObject({ classification: "late", deltaMs: 220, points: 40 });
+    expect(expectScored(early)).toMatchObject({
+      classification: "early",
+      deltaMs: -240,
+      points: 40
+    });
+    expect(expectScored(late)).toMatchObject({ classification: "late", deltaMs: 220, points: 40 });
   });
 
-  it("classifies inclusive timing boundaries", () => {
+  it("classifies inclusive timing boundaries and ignores outside windows", () => {
     const expected = [
       [-250, "early"],
       [-160, "good"],
@@ -51,8 +66,15 @@ describe("timeline input judgement", () => {
 
     for (const [delta, classification] of expected) {
       const judged = judgeTimelineInput(createTimelineJudgeState(), events, "C4", 500 + delta, 120);
-      expect(judged.result).toMatchObject({ classification, deltaMs: delta });
+      expect(expectScored(judged)).toMatchObject({ classification, deltaMs: delta });
     }
+
+    expect(judgeTimelineInput(createTimelineJudgeState(), events, "C4", 249, 120)).toMatchObject({
+      type: "ignored"
+    });
+    expect(judgeTimelineInput(createTimelineJudgeState(), events, "C4", 1251, 120)).toMatchObject({
+      type: "ignored"
+    });
   });
 
   it("collects a chord in any order and scores it by least accurate note", () => {
@@ -61,10 +83,23 @@ describe("timeline input judgement", () => {
     const duplicate = judgeTimelineInput(second.state, events, "G4", 2060, 120);
     const third = judgeTimelineInput(duplicate.state, events, "E4", 2161, 120);
 
-    expect(first.result).toBeUndefined();
-    expect(second.result).toBeUndefined();
-    expect(duplicate.result).toBeUndefined();
-    expect(third.result).toMatchObject({
+    expect(first).toMatchObject({
+      type: "pending-chord",
+      eventId: "chord",
+      playedNotes: ["C4"],
+      remainingNotes: ["E4", "G4"]
+    });
+    expect(second).toMatchObject({
+      type: "pending-chord",
+      playedNotes: ["C4", "G4"],
+      remainingNotes: ["E4"]
+    });
+    expect(duplicate).toMatchObject({
+      type: "pending-chord",
+      playedNotes: ["C4", "G4"],
+      remainingNotes: ["E4"]
+    });
+    expect(expectScored(third)).toMatchObject({
       eventId: "chord",
       classification: "late",
       deltaMs: 161,
@@ -91,13 +126,17 @@ describe("timeline input judgement", () => {
     const next = judgeTimelineInput(missed.state, events, "C4", 1010, 120);
 
     expect(missed.results.map((result) => result.eventId)).toEqual(["first-c"]);
-    expect(next.result?.eventId).toBe("second-c");
+    expect(expectScored(next).eventId).toBe("second-c");
   });
 
   it("reports a wrong pitch near an expected event", () => {
     const judged = judgeTimelineInput(createTimelineJudgeState(), events, "F4", 500, 120);
 
-    expect(judged.result).toMatchObject({ eventId: "first-c", classification: "wrong" });
+    expect(judged).toMatchObject({
+      type: "wrong",
+      result: { eventId: "first-c", classification: "wrong" },
+      state: { judgedEventIds: [] }
+    });
   });
 
   it("prefers a candidate containing the played note over a closer wrong-pitch event", () => {
@@ -108,6 +147,29 @@ describe("timeline input judgement", () => {
 
     const judged = judgeTimelineInput(createTimelineJudgeState(), simultaneous, "D4", 500, 120);
 
-    expect(judged.result).toMatchObject({ eventId: "far-match" });
+    expect(expectScored(judged)).toMatchObject({ eventId: "far-match" });
+  });
+
+  it("ignores input between events, before the first window, and after all events", () => {
+    expect(judgeTimelineInput(createTimelineJudgeState(), events, "D4", 100, 120)).toMatchObject({
+      type: "ignored"
+    });
+    expect(judgeTimelineInput(createTimelineJudgeState(), events, "D4", 1260, 120)).toMatchObject({
+      type: "ignored"
+    });
+    expect(judgeTimelineInput(createTimelineJudgeState(), events, "D4", 3200, 120)).toMatchObject({
+      type: "ignored"
+    });
+  });
+
+  it("uses the earlier start beat as the final candidate tie-breaker", () => {
+    const overlapping: TimedNoteEvent[] = [
+      { id: "early-d", type: "note", notes: ["D4"], startBeat: 1, durationBeats: 1 },
+      { id: "late-d", type: "note", notes: ["D4"], startBeat: 1.2, durationBeats: 1 }
+    ];
+
+    const judged = judgeTimelineInput(createTimelineJudgeState(), overlapping, "D4", 550, 120);
+
+    expect(expectScored(judged)).toMatchObject({ eventId: "early-d" });
   });
 });

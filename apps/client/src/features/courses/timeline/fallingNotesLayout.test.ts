@@ -32,6 +32,7 @@ describe("layoutFallingNotes", () => {
       height: 100,
       translateY: 200
     });
+    expect(layout.translateY + layout.height).toBe(300);
   });
 
   it("keeps chord bars on the same target Y and uses black-key z-index", () => {
@@ -57,5 +58,51 @@ describe("layoutFallingNotes", () => {
 
     expect(layouts.map((layout) => layout.eventId)).not.toContain("future");
     expect(layouts.map((layout) => layout.eventId)).not.toContain("missing");
+  });
+
+  it("places the bar bottom exactly on the strike line at the target beat", () => {
+    const [layout] = layoutFallingNotes({
+      events: [events[0]],
+      geometry,
+      currentBeat: events[0].startBeat,
+      stageHeight: 360
+    });
+
+    expect(layout.translateY + layout.height).toBe(360);
+  });
+
+  it("preserves target alignment when stage height changes", () => {
+    const small = layoutFallingNotes({
+      events: [events[0]],
+      geometry,
+      currentBeat: events[0].startBeat,
+      stageHeight: 240
+    })[0];
+    const large = layoutFallingNotes({
+      events: [events[0]],
+      geometry,
+      currentBeat: events[0].startBeat,
+      stageHeight: 480
+    })[0];
+
+    expect(small.translateY + small.height).toBe(240);
+    expect(large.translateY + large.height).toBe(480);
+    expect(large.height).toBe(small.height * 2);
+  });
+
+  it("culls notes outside the look-ahead and trailing windows", () => {
+    const layouts = layoutFallingNotes({
+      events: [
+        { id: "past", type: "note", notes: ["C4"], startBeat: -2.1, durationBeats: 1 },
+        { id: "trailing", type: "note", notes: ["C4"], startBeat: -1, durationBeats: 1 },
+        { id: "ahead", type: "note", notes: ["C4"], startBeat: 4, durationBeats: 1 },
+        { id: "future", type: "note", notes: ["C4"], startBeat: 4.1, durationBeats: 1 }
+      ],
+      geometry,
+      currentBeat: 0,
+      stageHeight: 400
+    });
+
+    expect(layouts.map((layout) => layout.eventId)).toEqual(["trailing", "ahead"]);
   });
 });

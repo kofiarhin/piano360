@@ -61,4 +61,39 @@ describe("TimelineClock", () => {
     expect(clock.isComplete()).toBe(true);
     expect(clock.isPlaying()).toBe(false);
   });
+
+  it("pauses during count-in and resumes without starting a new count-in", () => {
+    let now = 0;
+    const clock = new TimelineClock({
+      bpm: 60,
+      totalBeats: 4,
+      countInBeats: 4,
+      now: () => now
+    });
+
+    clock.play();
+    now = 1500;
+    expect(clock.currentBeat()).toBe(-2.5);
+    clock.pause();
+    now = 9000;
+    expect(clock.currentBeat()).toBe(-2.5);
+    clock.play();
+    now = 10_000;
+    expect(clock.currentBeat()).toBe(-1.5);
+  });
+
+  it("preserves musical position when tempo changes while paused", () => {
+    let now = 0;
+    const clock = new TimelineClock({ bpm: 120, totalBeats: 8, now: () => now });
+
+    clock.play();
+    now = 1000;
+    clock.pause();
+    expect(clock.currentBeat()).toBe(2);
+
+    now = 5000;
+    clock.setBpm(60);
+    expect(clock.currentBeat()).toBe(2);
+    expect(clock.beatToTimestampMs(4)).toBe(7000);
+  });
 });

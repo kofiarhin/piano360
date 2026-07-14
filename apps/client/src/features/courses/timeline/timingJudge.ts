@@ -15,13 +15,7 @@ export const DEFAULT_TIMING_WINDOWS: TimingWindows = {
 };
 
 export type TimingClassification =
-  | "perfect"
-  | "good"
-  | "early"
-  | "late"
-  | "partial"
-  | "missed"
-  | "wrong";
+  "perfect" | "good" | "early" | "late" | "partial" | "missed" | "wrong";
 
 export type TimingResult = EventResult | WrongTimingResult;
 
@@ -37,6 +31,29 @@ export type TimelineJudgeState = {
 };
 
 export const createTimelineJudgeState = (): TimelineJudgeState => ({ judgedEventIds: [] });
+
+export type JudgeOutcome =
+  | {
+      type: "ignored";
+      state: TimelineJudgeState;
+    }
+  | {
+      type: "pending-chord";
+      state: TimelineJudgeState;
+      eventId: string;
+      playedNotes: NoteId[];
+      remainingNotes: NoteId[];
+    }
+  | {
+      type: "wrong";
+      state: TimelineJudgeState;
+      result: WrongTimingResult;
+    }
+  | {
+      type: "scored";
+      state: TimelineJudgeState;
+      result: EventResult;
+    };
 
 const classifyDelta = (
   deltaMs: number,
@@ -91,7 +108,7 @@ export const judgeTimelineInput = (
   elapsedMs: number,
   bpm: number,
   windows: TimingWindows = DEFAULT_TIMING_WINDOWS
-): { state: TimelineJudgeState; result?: TimingResult } => {
+): JudgeOutcome => {
   const pendingEvent = state.pendingChord
     ? events.find((event) => event.id === state.pendingChord?.eventId)
     : undefined;
@@ -103,12 +120,13 @@ export const judgeTimelineInput = (
     : candidateEvent(state, events, note, elapsedMs, bpm, windows.acceptedMs);
 
   if (!candidate || Math.abs(candidate.deltaMs) > windows.acceptedMs) {
-    return { state };
+    return { type: "ignored", state };
   }
 
   const { event, deltaMs } = candidate;
   if (!event.notes.includes(note)) {
     return {
+      type: "wrong",
       state,
       result: { eventId: event.id, classification: "wrong", deltaMs, playedNotes: [note] }
     };
@@ -116,6 +134,7 @@ export const judgeTimelineInput = (
 
   if (event.notes.length === 1) {
     return {
+      type: "scored",
       state: {
         ...state,
         judgedEventIds: [...state.judgedEventIds, event.id],
@@ -123,10 +142,10 @@ export const judgeTimelineInput = (
       },
       result: {
         ...scoreEventResult({
-        eventId: event.id,
-        classification: classifyDelta(deltaMs, windows),
-        deltaMs,
-        playedNotes: [note]
+          eventId: event.id,
+          classification: classifyDelta(deltaMs, windows),
+          deltaMs,
+          playedNotes: [note]
         })
       }
     };
@@ -137,31 +156,35 @@ export const judgeTimelineInput = (
   const existingAttempts = pending?.attempts ?? [];
   const alreadyPlayed = existingPlayedNotes.includes(note);
   const playedNotes = alreadyPlayed ? existingPlayedNotes : [...existingPlayedNotes, note];
-  const attempts = alreadyPlayed
-    ? existingAttempts
-    : [...existingAttempts, { note, deltaMs }];
+  const attempts = alreadyPlayed ? existingAttempts : [...existingAttempts, { note, deltaMs }];
   const complete = event.notes.every((target) => playedNotes.includes(target));
 
   if (!complete) {
+    const remainingNotes = event.notes.filter((target) => !playedNotes.includes(target));
     return {
+      type: "pending-chord",
       state: {
         ...state,
         pendingChord: { eventId: event.id, playedNotes, attempts }
-      }
+      },
+      eventId: event.id,
+      playedNotes,
+      remainingNotes
     };
   }
 
   const chordAttempt = leastAccurateAttempt(attempts);
   return {
+    type: "scored",
     state: {
       judgedEventIds: [...state.judgedEventIds, event.id]
     },
     result: {
       ...scoreEventResult({
-      eventId: event.id,
-      classification: classifyDelta(chordAttempt.deltaMs, windows),
-      deltaMs: chordAttempt.deltaMs,
-      playedNotes
+        eventId: event.id,
+        classification: classifyDelta(chordAttempt.deltaMs, windows),
+        deltaMs: chordAttempt.deltaMs,
+        playedNotes
       })
     }
   };
@@ -184,10 +207,10 @@ export const expireMissedEvents = (
   );
   const results: EventResult[] = missed.map((event) =>
     scoreEventResult({
-    eventId: event.id,
-    classification: "missed",
-    deltaMs: elapsedMs - beatToMilliseconds(event.startBeat, bpm),
-    playedNotes: []
+      eventId: event.id,
+      classification: "missed",
+      deltaMs: elapsedMs - beatToMilliseconds(event.startBeat, bpm),
+      playedNotes: []
     })
   );
   const pendingEvent = state.pendingChord

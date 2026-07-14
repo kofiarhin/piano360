@@ -18,10 +18,12 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "npm test --workspaces",
+    "test:browser": "playwright test",
     "typecheck": "npm run typecheck --workspaces"
   },
   "devDependencies": {
     "@eslint/js": "^9.30.1",
+    "@playwright/test": "^1.60.0",
     "concurrently": "^9.2.0",
     "eslint": "^9.30.1",
     "eslint-config-prettier": "^10.1.5",

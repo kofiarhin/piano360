@@ -6,6 +6,7 @@ import {
   type GuidedPlaySummary,
   type TimingFeedback
 } from "./guidedPlayScoring";
+import type { TimelineJudgeState } from "./timingJudge";
 
 export type GuidedPlayPhase = "idle" | "count-in" | "playing" | "paused" | "completed";
 
@@ -90,6 +91,29 @@ export const guidedPlayReducer = (
   }
 };
 
+export const isGuidedPlayCompletionEligible = ({
+  events,
+  judgeState,
+  currentBeat,
+  totalBeats
+}: {
+  events: TimedNoteEvent[];
+  judgeState: TimelineJudgeState;
+  currentBeat: number;
+  totalBeats: number;
+}) => {
+  if (judgeState.pendingChord) {
+    return false;
+  }
+
+  if (currentBeat < totalBeats) {
+    return false;
+  }
+
+  const judgedEventIds = new Set(judgeState.judgedEventIds);
+  return events.every((event) => judgedEventIds.has(event.id));
+};
+
 export const summarizeGuidedPlay = (
   state: GuidedPlayState,
   events: TimedNoteEvent[],
@@ -98,9 +122,16 @@ export const summarizeGuidedPlay = (
   const results = Object.values(state.resultsByEventId);
   const maxPossibleScore = maxPossibleScoreForEvents(events);
   const timedResults = results.filter((result) => result.classification !== "missed");
+  const perfectInputs = results.filter((result) => result.classification === "perfect").length;
+  const goodInputs = results.filter((result) => result.classification === "good").length;
+  const earlyInputs = results.filter((result) => result.classification === "early").length;
+  const lateInputs = results.filter((result) => result.classification === "late").length;
+  const partialInputs = results.filter((result) => result.classification === "partial").length;
+  const missedInputs = results.filter((result) => result.classification === "missed").length;
+  const fullyCorrectInputs = perfectInputs + goodInputs + earlyInputs + lateInputs;
+  const incorrectInputs = partialInputs + missedInputs;
   const meanAbsoluteTimingErrorMs = timedResults.length
-    ? timedResults.reduce((sum, result) => sum + Math.abs(result.deltaMs), 0) /
-      timedResults.length
+    ? timedResults.reduce((sum, result) => sum + Math.abs(result.deltaMs), 0) / timedResults.length
     : 0;
 
   return {
@@ -108,12 +139,15 @@ export const summarizeGuidedPlay = (
     maxPossibleScore,
     scorePercent: maxPossibleScore ? state.score / maxPossibleScore : 0,
     maxCombo: state.maxCombo,
-    perfectInputs: results.filter((result) => result.classification === "perfect").length,
-    goodInputs: results.filter((result) => result.classification === "good").length,
-    earlyInputs: results.filter((result) => result.classification === "early").length,
-    lateInputs: results.filter((result) => result.classification === "late").length,
-    partialInputs: results.filter((result) => result.classification === "partial").length,
-    missedInputs: results.filter((result) => result.classification === "missed").length,
+    fullyCorrectInputs,
+    incorrectInputs,
+    eventAccuracy: events.length ? fullyCorrectInputs / events.length : 0,
+    perfectInputs,
+    goodInputs,
+    earlyInputs,
+    lateInputs,
+    partialInputs,
+    missedInputs,
     wrongInputs: state.wrongInputCount,
     meanAbsoluteTimingErrorMs,
     durationMs,

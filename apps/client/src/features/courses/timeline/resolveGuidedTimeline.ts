@@ -19,6 +19,7 @@ export const GENERATED_TIMELINE_DEFAULTS = {
 export type ResolvedGuidedTimeline = {
   lessonId: string;
   source: "authored" | "generated";
+  timingSource: "instructional" | "verified";
   originalBpm: number;
   timeSignature: TimeSignature;
   countInBeats: number;
@@ -43,9 +44,7 @@ const duplicateNotes = (notes: NoteId[]) => {
 const noteEventsFromTimeline = (lesson: LessonDetail): TimedNoteEvent[] =>
   lesson.timeline?.events.filter((event): event is TimedNoteEvent => event.type === "note") ?? [];
 
-export const resolveGuidedTimeline = (
-  lesson: LessonDetail
-): ResolveGuidedTimelineResult => {
+export const resolveGuidedTimeline = (lesson: LessonDetail): ResolveGuidedTimelineResult => {
   if (isMigrationBlockedLesson(lesson)) {
     return { status: "blocked", reason: lesson.unavailableReason };
   }
@@ -69,6 +68,7 @@ export const resolveGuidedTimeline = (
       timeline: {
         lessonId: lesson.slug,
         source: "authored",
+        timingSource: lesson.timeline.timingSource,
         originalBpm: lesson.timeline.originalBpm,
         timeSignature: lesson.timeline.timeSignature,
         countInBeats: lesson.timeline.countInBeats,
@@ -110,6 +110,7 @@ export const resolveGuidedTimeline = (
     timeline: {
       lessonId: lesson.slug,
       source: "generated",
+      timingSource: "instructional",
       originalBpm: GENERATED_TIMELINE_DEFAULTS.originalBpm,
       timeSignature: GENERATED_TIMELINE_DEFAULTS.timeSignature,
       countInBeats: GENERATED_TIMELINE_DEFAULTS.countInBeats,

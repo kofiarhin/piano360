@@ -282,22 +282,22 @@ const PianoKeyButton = ({
 
 export const CoursePiano = forwardRef<HTMLElement, CoursePianoProps>(function CoursePiano(
   {
-  targetNotes,
-  activeNotes = [],
-  correctNotes = [],
-  wrongNotes = [],
-  activeVariant = "lesson",
-  disabled = false,
-  autoScrollNotes = [],
-  className,
-  fitToContainer = false,
-  size = "standard",
-  orientationMode = "responsive",
-  onInput,
-  onPress,
-  onRelease,
-  onPrepareAudio
-},
+    targetNotes,
+    activeNotes = [],
+    correctNotes = [],
+    wrongNotes = [],
+    activeVariant = "lesson",
+    disabled = false,
+    autoScrollNotes = [],
+    className,
+    fitToContainer = false,
+    size = "standard",
+    orientationMode = "responsive",
+    onInput,
+    onPress,
+    onRelease,
+    onPrepareAudio
+  },
   forwardedRef
 ) {
   const sizeConfig = pianoSizeConfigs[size];
@@ -401,6 +401,7 @@ export const CoursePiano = forwardRef<HTMLElement, CoursePianoProps>(function Co
       ref={setRootRef}
       aria-label="Virtual piano"
       aria-disabled={disabled}
+      data-testid="course-piano-root"
       className={[
         "relative min-w-0 rounded-2xl border border-stone-800 bg-stone-950 shadow-[0_18px_50px_-35px_rgba(0,0,0,0.95)]",
         sizeConfig.shellPaddingClass,
@@ -422,6 +423,7 @@ export const CoursePiano = forwardRef<HTMLElement, CoursePianoProps>(function Co
         />
         <div
           ref={scrollContainerRef}
+          data-testid="course-piano-scroll"
           className={[
             "piano-scroll relative rounded-b-xl bg-zinc-950",
             sizeConfig.scrollPaddingClass,

@@ -233,7 +233,7 @@ describe("Piano360 lesson routes", () => {
     expect(await screen.findByLabelText("Falling notes")).toBeInTheDocument();
     expect(screen.getByTestId("falling-notes-strike-line")).toBeInTheDocument();
     expect(screen.getByLabelText("Practice tempo")).toBeInTheDocument();
-    expect(screen.getByText(/authored timing/i)).toBeInTheDocument();
+    expect(screen.getByText(/instructional timing/i)).toBeInTheDocument();
     expect(screen.queryByLabelText("Lesson instruction")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Seek through lesson")).not.toBeInTheDocument();
   });
@@ -243,7 +243,7 @@ describe("Piano360 lesson routes", () => {
     render(<App />);
 
     expect(await screen.findByLabelText("Falling notes")).toBeInTheDocument();
-    expect(screen.getByText(/generated timing/i)).toBeInTheDocument();
+    expect(screen.getByText(/instructional timing/i)).toBeInTheDocument();
     expect(screen.queryByLabelText("Lesson instruction")).not.toBeInTheDocument();
   });
 

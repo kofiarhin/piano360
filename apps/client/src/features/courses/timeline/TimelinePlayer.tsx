@@ -12,6 +12,7 @@ import { FallingNotesStage } from "./FallingNotesStage";
 import {
   createGuidedPlayState,
   guidedPlayReducer,
+  isGuidedPlayCompletionEligible,
   summarizeGuidedPlay
 } from "./guidedPlayReducer";
 import type { EventResult, GuidedPlaySummary, TimingFeedback } from "./guidedPlayScoring";
@@ -40,6 +41,7 @@ type TimelinePlayerProps = {
 
 const feedbackLabel = (feedback?: TimingFeedback) => {
   if (!feedback) return "Ready";
+  if (feedback.label === "Complete the chord") return feedback.label;
   if (feedback.classification === "wrong") return "Wrong note";
   if (feedback.classification === "partial") return "Partial chord";
   if (feedback.classification === "missed") return "Missed";
@@ -53,26 +55,23 @@ const progressSummaryToLegacyCompletion = (
   totalEvents: number,
   lesson: LessonDetail
 ) => {
-  const correctInputs =
-    summary.perfectInputs +
-    summary.goodInputs +
-    summary.earlyInputs +
-    summary.lateInputs +
-    summary.partialInputs;
+  const correctInputs = summary.fullyCorrectInputs;
 
   return {
     courseSlug: lesson.courseSlug,
     lessonSlug: lesson.slug,
     completedAt: new Date().toISOString(),
     correctInputs,
-    incorrectInputs: summary.missedInputs,
-    accuracy: totalEvents ? correctInputs / totalEvents : 0,
+    incorrectInputs: summary.incorrectInputs,
+    accuracy: totalEvents ? summary.eventAccuracy : 0,
     durationMs: summary.durationMs,
     restartCount: summary.restartCount,
     score: summary.score,
     maxPossibleScore: summary.maxPossibleScore,
     scorePercent: summary.scorePercent,
     maxCombo: summary.maxCombo,
+    fullyCorrectInputs: summary.fullyCorrectInputs,
+    eventAccuracy: summary.eventAccuracy,
     perfectInputs: summary.perfectInputs,
     goodInputs: summary.goodInputs,
     earlyInputs: summary.earlyInputs,
@@ -93,6 +92,9 @@ const scoreableResults = (resultsByEventId: Record<string, EventResult>) =>
     ])
   );
 
+const timingSourceLabel = (timeline: ResolvedGuidedTimeline) =>
+  timeline.timingSource === "verified" ? "Verified rhythm" : "Instructional timing";
+
 export const TimelinePlayer = ({
   lesson,
   timeline,
@@ -100,8 +102,9 @@ export const TimelinePlayer = ({
   onProgressSaved
 }: TimelinePlayerProps) => {
   const mobileLandscapeActive = useMobileLandscapeMode();
+  const stageRef = useRef<HTMLElement | null>(null);
   const pianoRef = useRef<HTMLElement | null>(null);
-  const geometry = usePianoKeyGeometry(pianoRef);
+  const geometry = usePianoKeyGeometry(pianoRef, stageRef);
   const noteEvents = useMemo(() => timeline.events, [timeline.events]);
   const [tempoPercent, setTempoPercent] = useState(() =>
     loadTempoPercent(lesson.courseSlug, lesson.slug)
@@ -135,24 +138,27 @@ export const TimelinePlayer = ({
   }, []);
 
   useEffect(() => {
-    if (!transport.isPlaying || transport.currentBeat < 0) {
-      return;
+    if (transport.isPlaying && transport.currentBeat >= 0) {
+      const expired = expireMissedEvents(
+        judgeStateRef.current,
+        noteEvents,
+        beatToMilliseconds(transport.currentBeat, transport.selectedBpm),
+        transport.selectedBpm
+      );
+
+      if (expired.results.length) {
+        judgeStateRef.current = expired.state;
+        applyResults(expired.results);
+      }
     }
 
-    const expired = expireMissedEvents(
-      judgeStateRef.current,
-      noteEvents,
-      beatToMilliseconds(transport.currentBeat, transport.selectedBpm),
-      transport.selectedBpm
-    );
-
-    if (expired.results.length) {
-      judgeStateRef.current = expired.state;
-      applyResults(expired.results);
-    }
-
-    const allFinalized = judgeStateRef.current.judgedEventIds.length >= noteEvents.length;
-    if ((transport.isComplete || allFinalized) && allFinalized) {
+    const completionEligible = isGuidedPlayCompletionEligible({
+      events: noteEvents,
+      judgeState: judgeStateRef.current,
+      currentBeat: transport.currentBeat,
+      totalBeats: timeline.totalBeats
+    });
+    if (state.phase !== "completed" && completionEligible) {
       transport.pause();
       dispatch({ type: "complete" });
     }
@@ -163,7 +169,9 @@ export const TimelinePlayer = ({
     transport.currentBeat,
     transport.isComplete,
     transport.isPlaying,
-    transport.selectedBpm
+    transport.selectedBpm,
+    state.phase,
+    timeline.totalBeats
   ]);
 
   const play = useCallback(() => {
@@ -200,13 +208,22 @@ export const TimelinePlayer = ({
 
   const handleAttempt = useCallback(
     (attempt: NoteAttempt) => {
+      try {
+        warmAudio();
+      } catch {
+        // Visual scoring must keep working if audio is unavailable.
+      }
+
       const activeBeat = transport.getBeatAtTimestamp(attempt.timestampMs);
       if (!transport.isPlaying || activeBeat < 0 || completed) {
         return;
       }
 
-      warmAudio();
-      playNote(attempt.note);
+      try {
+        playNote(attempt.note);
+      } catch {
+        // Visual scoring must keep working if audio is unavailable.
+      }
 
       const judged = judgeTimelineInput(
         judgeStateRef.current,
@@ -217,7 +234,11 @@ export const TimelinePlayer = ({
       );
 
       judgeStateRef.current = judged.state;
-      if (!judged.result) {
+      if (judged.type === "ignored") {
+        return;
+      }
+
+      if (judged.type === "pending-chord") {
         dispatch({
           type: "feedback",
           feedback: { classification: "partial", label: "Complete the chord" }
@@ -225,7 +246,7 @@ export const TimelinePlayer = ({
         return;
       }
 
-      if (judged.result.classification === "wrong") {
+      if (judged.type === "wrong") {
         dispatch({
           type: "wrong-input",
           feedback: { classification: "wrong", deltaMs: judged.result.deltaMs, label: "Wrong note" }
@@ -264,7 +285,10 @@ export const TimelinePlayer = ({
   const continuePath = nextLessonSlug
     ? `/courses/${lesson.courseSlug}/lessons/${nextLessonSlug}`
     : coursePath;
-  const progressPercent = Math.min(100, Math.max(0, (transport.currentBeat / timeline.totalBeats) * 100));
+  const progressPercent = Math.min(
+    100,
+    Math.max(0, (transport.currentBeat / timeline.totalBeats) * 100)
+  );
 
   return (
     <MobileLandscapeShell
@@ -282,7 +306,7 @@ export const TimelinePlayer = ({
               <h1 className="mt-1 break-words text-2xl font-black text-white">{lesson.title}</h1>
             </div>
             <div className="font-mono text-xs font-black uppercase tracking-[0.18em] text-stone-400">
-              {timeline.source} timing
+              {timingSourceLabel(timeline)}
             </div>
           </nav>
 
@@ -358,35 +382,41 @@ export const TimelinePlayer = ({
             </div>
           </section>
 
-          <FallingNotesStage
-            events={noteEvents}
-            geometry={geometry}
-            currentBeat={transport.currentBeat}
-            getCurrentBeat={transport.getCurrentBeat}
-            results={scoreableResults(state.resultsByEventId)}
-            targetEventId={nextEvent?.id}
-          />
+          <section
+            className="timeline-player-note-lane grid min-w-0 gap-2"
+            data-testid="timeline-note-lane"
+          >
+            <FallingNotesStage
+              ref={stageRef}
+              events={noteEvents}
+              geometry={geometry}
+              currentBeat={transport.currentBeat}
+              getCurrentBeat={transport.isPlaying ? transport.getCurrentBeat : undefined}
+              results={scoreableResults(state.resultsByEventId)}
+              targetEventId={nextEvent?.id}
+            />
 
-          <CoursePiano
-            ref={pianoRef}
-            className="timeline-player-piano"
-            targetNotes={completed ? [] : targetNotes}
-            activeNotes={[]}
-            autoScrollNotes={targetNotes}
-            fitToContainer={mobileLandscapeActive}
-            size={mobileLandscapeActive ? "compact" : "standard"}
-            orientationMode={mobileLandscapeActive ? "mobile-landscape" : "responsive"}
-            onInput={handlePianoInput}
-            onPrepareAudio={warmAudio}
-          />
+            <CoursePiano
+              ref={pianoRef}
+              className="timeline-player-piano"
+              targetNotes={completed ? [] : targetNotes}
+              activeNotes={[]}
+              autoScrollNotes={targetNotes}
+              fitToContainer={mobileLandscapeActive}
+              size={mobileLandscapeActive ? "compact" : "standard"}
+              orientationMode={mobileLandscapeActive ? "mobile-landscape" : "responsive"}
+              onInput={handlePianoInput}
+              onPrepareAudio={warmAudio}
+            />
+          </section>
 
           {completed ? (
             <section className="grid gap-3 border-l-4 border-emerald-300 bg-emerald-950/25 p-4 md:grid-cols-[1fr_auto] md:items-center">
               <div>
                 <h2 className="text-2xl font-black">Lesson complete</h2>
                 <p className="text-emerald-100">
-                  {summary.score} / {summary.maxPossibleScore} points / max combo{" "}
-                  {summary.maxCombo} / {formatDuration(summary.durationMs)}
+                  {summary.score} / {summary.maxPossibleScore} points / max combo {summary.maxCombo}{" "}
+                  / {formatDuration(summary.durationMs)}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">

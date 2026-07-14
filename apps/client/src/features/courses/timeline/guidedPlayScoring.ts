@@ -38,6 +38,9 @@ export type GuidedPlaySummary = {
   maxPossibleScore: number;
   scorePercent: number;
   maxCombo: number;
+  fullyCorrectInputs: number;
+  incorrectInputs: number;
+  eventAccuracy: number;
   perfectInputs: number;
   goodInputs: number;
   earlyInputs: number;
