@@ -39,6 +39,7 @@ const isGuidedStepLesson = (lesson: Lesson): lesson is GuidedStepLesson =>
 
 const songTimelineBehaviour: LessonBehaviour = {
   defaultPracticeMode: "guided",
+  guidedInteractionMode: "stop-and-wait",
   pauseOnMiss: true,
   enableTimingScore: true,
   timingProfile: "standard",

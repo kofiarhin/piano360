@@ -32,6 +32,7 @@ export const foundationalInstructionalProfile: InstructionalTimelineProfile = {
   timeSignature: { numerator: 4, denominator: 4 },
   behaviour: {
     defaultPracticeMode: "guided",
+    guidedInteractionMode: "stop-and-wait",
     pauseOnMiss: true,
     enableTimingScore: false,
     timingProfile: "generous",

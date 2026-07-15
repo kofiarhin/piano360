@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   contentTypes,
   difficulties,
+  guidedInteractionModes,
   hands,
   lessonContentKinds,
   noteIds,
@@ -239,6 +240,7 @@ export const songTimelineSchema = z
 const lessonBehaviourSchema = z
   .object({
     defaultPracticeMode: z.enum(timelinePracticeModes),
+    guidedInteractionMode: z.enum(guidedInteractionModes).optional(),
     pauseOnMiss: z.boolean(),
     enableTimingScore: z.boolean(),
     timingProfile: z.enum(timingProfiles),

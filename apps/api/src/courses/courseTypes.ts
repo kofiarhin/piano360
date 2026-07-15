@@ -29,6 +29,7 @@ export const lessonContentKinds = [
   "complete-song"
 ] as const;
 export const timelinePracticeModes = ["guided", "performance"] as const;
+export const guidedInteractionModes = ["stop-and-wait", "assisted"] as const;
 export const timingProfiles = ["generous", "standard", "strict"] as const;
 export const timeSignatureDenominators = [2, 4, 8, 16] as const;
 export const timelineTimingSources = ["instructional", "verified"] as const;
@@ -61,6 +62,7 @@ export type LessonStepType = (typeof stepTypes)[number];
 export type LessonMode = (typeof lessonModes)[number];
 export type LessonContentKind = (typeof lessonContentKinds)[number];
 export type TimelinePracticeMode = (typeof timelinePracticeModes)[number];
+export type GuidedInteractionMode = (typeof guidedInteractionModes)[number];
 export type TimingProfile = (typeof timingProfiles)[number];
 export type TimeSignatureDenominator = (typeof timeSignatureDenominators)[number];
 export type TimelineTimingSource = (typeof timelineTimingSources)[number];
@@ -153,6 +155,7 @@ export type SongTimeline = {
 
 export type LessonBehaviour = {
   defaultPracticeMode: TimelinePracticeMode;
+  guidedInteractionMode?: GuidedInteractionMode;
   pauseOnMiss: boolean;
   enableTimingScore: boolean;
   timingProfile: TimingProfile;

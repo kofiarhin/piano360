@@ -108,4 +108,29 @@ describe("FallingNotesStage", () => {
       expect(screen.queryByTestId("timeline-key-hit-glow")).not.toBeInTheDocument();
     }
   );
+
+  it("marks a locked target as recovery state and dims future notes", () => {
+    render(
+      <FallingNotesStage
+        events={[
+          events[0],
+          { id: "future", type: "note", notes: ["C4"], startBeat: 1, durationBeats: 1 }
+        ]}
+        geometry={geometry}
+        currentBeat={0}
+        results={{}}
+        targetEventId="c"
+        recoveryEventId="c"
+      />
+    );
+
+    expect(screen.getByTestId("falling-notes-stage")).toHaveAttribute(
+      "data-recovery-locked",
+      "true"
+    );
+    const notes = screen.getAllByTestId("falling-note");
+    expect(notes[0]).toHaveAttribute("data-state", "recovery");
+    expect(notes[0]).toHaveAttribute("data-dimmed", "false");
+    expect(notes[1]).toHaveAttribute("data-dimmed", "true");
+  });
 });

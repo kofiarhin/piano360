@@ -104,6 +104,11 @@ const songTimelineSchema = new Schema(
 const lessonBehaviourSchema = new Schema(
   {
     defaultPracticeMode: { type: String, enum: ["guided", "performance"], required: true },
+    guidedInteractionMode: {
+      type: String,
+      enum: ["stop-and-wait", "assisted"],
+      required: false
+    },
     pauseOnMiss: { type: Boolean, required: true },
     enableTimingScore: { type: Boolean, required: true },
     timingProfile: { type: String, enum: ["generous", "standard", "strict"], required: true },

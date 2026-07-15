@@ -195,11 +195,49 @@ describe("unified playable course normalization", () => {
         }
       });
       expect(lesson.behaviour).toMatchObject({
+        guidedInteractionMode: "stop-and-wait",
         enableTimingScore: true,
         timingProfile: "standard",
         allowPerformanceMode: true
       });
     }
+  });
+
+  it("defaults guided pause-on-miss timelines to stop-and-wait when the behavior is missing", () => {
+    const [course] = normalizedCourses;
+    const lesson = course?.lessons.find((item) => item.mode === "timeline");
+
+    if (!course || !lesson || lesson.mode !== "timeline") {
+      throw new Error("Expected a normalized timeline lesson.");
+    }
+
+    const legacyCourse = {
+      ...course,
+      lessons: [
+        {
+          ...lesson,
+          order: 1,
+          isFinal: true,
+          behaviour: {
+            defaultPracticeMode: "guided" as const,
+            pauseOnMiss: true,
+            enableTimingScore: true,
+            timingProfile: "standard" as const,
+            allowPerformanceMode: true
+          }
+        }
+      ]
+    };
+
+    const normalized = normalizePlayableCourse(legacyCourse);
+    const [normalizedLesson] = normalized.lessons;
+
+    expect(normalizedLesson).toMatchObject({
+      mode: "timeline",
+      behaviour: {
+        guidedInteractionMode: "stop-and-wait"
+      }
+    });
   });
 
   it("does not expand limited excerpt source material during normalization", () => {

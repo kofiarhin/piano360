@@ -11,6 +11,8 @@ const { playNote, warmAudio } = vi.hoisted(() => ({
   warmAudio: vi.fn()
 }));
 
+const STOP_WAIT_ADVANCE_MS = 320;
+
 vi.mock("../../../audio/NotePlayer", () => ({
   playNote: (...args: unknown[]) => playNote(...args),
   warmAudio: (...args: unknown[]) => warmAudio(...args)
@@ -54,6 +56,32 @@ const renderPlayer = (timeline: ResolvedGuidedTimeline = baseTimeline) =>
   render(
     <MemoryRouter>
       <TimelinePlayer lesson={lesson} timeline={timeline} onProgressSaved={vi.fn()} />
+    </MemoryRouter>
+  );
+
+const stopWaitLesson: LessonDetail = {
+  ...lesson,
+  behaviour: {
+    defaultPracticeMode: "guided",
+    guidedInteractionMode: "stop-and-wait",
+    pauseOnMiss: true,
+    enableTimingScore: false,
+    timingProfile: "generous",
+    allowPerformanceMode: false
+  }
+};
+
+const renderStopWaitPlayer = (
+  timeline: ResolvedGuidedTimeline = baseTimeline,
+  onProgressSaved = vi.fn()
+) =>
+  render(
+    <MemoryRouter>
+      <TimelinePlayer
+        lesson={stopWaitLesson}
+        timeline={timeline}
+        onProgressSaved={onProgressSaved}
+      />
     </MemoryRouter>
   );
 
@@ -196,5 +224,95 @@ describe("TimelinePlayer", () => {
 
     expect(onProgressSaved).toHaveBeenCalledTimes(2);
     expect(window.localStorage.getItem(PROGRESS_STORAGE_KEY)).toContain('"completionCount":2');
+  });
+
+  it("locks stop-and-wait targets at the strike line without expiry", async () => {
+    renderStopWaitPlayer({
+      ...baseTimeline,
+      totalBeats: 4,
+      events: [
+        { id: "c4", type: "note", notes: ["C4"], startBeat: 0, durationBeats: 0.5 },
+        { id: "d4", type: "note", notes: ["D4"], startBeat: 2, durationBeats: 0.5 }
+      ]
+    });
+
+    clickPlay();
+    await advanceClock(20);
+
+    expect(screen.getAllByText("Waiting").length).toBeGreaterThan(0);
+    expect(screen.getByText("Play C4")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /play lesson/i })).toHaveTextContent("Waiting");
+
+    await advanceClock(5000);
+
+    expect(screen.queryByText("Missed")).not.toBeInTheDocument();
+    expect(screen.getByText("Play C4")).toBeInTheDocument();
+  });
+
+  it("judges only the active stop-and-wait target and keeps wrong input from advancing", async () => {
+    renderStopWaitPlayer({
+      ...baseTimeline,
+      totalBeats: 4,
+      events: [
+        { id: "c4", type: "note", notes: ["C4"], startBeat: 0, durationBeats: 0.5 },
+        { id: "d4", type: "note", notes: ["D4"], startBeat: 2, durationBeats: 0.5 }
+      ]
+    });
+
+    clickPlay();
+    await advanceClock(20);
+    fireEvent.keyDown(window, { key: "f" });
+
+    expect(screen.getByText("Wrong key - play C4")).toBeInTheDocument();
+    expect(screen.getAllByText("0").length).toBeGreaterThan(0);
+  });
+
+  it("requires stop-and-wait release before starting the next event lead-in", async () => {
+    renderStopWaitPlayer({
+      ...baseTimeline,
+      totalBeats: 4,
+      events: [
+        { id: "c4", type: "note", notes: ["C4"], startBeat: 0, durationBeats: 0.5 },
+        { id: "d4", type: "note", notes: ["D4"], startBeat: 3, durationBeats: 0.5 }
+      ]
+    });
+
+    clickPlay();
+    await advanceClock(20);
+    fireEvent.keyDown(window, { key: "d" });
+
+    expect(screen.getByText("Hold C4")).toBeInTheDocument();
+    expect(screen.queryByText("Lesson complete")).not.toBeInTheDocument();
+
+    await advanceClock(400);
+    fireEvent.keyUp(window, { key: "d" });
+    expect(screen.getAllByText("Good").length).toBeGreaterThan(0);
+
+    await act(async () => {
+      vi.advanceTimersByTime(STOP_WAIT_ADVANCE_MS + 20);
+    });
+
+    expect(screen.getByText("Next: D4")).toBeInTheDocument();
+    expect(screen.queryByText("Play C4")).not.toBeInTheDocument();
+  });
+
+  it("keeps manual pause separate from stop-and-wait waiting", async () => {
+    renderStopWaitPlayer({
+      ...baseTimeline,
+      totalBeats: 4,
+      events: [{ id: "c4", type: "note", notes: ["C4"], startBeat: 2, durationBeats: 0.5 }]
+    });
+
+    clickPlay();
+    fireEvent.click(screen.getByRole("button", { name: /pause lesson/i }));
+
+    expect(screen.getAllByText("Paused").length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: /play lesson/i })).toHaveTextContent("Resume");
+
+    clickPlay();
+    await advanceClock(2050);
+
+    expect(screen.getAllByText("Waiting").length).toBeGreaterThan(0);
+    expect(screen.getByText("Play C4")).toBeInTheDocument();
   });
 });

@@ -35,6 +35,7 @@ const songTemplate: InstructionalTimingTemplate = {
 
 const songBehaviour: LessonBehaviour = {
   defaultPracticeMode: "guided",
+  guidedInteractionMode: "stop-and-wait",
   pauseOnMiss: true,
   enableTimingScore: true,
   timingProfile: "standard",
@@ -88,6 +89,20 @@ const withRetimedEvents = (
       ...lesson.timeline,
       totalBeats: endBeatOf(events),
       events
+    }
+  };
+};
+
+const withDefaultGuidedInteractionMode = (lesson: TimelineLesson): TimelineLesson => {
+  if (lesson.behaviour.guidedInteractionMode || lesson.defaultPracticeMode !== "guided") {
+    return lesson;
+  }
+
+  return {
+    ...lesson,
+    behaviour: {
+      ...lesson.behaviour,
+      guidedInteractionMode: lesson.behaviour.pauseOnMiss ? "stop-and-wait" : "assisted"
     }
   };
 };
@@ -189,14 +204,11 @@ const normalizeLesson = (courseSlug: string, lesson: Lesson): TimelineLesson => 
       : withRetimedEvents(converted, songDurations, 0.25);
   }
 
-  if (
-    foundationalCourseSlugs.has(courseSlug) &&
-    lesson.timeline.timingSource === "instructional"
-  ) {
-    return withRetimedEvents(lesson, foundationalDurations, 0.5);
+  if (foundationalCourseSlugs.has(courseSlug) && lesson.timeline.timingSource === "instructional") {
+    return withDefaultGuidedInteractionMode(withRetimedEvents(lesson, foundationalDurations, 0.5));
   }
 
-  return lesson;
+  return withDefaultGuidedInteractionMode(lesson);
 };
 
 export const normalizePlayableCourse = (course: Course): Course => {

@@ -26,6 +26,7 @@ export type LessonMode = "guided-steps" | "timeline" | "migration-blocked";
 export type LessonContentKind =
   "foundational-drill" | "rhythm-drill" | "song-phrase" | "complete-song";
 export type TimelinePracticeMode = "guided" | "performance";
+export type GuidedInteractionMode = "stop-and-wait" | "assisted";
 export type TimingProfile = "generous" | "standard" | "strict";
 export type TimelineTimingSource = "instructional" | "verified";
 export type TimelineSourceType =
@@ -123,6 +124,7 @@ export type SongTimeline = {
 
 export type LessonBehaviour = {
   defaultPracticeMode: TimelinePracticeMode;
+  guidedInteractionMode?: GuidedInteractionMode;
   pauseOnMiss: boolean;
   enableTimingScore: boolean;
   timingProfile: TimingProfile;

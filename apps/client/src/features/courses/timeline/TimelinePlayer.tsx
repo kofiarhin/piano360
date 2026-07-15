@@ -23,6 +23,20 @@ import {
   summarizeGuidedPlay
 } from "./guidedPlayReducer";
 import type { EventResult, GuidedPlaySummary, TimingFeedback } from "./guidedPlayScoring";
+import {
+  applyGuidedStopWaitPress,
+  applyGuidedStopWaitRelease,
+  completeGuidedStopWait,
+  createGuidedStopWaitState,
+  guidedStopWaitPrompt,
+  isGuidedStopWaitInputLocked,
+  lockGuidedStopWaitEvent,
+  nextUncompletedEvent,
+  pauseGuidedStopWait,
+  resumeGuidedStopWait,
+  startGuidedStopWaitApproach,
+  type GuidedStopWaitState
+} from "./guidedStopWait";
 import type { NoteAttempt } from "./noteInput";
 import type { ResolvedGuidedTimeline } from "./resolveGuidedTimeline";
 import { TempoControl } from "./TempoControl";
@@ -49,6 +63,20 @@ type TimelinePlayerProps = {
 };
 
 const RECOVERY_CONFIRMATION_MS = 320;
+const STOP_WAIT_CONFIRMATION_MS = 320;
+
+type TimelineRuntimeMode = "guided-stop-wait" | "assisted" | "performance";
+
+const runtimeModeFor = (lesson: LessonDetail): TimelineRuntimeMode => {
+  if (lesson.defaultPracticeMode === "performance") return "performance";
+  if (lesson.behaviour?.guidedInteractionMode === "stop-and-wait") return "guided-stop-wait";
+  if (lesson.behaviour?.guidedInteractionMode === "assisted") return "assisted";
+  if ((lesson.behaviour?.pauseOnMiss ?? false) && lesson.behaviour?.enableTimingScore === false) {
+    return "guided-stop-wait";
+  }
+  if (lesson.behaviour?.pauseOnMiss) return "assisted";
+  return "performance";
+};
 
 const feedbackLabel = (feedback?: TimingFeedback) => {
   if (!feedback) return "Ready";
@@ -124,6 +152,40 @@ const recoveryPrompt = (event?: TimedNoteEvent, recovery?: GuidedRecoveryState) 
   return `Play ${event.notes[0]}`;
 };
 
+const createStopWaitSummary = (
+  stopWaitState: GuidedStopWaitState,
+  events: TimedNoteEvent[],
+  durationMs: number,
+  restartCount: number
+): GuidedPlaySummary => {
+  const masteredCount = stopWaitState.completedEventIds.length;
+  const retryCount = Object.values(stopWaitState.retryCountByEventId).reduce(
+    (sum, count) => sum + count,
+    0
+  );
+  const incorrectInputs = stopWaitState.wrongNoteCount + retryCount;
+
+  return {
+    score: 0,
+    maxPossibleScore: 0,
+    scorePercent: 0,
+    maxCombo: masteredCount,
+    fullyCorrectInputs: masteredCount,
+    incorrectInputs,
+    eventAccuracy: events.length ? masteredCount / events.length : 0,
+    perfectInputs: 0,
+    goodInputs: 0,
+    earlyInputs: 0,
+    lateInputs: 0,
+    partialInputs: retryCount,
+    missedInputs: 0,
+    wrongInputs: stopWaitState.wrongNoteCount,
+    meanAbsoluteTimingErrorMs: 0,
+    durationMs,
+    restartCount
+  };
+};
+
 export const TimelinePlayer = ({
   lesson,
   timeline,
@@ -148,9 +210,14 @@ export const TimelinePlayer = ({
   const judgeStateRef = useRef<TimelineJudgeState>(createTimelineJudgeState());
   const savedCompletionRef = useRef(false);
   const recoveryTimerRef = useRef<number | undefined>(undefined);
+  const stopWaitTimerRef = useRef<number | undefined>(undefined);
   const [activeNotes, setActiveNotes] = useState<NoteId[]>([]);
+  const [wrongNotes, setWrongNotes] = useState<NoteId[]>([]);
   const [recoveryState, setRecoveryState] = useState<GuidedRecoveryState>();
-  const recoveryEnabled = lesson.behaviour?.pauseOnMiss ?? true;
+  const [stopWaitState, setStopWaitState] = useState(() => createGuidedStopWaitState(noteEvents));
+  const runtimeMode = runtimeModeFor(lesson);
+  const stopWaitEnabled = runtimeMode === "guided-stop-wait";
+  const recoveryEnabled = runtimeMode === "assisted" && (lesson.behaviour?.pauseOnMiss ?? true);
 
   const nextUnjudgedEvent = useMemo(() => {
     const judged = new Set(judgeStateRef.current.judgedEventIds);
@@ -160,15 +227,35 @@ export const TimelinePlayer = ({
   const recoveryEvent = recoveryState
     ? noteEvents.find((event) => event.id === recoveryState.eventId)
     : undefined;
-  const activeTargetEvent = recoveryEvent ?? nextUnjudgedEvent;
+  const stopWaitEvent =
+    stopWaitEnabled && stopWaitState.activeEventId
+      ? noteEvents.find((event) => event.id === stopWaitState.activeEventId)
+      : undefined;
+  const activeTargetEvent = stopWaitEvent ?? recoveryEvent ?? nextUnjudgedEvent;
   const targetNotes = activeTargetEvent?.notes ?? [];
-  const summary = summarizeGuidedPlay(
+  const timingSummary = summarizeGuidedPlay(
     state,
     noteEvents,
     beatToMilliseconds(timeline.totalBeats, transport.selectedBpm)
   );
+  const summary = stopWaitEnabled
+    ? createStopWaitSummary(
+        stopWaitState,
+        noteEvents,
+        beatToMilliseconds(timeline.totalBeats, transport.selectedBpm),
+        state.restartCount
+      )
+    : timingSummary;
   const completed = state.phase === "completed";
   const recoveryLocked = state.phase === "recovery" && recoveryState !== undefined;
+  const stopWaitInputLocked = stopWaitEnabled && isGuidedStopWaitInputLocked(stopWaitState.phase);
+  const stopWaitConfirmation = stopWaitEnabled && stopWaitState.phase === "success-confirmation";
+  const stopWaitManualPause = stopWaitEnabled && stopWaitState.phase === "manual-pause";
+  const transportLocked = recoveryLocked || stopWaitInputLocked;
+  const confirmationLocked = state.phase === "recovery-confirmation" || stopWaitConfirmation;
+  const displayEvents = stopWaitEnabled
+    ? noteEvents.filter((event) => !stopWaitState.completedEventIds.includes(event.id))
+    : noteEvents;
 
   const applyResults = useCallback((results: EventResult[]) => {
     for (const result of results) {
@@ -188,7 +275,8 @@ export const TimelinePlayer = ({
         type: "recovery-start",
         feedback: {
           classification: "missed",
-          label: label ?? (event.notes.length > 1 ? "Play the full chord" : `Play ${event.notes[0]}`)
+          label:
+            label ?? (event.notes.length > 1 ? "Play the full chord" : `Play ${event.notes[0]}`)
         }
       });
     },
@@ -217,16 +305,64 @@ export const TimelinePlayer = ({
     [noteEvents, timeline.totalBeats, transport]
   );
 
+  const finishStopWaitEvent = useCallback(
+    (completedStopWaitState: GuidedStopWaitState) => {
+      if (stopWaitTimerRef.current !== undefined) {
+        window.clearTimeout(stopWaitTimerRef.current);
+      }
+      dispatch({
+        type: "feedback",
+        feedback: { classification: "good", label: completedStopWaitState.feedback ?? "Good" }
+      });
+      stopWaitTimerRef.current = window.setTimeout(() => {
+        const nextEvent = nextUncompletedEvent(
+          noteEvents,
+          completedStopWaitState.completedEventIds
+        );
+
+        if (nextEvent) {
+          transport.seek(Math.max(0, nextEvent.startBeat - LOOK_AHEAD_BEATS));
+          setStopWaitState(startGuidedStopWaitApproach(completedStopWaitState, nextEvent));
+          transport.play();
+          dispatch({ type: "resume" });
+          return;
+        }
+
+        transport.seek(timeline.totalBeats);
+        setStopWaitState(completeGuidedStopWait(completedStopWaitState));
+        dispatch({ type: "complete" });
+      }, STOP_WAIT_CONFIRMATION_MS);
+    },
+    [noteEvents, timeline.totalBeats, transport]
+  );
+
   useEffect(
     () => () => {
       if (recoveryTimerRef.current !== undefined) {
         window.clearTimeout(recoveryTimerRef.current);
+      }
+      if (stopWaitTimerRef.current !== undefined) {
+        window.clearTimeout(stopWaitTimerRef.current);
       }
     },
     []
   );
 
   useEffect(() => {
+    if (stopWaitEnabled) {
+      if (
+        stopWaitState.phase === "approaching" &&
+        stopWaitEvent &&
+        transport.isPlaying &&
+        transport.currentBeat >= stopWaitEvent.startBeat
+      ) {
+        transport.pause();
+        transport.seek(stopWaitEvent.startBeat);
+        setStopWaitState((current) => lockGuidedStopWaitEvent(current, stopWaitEvent));
+      }
+      return;
+    }
+
     if (transport.isPlaying && transport.currentBeat >= 0 && !recoveryState) {
       const expired = expireMissedEvents(
         judgeStateRef.current,
@@ -246,7 +382,10 @@ export const TimelinePlayer = ({
           failed &&
           (failed.classification === "missed" || failed.classification === "partial")
         ) {
-          beginRecovery(failed.eventId, failed.classification === "partial" ? "Hold longer" : undefined);
+          beginRecovery(
+            failed.eventId,
+            failed.classification === "partial" ? "Hold longer" : undefined
+          );
           return;
         }
       }
@@ -270,23 +409,53 @@ export const TimelinePlayer = ({
     noteEvents,
     recoveryEnabled,
     recoveryState,
+    stopWaitEnabled,
+    stopWaitEvent,
+    stopWaitState.phase,
     state.phase,
     timeline.totalBeats,
     transport
   ]);
 
   const play = useCallback(() => {
-    if (recoveryState || state.phase === "recovery-confirmation") return;
+    if (recoveryState || confirmationLocked || stopWaitInputLocked) return;
     warmAudio();
+    if (stopWaitEnabled) {
+      const nextEvent =
+        stopWaitEvent ?? nextUncompletedEvent(noteEvents, stopWaitState.completedEventIds);
+      if (!nextEvent) {
+        setStopWaitState((current) => completeGuidedStopWait(current));
+        dispatch({ type: "complete" });
+        return;
+      }
+      if (stopWaitState.phase === "manual-pause") {
+        setStopWaitState((current) => resumeGuidedStopWait(current));
+      } else if (stopWaitState.phase === "idle") {
+        setStopWaitState((current) => startGuidedStopWaitApproach(current, nextEvent));
+      }
+    }
     transport.play();
     dispatch({ type: transport.currentBeat < 0 ? "play" : "resume" });
-  }, [recoveryState, state.phase, transport]);
+  }, [
+    confirmationLocked,
+    noteEvents,
+    recoveryState,
+    stopWaitEnabled,
+    stopWaitEvent,
+    stopWaitInputLocked,
+    stopWaitState.completedEventIds,
+    stopWaitState.phase,
+    transport
+  ]);
 
   const pause = useCallback(() => {
     if (recoveryState) return;
     transport.pause();
+    if (stopWaitEnabled) {
+      setStopWaitState((current) => pauseGuidedStopWait(current));
+    }
     dispatch({ type: "pause" });
-  }, [recoveryState, transport]);
+  }, [recoveryState, stopWaitEnabled, transport]);
 
   const restart = useCallback(() => {
     if (recoveryTimerRef.current !== undefined) {
@@ -297,21 +466,26 @@ export const TimelinePlayer = ({
     judgeStateRef.current = createTimelineJudgeState();
     savedCompletionRef.current = false;
     setActiveNotes([]);
+    setWrongNotes([]);
     setRecoveryState(undefined);
+    setStopWaitState(createGuidedStopWaitState(noteEvents));
     dispatch({ type: "restart" });
-  }, [transport]);
+  }, [noteEvents, transport]);
 
   const changeTempo = useCallback(
     (percent: number) => {
       if (transport.isPlaying) {
         transport.pause();
+        if (stopWaitEnabled) {
+          setStopWaitState((current) => pauseGuidedStopWait(current));
+        }
         dispatch({ type: "pause" });
       }
       setTempoPercent(percent);
       transport.setBpm(tempoFromPercent(timeline.originalBpm, percent));
       saveTempoPercent(lesson.courseSlug, lesson.slug, percent);
     },
-    [lesson.courseSlug, lesson.slug, timeline.originalBpm, transport]
+    [lesson.courseSlug, lesson.slug, stopWaitEnabled, timeline.originalBpm, transport]
   );
 
   const handleAttempt = useCallback(
@@ -337,6 +511,61 @@ export const TimelinePlayer = ({
 
       if (completed) return;
 
+      if (stopWaitEnabled) {
+        if (!stopWaitEvent) return;
+
+        const outcome =
+          attempt.phase === "press"
+            ? applyGuidedStopWaitPress(
+                stopWaitState,
+                stopWaitEvent,
+                attempt.note,
+                attempt.timestampMs
+              )
+            : applyGuidedStopWaitRelease(
+                stopWaitState,
+                stopWaitEvent,
+                attempt.note,
+                attempt.timestampMs,
+                transport.selectedBpm,
+                DEFAULT_TIMING_WINDOWS,
+                STOP_WAIT_CONFIRMATION_MS
+              );
+
+        setStopWaitState(outcome.state);
+
+        if (outcome.type === "ignored") return;
+
+        if (outcome.type === "wrong") {
+          if (attempt.phase === "press") {
+            setWrongNotes((current) =>
+              current.includes(attempt.note) ? current : [...current, attempt.note]
+            );
+            window.setTimeout(() => {
+              setWrongNotes((current) => current.filter((note) => note !== attempt.note));
+            }, 300);
+          }
+          dispatch({
+            type: "wrong-input",
+            feedback: { classification: "wrong", label: outcome.label }
+          });
+          return;
+        }
+
+        dispatch({
+          type: "feedback",
+          feedback: {
+            classification: outcome.type === "retry" ? "partial" : "good",
+            label: outcome.label
+          }
+        });
+
+        if (outcome.type === "completed") {
+          finishStopWaitEvent(outcome.state);
+        }
+        return;
+      }
+
       if (recoveryState) {
         const event = noteEvents.find((item) => item.id === recoveryState.eventId);
         if (!event) return;
@@ -358,7 +587,10 @@ export const TimelinePlayer = ({
             type: "wrong-input",
             feedback: {
               classification: "wrong",
-              label: event.notes.length > 1 ? "Play the full chord" : `Wrong key — play ${event.notes[0]}`
+              label:
+                event.notes.length > 1
+                  ? "Play the full chord"
+                  : `Wrong key — play ${event.notes[0]}`
             }
           });
           return;
@@ -440,9 +672,13 @@ export const TimelinePlayer = ({
       beginRecovery,
       completed,
       finishRecovery,
+      finishStopWaitEvent,
       noteEvents,
       recoveryEnabled,
       recoveryState,
+      stopWaitEnabled,
+      stopWaitEvent,
+      stopWaitState,
       transport
     ]
   );
@@ -492,25 +728,35 @@ export const TimelinePlayer = ({
     Math.max(0, (transport.currentBeat / timeline.totalBeats) * 100)
   );
   const statusTitle =
-    transport.currentBeat < 0
-      ? "Count in"
-      : completed
-        ? "Complete"
-        : recoveryLocked
-          ? "Waiting for you"
-          : state.phase === "recovery-confirmation"
-            ? "Recovered"
-            : transport.isPlaying
-              ? "Guided Play"
-              : "Paused";
+    stopWaitEnabled && stopWaitManualPause
+      ? "Paused"
+      : stopWaitEnabled && stopWaitInputLocked
+        ? "Waiting"
+        : stopWaitEnabled && stopWaitConfirmation
+          ? "Good"
+          : stopWaitEnabled && stopWaitState.phase === "approaching"
+            ? "Get ready"
+            : transport.currentBeat < 0
+              ? "Count in"
+              : completed
+                ? "Complete"
+                : recoveryLocked
+                  ? "Waiting for you"
+                  : state.phase === "recovery-confirmation"
+                    ? "Recovered"
+                    : transport.isPlaying
+                      ? "Guided Play"
+                      : "Paused";
   const statusMessage =
-    transport.currentBeat < 0
-      ? `${Math.ceil(-transport.currentBeat)} beats`
-      : completed
-        ? "Lesson complete"
-        : recoveryLocked
-          ? recoveryPrompt(recoveryEvent, recoveryState)
-          : feedbackLabel(state.feedback);
+    stopWaitEnabled && !completed
+      ? guidedStopWaitPrompt(stopWaitEvent, stopWaitState)
+      : transport.currentBeat < 0
+        ? `${Math.ceil(-transport.currentBeat)} beats`
+        : completed
+          ? "Lesson complete"
+          : recoveryLocked
+            ? recoveryPrompt(recoveryEvent, recoveryState)
+            : feedbackLabel(state.feedback);
 
   return (
     <MobileLandscapeShell
@@ -539,14 +785,14 @@ export const TimelinePlayer = ({
                   type="button"
                   aria-label={transport.isPlaying ? "Pause lesson" : "Play lesson"}
                   onClick={transport.isPlaying ? pause : play}
-                  disabled={recoveryLocked || state.phase === "recovery-confirmation"}
+                  disabled={transportLocked || confirmationLocked}
                   className="min-h-11 min-w-28 rounded-md bg-amber-200 px-4 font-black text-stone-950 transition active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {recoveryLocked
+                  {transportLocked
                     ? "Waiting"
                     : transport.isPlaying
                       ? "Pause"
-                      : state.phase === "paused"
+                      : state.phase === "paused" || stopWaitManualPause
                         ? "Resume"
                         : "Play"}
                 </button>
@@ -572,7 +818,7 @@ export const TimelinePlayer = ({
             <TempoControl
               originalBpm={timeline.originalBpm}
               percent={tempoPercent}
-              disabled={recoveryLocked}
+              disabled={transportLocked}
               onChange={changeTempo}
             />
           </section>
@@ -580,25 +826,38 @@ export const TimelinePlayer = ({
           <section className="timeline-status grid gap-3 md:grid-cols-[1fr_auto] md:items-center">
             <div
               aria-live="polite"
-              className={`min-h-12 border-l-4 pl-3 ${recoveryLocked ? "border-sky-300" : "border-amber-200"}`}
+              className={`min-h-12 border-l-4 pl-3 ${
+                transportLocked ? "border-sky-300" : "border-amber-200"
+              }`}
             >
               <p className="text-xs font-bold text-stone-400">{statusTitle}</p>
               <p className="break-words text-xl font-black text-white">{statusMessage}</p>
             </div>
             <div className="grid grid-cols-3 gap-3 font-mono text-sm">
               <span>
-                <strong className="block text-lg text-emerald-300">{state.score}</strong>
-                Score
+                <strong className="block text-lg text-emerald-300">
+                  {stopWaitEnabled ? stopWaitState.completedEventIds.length : state.score}
+                </strong>
+                {stopWaitEnabled ? "Mastered" : "Score"}
               </span>
               <span>
-                <strong className="block text-lg text-amber-200">{state.combo}</strong>
-                Combo
+                <strong className="block text-lg text-amber-200">
+                  {stopWaitEnabled
+                    ? Object.values(stopWaitState.retryCountByEventId).reduce(
+                        (sum, count) => sum + count,
+                        0
+                      )
+                    : state.combo}
+                </strong>
+                {stopWaitEnabled ? "Retries" : "Combo"}
               </span>
               <span>
                 <strong className="block text-lg text-stone-100">
-                  {Math.round(summary.scorePercent * 100)}%
+                  {stopWaitEnabled
+                    ? stopWaitState.wrongNoteCount
+                    : `${Math.round(summary.scorePercent * 100)}%`}
                 </strong>
-                Rhythm
+                {stopWaitEnabled ? "Wrong" : "Rhythm"}
               </span>
             </div>
           </section>
@@ -609,13 +868,13 @@ export const TimelinePlayer = ({
           >
             <FallingNotesStage
               ref={stageRef}
-              events={noteEvents}
+              events={displayEvents}
               geometry={geometry}
               currentBeat={transport.currentBeat}
               getCurrentBeat={transport.isPlaying ? transport.getCurrentBeat : undefined}
               results={scoreableResults(state.resultsByEventId)}
               targetEventId={activeTargetEvent?.id}
-              recoveryEventId={recoveryEvent?.id}
+              recoveryEventId={stopWaitInputLocked ? stopWaitEvent?.id : recoveryEvent?.id}
             />
 
             <CoursePiano
@@ -623,6 +882,7 @@ export const TimelinePlayer = ({
               className="timeline-player-piano"
               targetNotes={completed ? [] : targetNotes}
               activeNotes={activeNotes}
+              wrongNotes={wrongNotes}
               autoScrollNotes={targetNotes}
               fitToContainer={mobileLandscapeActive}
               size={mobileLandscapeActive ? "compact" : "standard"}
