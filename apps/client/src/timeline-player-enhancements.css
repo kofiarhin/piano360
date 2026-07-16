@@ -49,10 +49,45 @@
 .timeline-status {
   min-height: 0;
   align-items: center;
+  grid-template-columns: 1fr;
+  position: relative;
+  padding: 0.75rem 0 0.9rem;
+  text-align: center;
 }
 
 .timeline-status [aria-live="polite"] {
-  min-height: 2.5rem;
+  min-height: 7rem;
+  display: grid;
+  place-items: center;
+  border-left: 0;
+  padding-left: 0;
+}
+
+.timeline-status [aria-live="polite"] > p:first-child {
+  margin-bottom: 0.35rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 0.75rem;
+  font-weight: 900;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgb(253 230 138 / 0.9);
+}
+
+.timeline-status [aria-live="polite"] > p:nth-child(2) {
+  max-width: 100%;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: clamp(3.75rem, 10vw, 7.5rem);
+  font-weight: 900;
+  line-height: 0.9;
+  letter-spacing: -0.045em;
+  color: white;
+  text-wrap: balance;
+}
+
+.timeline-status > .grid {
+  position: absolute;
+  top: 0.75rem;
+  right: 0;
 }
 
 @media (min-width: 1024px) {
@@ -75,12 +110,29 @@
   }
 
   .timeline-status {
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 1023px) {
   .timeline-player-workspace {
     gap: 0.75rem;
+  }
+
+  .timeline-status {
+    padding-top: 0.5rem;
+  }
+
+  .timeline-status [aria-live="polite"] {
+    min-height: 5.5rem;
+  }
+
+  .timeline-status [aria-live="polite"] > p:nth-child(2) {
+    font-size: clamp(2.75rem, 14vw, 5rem);
+  }
+
+  .timeline-status > .grid {
+    position: static;
+    justify-self: center;
   }
 }
