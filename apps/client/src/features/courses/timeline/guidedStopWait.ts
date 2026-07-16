@@ -1,5 +1,5 @@
 import type { NoteId, TimedNoteEvent } from "../courseTypes";
-import { beatToMilliseconds } from "./timelineMath";
+import { beatToMilliseconds, millisecondsToBeat } from "./timelineMath";
 import type { TimingWindows } from "./timingJudge";
 
 export type GuidedStopWaitPhase =
@@ -24,6 +24,7 @@ export type GuidedStopWaitState = {
   pressedTargetNotes: NoteId[];
   completedEventIds: string[];
   holdStartedAt?: number;
+  holdProgress?: number;
   releasedTargetNotes: NoteId[];
   confirmationUntil?: number;
   manualPauseState?: {
@@ -41,9 +42,25 @@ export type GuidedStopWaitOutcome =
   | { type: "retry"; state: GuidedStopWaitState; label: "Hold longer" }
   | { type: "completed"; state: GuidedStopWaitState; label: "Good" };
 
+export type GuidedStopWaitApproachingPressResult =
+  | { type: "ignored"; state: GuidedStopWaitState }
+  | { type: "too-early"; state: GuidedStopWaitState }
+  | { type: "ready"; state: GuidedStopWaitState };
+
+type ResolveApproachingPressOptions = {
+  state: GuidedStopWaitState;
+  event: TimedNoteEvent;
+  pressBeat: number;
+  toleranceBeats: number;
+};
+
+const STOP_WAIT_APPROACH_TOLERANCE_MS = 80;
+
 const uniqueNotes = (notes: NoteId[]) => [...new Set(notes)];
 
 const noteList = (notes: NoteId[]) => notes.join(" and ");
+
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
 const promptFor = (event?: TimedNoteEvent, state?: GuidedStopWaitState) => {
   if (!event) return "Complete";
@@ -67,9 +84,22 @@ export const minimumStopWaitHoldMilliseconds = (
   windows: TimingWindows
 ) => {
   const durationMs = beatToMilliseconds(event.durationBeats, bpm);
-  const toleranceMs = Math.min(windows.acceptedMs, durationMs * 0.35);
-  return Math.max(0, durationMs - toleranceMs);
+
+  if (event.durationBeats <= 0.5) {
+    return Math.round(clamp(durationMs * 0.35, 120, 250));
+  }
+
+  if (event.durationBeats <= 1) {
+    return Math.round(clamp(durationMs * 0.6, 200, 500));
+  }
+
+  return Math.max(0, Math.round(durationMs - windows.acceptedMs));
 };
+
+export const calculateStopWaitApproachToleranceBeats = (
+  bpm: number,
+  toleranceMs = STOP_WAIT_APPROACH_TOLERANCE_MS
+) => millisecondsToBeat(toleranceMs, bpm);
 
 export const createGuidedStopWaitState = (events: TimedNoteEvent[]): GuidedStopWaitState => {
   const [firstEvent] = events;
@@ -81,6 +111,7 @@ export const createGuidedStopWaitState = (events: TimedNoteEvent[]): GuidedStopW
     requiredNotes: firstEvent?.notes ?? [],
     pressedTargetNotes: [],
     completedEventIds: [],
+    holdProgress: undefined,
     releasedTargetNotes: [],
     wrongNoteCount: 0,
     retryCountByEventId: {},
@@ -109,6 +140,7 @@ export const startGuidedStopWaitApproach = (
   pressedTargetNotes: [],
   releasedTargetNotes: [],
   holdStartedAt: undefined,
+  holdProgress: undefined,
   confirmationUntil: undefined,
   manualPauseState: undefined,
   feedback: event.notes.length > 1 ? "Get ready" : `Next: ${event.notes[0]}`
@@ -127,8 +159,22 @@ export const lockGuidedStopWaitEvent = (
   pressedTargetNotes: [],
   releasedTargetNotes: [],
   holdStartedAt: undefined,
+  holdProgress: undefined,
   feedback: promptFor(event)
 });
+
+export const resolveGuidedStopWaitApproachingPress = ({
+  state,
+  event,
+  pressBeat,
+  toleranceBeats
+}: ResolveApproachingPressOptions): GuidedStopWaitApproachingPressResult => {
+  if (state.activeEventId !== event.id) return { type: "ignored", state };
+  if (state.phase !== "approaching") return { type: "ignored", state };
+  if (pressBeat + toleranceBeats < event.startBeat) return { type: "too-early", state };
+
+  return { type: "ready", state: lockGuidedStopWaitEvent(state, event) };
+};
 
 const resetAttempt = (
   state: GuidedStopWaitState,
@@ -144,6 +190,7 @@ const resetAttempt = (
   pressedTargetNotes: [],
   releasedTargetNotes: [],
   holdStartedAt: undefined,
+  holdProgress: undefined,
   retryCountByEventId: {
     ...state.retryCountByEventId,
     [event.id]: (state.retryCountByEventId[event.id] ?? 0) + 1
@@ -200,9 +247,37 @@ export const applyGuidedStopWaitPress = (
     pressedTargetNotes,
     releasedTargetNotes: [],
     holdStartedAt: timestampMs,
+    holdProgress: 0,
     feedback: promptFor(event, { ...state, phase: "holding" })
   };
   return { type: "progress", state: nextState, label: nextState.feedback ?? "Hold" };
+};
+
+export const completeGuidedStopWaitHold = (
+  state: GuidedStopWaitState,
+  event: TimedNoteEvent,
+  timestampMs: number,
+  bpm: number,
+  windows: TimingWindows
+): GuidedStopWaitState => {
+  if (state.activeEventId !== event.id) return state;
+  if (state.phase !== "holding") return state;
+
+  const holdStartedAt = state.holdStartedAt ?? timestampMs;
+  const requiredHoldMs = minimumStopWaitHoldMilliseconds(event, bpm, windows);
+  const holdProgress =
+    requiredHoldMs === 0 ? 1 : clamp((timestampMs - holdStartedAt) / requiredHoldMs, 0, 1);
+
+  if (holdProgress < 1) {
+    return { ...state, holdProgress };
+  }
+
+  return {
+    ...state,
+    phase: "waiting-for-release",
+    holdProgress: 1,
+    feedback: "Release"
+  };
 };
 
 export const applyGuidedStopWaitRelease = (
@@ -257,6 +332,7 @@ export const applyGuidedStopWaitRelease = (
       phase: "waiting-for-release",
       activeNotes,
       releasedTargetNotes,
+      holdProgress: 1,
       feedback: "Release"
     };
     return { type: "progress", state: nextState, label: "Release" };
@@ -274,6 +350,7 @@ export const applyGuidedStopWaitRelease = (
       releasedTargetNotes,
       completedEventIds,
       confirmationUntil: timestampMs + confirmationMs,
+      holdProgress: 1,
       feedback: "Good"
     },
     label: "Good"
@@ -309,6 +386,7 @@ export const completeGuidedStopWait = (state: GuidedStopWaitState): GuidedStopWa
   pressedTargetNotes: [],
   releasedTargetNotes: [],
   holdStartedAt: undefined,
+  holdProgress: undefined,
   feedback: "Complete"
 });
 

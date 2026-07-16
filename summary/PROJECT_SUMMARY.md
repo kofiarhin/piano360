@@ -2,15 +2,15 @@
 
 ## Last Task
 
-Implemented deterministic stop-and-wait guided behavior for timeline lessons.
+Stabilized stop-and-wait guided playing around boundary input, release readiness, and short-note pacing.
 
 ## Progress
 
-- Added an explicit guided interaction behavior for `stop-and-wait` versus `assisted`.
-- Stop-and-wait guided mode freezes each active event at the strike line, judges only that event, requires press/hold/release mastery, and resumes the next unresolved event from normal lead-in.
-- Existing assisted recovery and continuous performance-capable behavior remain available through behavior/default mode gates.
-- Validation passed: `npm test`, `npm run typecheck`, and `npm run build`.
-- Manual browser smoke testing against live Mongo-backed course pages was not run in this turn.
+- Added synchronous approaching-press resolution using input-timestamp musical beat tolerance.
+- Added stop-and-wait hold progress, automatic `Release` readiness, and a guided-only duration policy for short versus sustained notes.
+- Added regression coverage for boundary presses, active-event isolation, hold progress, early release, chords, restart cleanup, Assisted Mode, and Performance Mode.
+- Validation passed: targeted client tests, `npm test`, `npm run typecheck`, and `npm run build`.
+- Browser smoke was attempted with mocked API data, but the ad hoc Playwright harness did not deliver input events to the lesson page reliably.
 
 ## Files
 
@@ -18,12 +18,3 @@ Implemented deterministic stop-and-wait guided behavior for timeline lessons.
 - `apps/client/src/features/courses/timeline/guidedStopWait.test.ts`
 - `apps/client/src/features/courses/timeline/TimelinePlayer.tsx`
 - `apps/client/src/features/courses/timeline/TimelinePlayer.test.tsx`
-- `apps/client/src/features/courses/timeline/FallingNotesStage.test.tsx`
-- `apps/client/src/features/courses/courseTypes.ts`
-- `apps/api/src/courses/courseValidation.ts`
-- `apps/api/src/courses/courseTypes.ts`
-- `apps/api/src/courses/courseSchema.ts`
-- `apps/api/src/courses/legacyStepsToInstructionalTimeline.ts`
-- `apps/api/src/courses/normalizePlayableCourse.ts`
-- `apps/api/src/courses/seedCourses.ts`
-- `apps/api/test/normalizePlayableCourse.test.ts`

@@ -26,6 +26,8 @@ import type { EventResult, GuidedPlaySummary, TimingFeedback } from "./guidedPla
 import {
   applyGuidedStopWaitPress,
   applyGuidedStopWaitRelease,
+  calculateStopWaitApproachToleranceBeats,
+  completeGuidedStopWaitHold,
   completeGuidedStopWait,
   createGuidedStopWaitState,
   guidedStopWaitPrompt,
@@ -33,6 +35,7 @@ import {
   lockGuidedStopWaitEvent,
   nextUncompletedEvent,
   pauseGuidedStopWait,
+  resolveGuidedStopWaitApproachingPress,
   resumeGuidedStopWait,
   startGuidedStopWaitApproach,
   type GuidedStopWaitState
@@ -253,6 +256,11 @@ export const TimelinePlayer = ({
   const stopWaitManualPause = stopWaitEnabled && stopWaitState.phase === "manual-pause";
   const transportLocked = recoveryLocked || stopWaitInputLocked;
   const confirmationLocked = state.phase === "recovery-confirmation" || stopWaitConfirmation;
+  const stopWaitHoldProgress =
+    stopWaitEnabled &&
+    (stopWaitState.phase === "holding" || stopWaitState.phase === "waiting-for-release")
+      ? (stopWaitState.holdProgress ?? (stopWaitState.phase === "waiting-for-release" ? 1 : 0))
+      : undefined;
   const displayEvents = stopWaitEnabled
     ? noteEvents.filter((event) => !stopWaitState.completedEventIds.includes(event.id))
     : noteEvents;
@@ -347,6 +355,27 @@ export const TimelinePlayer = ({
     },
     []
   );
+
+  useEffect(() => {
+    if (!stopWaitEnabled || !stopWaitEvent || stopWaitState.phase !== "holding") return;
+
+    let frameId = 0;
+    const tick = () => {
+      setStopWaitState((current) =>
+        completeGuidedStopWaitHold(
+          current,
+          stopWaitEvent,
+          performance.now(),
+          transport.selectedBpm,
+          DEFAULT_TIMING_WINDOWS
+        )
+      );
+      frameId = window.requestAnimationFrame(tick);
+    };
+
+    frameId = window.requestAnimationFrame(tick);
+    return () => window.cancelAnimationFrame(frameId);
+  }, [stopWaitEnabled, stopWaitEvent, stopWaitState.phase, transport.selectedBpm]);
 
   useEffect(() => {
     if (stopWaitEnabled) {
@@ -462,6 +491,10 @@ export const TimelinePlayer = ({
       window.clearTimeout(recoveryTimerRef.current);
       recoveryTimerRef.current = undefined;
     }
+    if (stopWaitTimerRef.current !== undefined) {
+      window.clearTimeout(stopWaitTimerRef.current);
+      stopWaitTimerRef.current = undefined;
+    }
     transport.restart();
     judgeStateRef.current = createTimelineJudgeState();
     savedCompletionRef.current = false;
@@ -513,17 +546,33 @@ export const TimelinePlayer = ({
 
       if (stopWaitEnabled) {
         if (!stopWaitEvent) return;
+        let stateForAttempt = stopWaitState;
+
+        if (attempt.phase === "press" && stopWaitState.phase === "approaching") {
+          const resolved = resolveGuidedStopWaitApproachingPress({
+            state: stopWaitState,
+            event: stopWaitEvent,
+            pressBeat: transport.getBeatAtTimestamp(attempt.timestampMs),
+            toleranceBeats: calculateStopWaitApproachToleranceBeats(transport.selectedBpm)
+          });
+
+          if (resolved.type === "too-early" || resolved.type === "ignored") return;
+
+          transport.pause();
+          transport.seek(stopWaitEvent.startBeat);
+          stateForAttempt = resolved.state;
+        }
 
         const outcome =
           attempt.phase === "press"
             ? applyGuidedStopWaitPress(
-                stopWaitState,
+                stateForAttempt,
                 stopWaitEvent,
                 attempt.note,
                 attempt.timestampMs
               )
             : applyGuidedStopWaitRelease(
-                stopWaitState,
+                stateForAttempt,
                 stopWaitEvent,
                 attempt.note,
                 attempt.timestampMs,
@@ -832,6 +881,25 @@ export const TimelinePlayer = ({
             >
               <p className="text-xs font-bold text-stone-400">{statusTitle}</p>
               <p className="break-words text-xl font-black text-white">{statusMessage}</p>
+              {stopWaitHoldProgress !== undefined ? (
+                <div
+                  className="mt-2 h-2 overflow-hidden rounded-full bg-white/10"
+                  aria-label="Hold progress"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={Math.round(stopWaitHoldProgress * 100)}
+                  data-testid="stop-wait-hold-progress"
+                  data-ready={stopWaitHoldProgress >= 1 ? "true" : "false"}
+                  role="progressbar"
+                >
+                  <div
+                    className={`h-full transition-[width,background-color] ${
+                      stopWaitHoldProgress >= 1 ? "bg-emerald-300" : "bg-sky-300"
+                    }`}
+                    style={{ width: `${Math.round(stopWaitHoldProgress * 100)}%` }}
+                  />
+                </div>
+              ) : null}
             </div>
             <div className="grid grid-cols-3 gap-3 font-mono text-sm">
               <span>
