@@ -40,7 +40,7 @@ export const TimelineViewport = ({
   return (
     <section
       aria-label="Rhythm timeline"
-      className="timeline-viewport relative min-w-0 overflow-hidden border-y border-white/10 bg-stone-950"
+      className="legacy-rhythm-viewport relative min-w-0 overflow-hidden border-y border-white/10 bg-stone-950"
     >
       <div
         className="absolute inset-y-0 left-[30%] z-20 w-0.5 bg-amber-200"

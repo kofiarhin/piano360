@@ -62,7 +62,7 @@ describe("unified playable course normalization", () => {
     expect(blockedLessons).toEqual([]);
   });
 
-  it("teaches varied note durations in foundational falling-note lessons", () => {
+  it("teaches varied note durations in foundational timeline lessons", () => {
     const foundationCourses = normalizedCourses.filter((course) =>
       ["finger-placement", "beginner-chords"].includes(course.slug)
     );

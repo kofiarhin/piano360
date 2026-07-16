@@ -8,8 +8,6 @@ import { CoursePiano } from "../CoursePiano";
 import type { LessonDetail, NoteId, TimedNoteEvent } from "../courseTypes";
 import { formatDuration } from "../formatMetrics";
 import { loadProgress, recordLessonCompletion } from "../progressStorage";
-import { FallingNotesStage } from "./FallingNotesStage";
-import { LOOK_AHEAD_BEATS } from "./fallingNotesLayout";
 import {
   applyGuidedRecoveryPress,
   applyGuidedRecoveryRelease,
@@ -51,10 +49,8 @@ import {
   expireMissedEvents,
   judgeTimelineInput,
   judgeTimelineRelease,
-  type TimelineJudgeState,
-  type TimingClassification
+  type TimelineJudgeState
 } from "./timingJudge";
-import { usePianoKeyGeometry } from "./usePianoKeyGeometry";
 import { useTimelineInput } from "./useTimelineInput";
 import { useTimelineTransport } from "./useTimelineTransport";
 
@@ -67,6 +63,7 @@ type TimelinePlayerProps = {
 
 const RECOVERY_CONFIRMATION_MS = 320;
 const STOP_WAIT_CONFIRMATION_MS = 320;
+const GUIDED_EVENT_LEAD_IN_BEATS = 4;
 
 type TimelineRuntimeMode = "guided-stop-wait" | "assisted" | "performance";
 
@@ -134,14 +131,6 @@ const progressSummaryToLegacyCompletion = (
   };
 };
 
-const scoreableResults = (resultsByEventId: Record<string, EventResult>) =>
-  Object.fromEntries(
-    Object.entries(resultsByEventId).map(([eventId, result]) => [
-      eventId,
-      result.classification as TimingClassification
-    ])
-  );
-
 const timingSourceLabel = (timeline: ResolvedGuidedTimeline) =>
   timeline.timingSource === "verified" ? "Verified rhythm" : "Instructional timing";
 
@@ -196,9 +185,6 @@ export const TimelinePlayer = ({
   onProgressSaved
 }: TimelinePlayerProps) => {
   const mobileLandscapeActive = useMobileLandscapeMode();
-  const stageRef = useRef<HTMLElement | null>(null);
-  const pianoRef = useRef<HTMLElement | null>(null);
-  const geometry = usePianoKeyGeometry(pianoRef, stageRef);
   const noteEvents = useMemo(() => timeline.events, [timeline.events]);
   const [tempoPercent, setTempoPercent] = useState(() =>
     loadTempoPercent(lesson.courseSlug, lesson.slug)
@@ -261,14 +247,18 @@ export const TimelinePlayer = ({
     (stopWaitState.phase === "holding" || stopWaitState.phase === "waiting-for-release")
       ? (stopWaitState.holdProgress ?? (stopWaitState.phase === "waiting-for-release" ? 1 : 0))
       : undefined;
-  const displayEvents = stopWaitEnabled
-    ? noteEvents.filter((event) => !stopWaitState.completedEventIds.includes(event.id))
-    : noteEvents;
 
   const applyResults = useCallback((results: EventResult[]) => {
     for (const result of results) {
       dispatch({ type: "event-result", result });
     }
+  }, []);
+
+  const showWrongNote = useCallback((note: NoteId) => {
+    setWrongNotes((current) => (current.includes(note) ? current : [...current, note]));
+    window.setTimeout(() => {
+      setWrongNotes((current) => current.filter((item) => item !== note));
+    }, 300);
   }, []);
 
   const beginRecovery = useCallback(
@@ -303,7 +293,7 @@ export const TimelinePlayer = ({
         const judged = new Set(judgeStateRef.current.judgedEventIds);
         const nextEvent = noteEvents.find((event) => !judged.has(event.id));
         if (nextEvent) {
-          transport.seek(Math.max(0, nextEvent.startBeat - LOOK_AHEAD_BEATS));
+          transport.seek(Math.max(0, nextEvent.startBeat - GUIDED_EVENT_LEAD_IN_BEATS));
           transport.play();
         } else {
           transport.seek(timeline.totalBeats);
@@ -329,7 +319,7 @@ export const TimelinePlayer = ({
         );
 
         if (nextEvent) {
-          transport.seek(Math.max(0, nextEvent.startBeat - LOOK_AHEAD_BEATS));
+          transport.seek(Math.max(0, nextEvent.startBeat - GUIDED_EVENT_LEAD_IN_BEATS));
           setStopWaitState(startGuidedStopWaitApproach(completedStopWaitState, nextEvent));
           transport.play();
           dispatch({ type: "resume" });
@@ -587,12 +577,7 @@ export const TimelinePlayer = ({
 
         if (outcome.type === "wrong") {
           if (attempt.phase === "press") {
-            setWrongNotes((current) =>
-              current.includes(attempt.note) ? current : [...current, attempt.note]
-            );
-            window.setTimeout(() => {
-              setWrongNotes((current) => current.filter((note) => note !== attempt.note));
-            }, 300);
+            showWrongNote(attempt.note);
           }
           dispatch({
             type: "wrong-input",
@@ -632,6 +617,9 @@ export const TimelinePlayer = ({
         setRecoveryState(recovered.state);
 
         if (recovered.type === "wrong") {
+          if (attempt.phase === "press") {
+            showWrongNote(attempt.note);
+          }
           dispatch({
             type: "wrong-input",
             feedback: {
@@ -705,6 +693,9 @@ export const TimelinePlayer = ({
       }
 
       if (judged.type === "wrong") {
+        if (attempt.phase === "press") {
+          showWrongNote(attempt.note);
+        }
         dispatch({
           type: "wrong-input",
           feedback: { classification: "wrong", deltaMs: judged.result.deltaMs, label: "Wrong note" }
@@ -725,6 +716,7 @@ export const TimelinePlayer = ({
       noteEvents,
       recoveryEnabled,
       recoveryState,
+      showWrongNote,
       stopWaitEnabled,
       stopWaitEvent,
       stopWaitState,
@@ -930,36 +922,19 @@ export const TimelinePlayer = ({
             </div>
           </section>
 
-          <section
-            className="timeline-player-note-lane grid min-w-0 gap-2"
-            data-testid="timeline-note-lane"
-          >
-            <FallingNotesStage
-              ref={stageRef}
-              events={displayEvents}
-              geometry={geometry}
-              currentBeat={transport.currentBeat}
-              getCurrentBeat={transport.isPlaying ? transport.getCurrentBeat : undefined}
-              results={scoreableResults(state.resultsByEventId)}
-              targetEventId={activeTargetEvent?.id}
-              recoveryEventId={stopWaitInputLocked ? stopWaitEvent?.id : recoveryEvent?.id}
-            />
-
-            <CoursePiano
-              ref={pianoRef}
-              className="timeline-player-piano"
-              targetNotes={completed ? [] : targetNotes}
-              activeNotes={activeNotes}
-              wrongNotes={wrongNotes}
-              autoScrollNotes={targetNotes}
-              fitToContainer={mobileLandscapeActive}
-              size={mobileLandscapeActive ? "compact" : "standard"}
-              orientationMode={mobileLandscapeActive ? "mobile-landscape" : "responsive"}
-              onInput={handlePianoInput}
-              onRelease={handlePianoRelease}
-              onPrepareAudio={warmAudio}
-            />
-          </section>
+          <CoursePiano
+            className="timeline-player-piano"
+            targetNotes={completed ? [] : targetNotes}
+            activeNotes={activeNotes}
+            wrongNotes={wrongNotes}
+            autoScrollNotes={targetNotes}
+            fitToContainer={mobileLandscapeActive}
+            size={mobileLandscapeActive ? "compact" : "standard"}
+            orientationMode={mobileLandscapeActive ? "mobile-landscape" : "responsive"}
+            onInput={handlePianoInput}
+            onRelease={handlePianoRelease}
+            onPrepareAudio={warmAudio}
+          />
 
           {completed ? (
             <section className="timeline-player-completion grid gap-3 border-l-4 border-emerald-300 bg-emerald-950/25 p-4 md:grid-cols-[1fr_auto] md:items-center">

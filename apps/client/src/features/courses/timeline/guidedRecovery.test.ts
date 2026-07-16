@@ -60,7 +60,7 @@ describe("guided recovery controller", () => {
   });
 
   it("collects a full chord before starting the hold", () => {
-    let state = createGuidedRecoveryState(chord.id);
+    const state = createGuidedRecoveryState(chord.id);
     const c = applyGuidedRecoveryPress(state, chord, "C4", 1000);
     expect(c.type).toBe("progress");
     expect(c.state.phase).toBe("collecting-chord");

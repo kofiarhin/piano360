@@ -14,7 +14,7 @@ describe("course routes", () => {
   let mongo: MongoMemoryServer;
 
   beforeAll(async () => {
-    mongo = await MongoMemoryServer.create();
+    mongo = await MongoMemoryServer.create({ instance: { launchTimeout: 60000 } });
     await mongoose.connect(mongo.getUri());
   });
 
@@ -25,7 +25,7 @@ describe("course routes", () => {
 
   afterAll(async () => {
     await mongoose.disconnect();
-    await mongo.stop();
+    await mongo?.stop();
   });
 
   const app = () =>

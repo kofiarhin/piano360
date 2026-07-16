@@ -253,7 +253,7 @@ body::before {
   }
 
   .mobile-landscape-shell--active .timeline-player-workspace {
-    grid-template-rows: auto auto auto 5rem minmax(0, 1fr);
+    grid-template-rows: auto auto auto minmax(0, 1fr) auto;
     width: 100%;
     height: 100%;
     max-width: none;
@@ -296,10 +296,6 @@ body::before {
 
   .mobile-landscape-shell--active .timeline-transport label {
     min-width: 8.5rem;
-  }
-
-  .mobile-landscape-shell--active .timeline-viewport {
-    height: 5rem;
   }
 
   .mobile-landscape-shell--active .timeline-player-piano [data-note-id] span:first-child {

@@ -317,23 +317,36 @@ describe("Piano360 lesson routes", () => {
     vi.clearAllMocks();
   });
 
-  it("renders playable lessons through the falling-notes player", async () => {
+  it("renders playable lessons through timeline piano guidance", async () => {
     window.history.pushState({}, "", "/courses/finger-placement/lessons/middle-c-anchor");
     render(<App />);
 
-    expect(await screen.findByLabelText("Falling notes")).toBeInTheDocument();
-    expect(screen.getByTestId("falling-notes-strike-line")).toBeInTheDocument();
+    expect(await screen.findByLabelText("Virtual piano")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Falling notes")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /C4, white key/i }).className).toContain(
+      "bg-[#F59E0B]"
+    );
     expect(screen.getByLabelText("Practice tempo")).toBeInTheDocument();
     expect(screen.getByText(/instructional timing/i)).toBeInTheDocument();
     expect(screen.queryByLabelText("Lesson instruction")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Seek through lesson")).not.toBeInTheDocument();
   });
 
-  it("renders legacy guided-step lessons through generated falling notes", async () => {
+  it("renders legacy guided-step lessons through generated timeline piano guidance", async () => {
     window.history.pushState({}, "", "/courses/beginner-chords/lessons/c-major-shape");
     render(<App />);
 
-    expect(await screen.findByLabelText("Falling notes")).toBeInTheDocument();
+    expect(await screen.findByLabelText("Virtual piano")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Falling notes")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /C4, white key/i }).className).toContain(
+      "bg-[#F59E0B]"
+    );
+    expect(screen.getByRole("button", { name: /E4, white key/i }).className).toContain(
+      "bg-[#F59E0B]"
+    );
+    expect(screen.getByRole("button", { name: /G4, white key/i }).className).toContain(
+      "bg-[#F59E0B]"
+    );
     expect(screen.getByText(/instructional timing/i)).toBeInTheDocument();
     expect(screen.queryByLabelText("Lesson instruction")).not.toBeInTheDocument();
   });
@@ -370,11 +383,12 @@ describe("Piano360 lesson routes", () => {
     expect(within(lessonCard as HTMLElement).queryByText("Coming soon")).not.toBeInTheDocument();
   });
 
-  it("routes normalized legacy song lesson URLs into the falling-notes player", async () => {
+  it("routes normalized legacy song lesson URLs into timeline piano guidance", async () => {
     window.history.pushState({}, "", "/courses/one-love-limited-excerpt/lessons/one-love-rise");
     render(<App />);
 
-    expect(await screen.findByLabelText("Falling notes")).toBeInTheDocument();
+    expect(await screen.findByLabelText("Virtual piano")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Falling notes")).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Rising Phrase" })).toBeInTheDocument();
     expect(screen.queryByText("Timing source required")).not.toBeInTheDocument();
   });

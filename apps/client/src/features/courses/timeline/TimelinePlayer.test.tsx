@@ -12,6 +12,9 @@ const { playNote, warmAudio } = vi.hoisted(() => ({
 }));
 
 const STOP_WAIT_ADVANCE_MS = 320;
+const targetClass = "bg-[#F59E0B]";
+const activeClass = "bg-[#10B981]";
+const wrongClass = "bg-[#EF4444]";
 
 vi.mock("../../../audio/NotePlayer", () => ({
   playNote: (...args: unknown[]) => playNote(...args),
@@ -119,6 +122,9 @@ const renderModePlayer = (modeLesson: LessonDetail, timeline: ResolvedGuidedTime
 
 const clickPlay = () => fireEvent.click(screen.getByRole("button", { name: /play lesson/i }));
 
+const keyFor = (note: string, tone: "white" | "black" = note.includes("#") ? "black" : "white") =>
+  screen.getByRole("button", { name: new RegExp(`${note}, ${tone} key`, "i") });
+
 describe("TimelinePlayer", () => {
   let now = 0;
 
@@ -151,17 +157,71 @@ describe("TimelinePlayer", () => {
     expect(container.querySelector(".timeline-player-header")).toBeInTheDocument();
     expect(container.querySelector(".timeline-transport")).toBeInTheDocument();
     expect(container.querySelector(".timeline-status")).toBeInTheDocument();
-    expect(container.querySelector(".timeline-player-note-lane")).toBeInTheDocument();
+    expect(container.querySelector(".timeline-player-note-lane")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Falling notes")).not.toBeInTheDocument();
     expect(container.querySelector(".timeline-player-piano")).toBeInTheDocument();
+    expect(screen.getByLabelText("Virtual piano")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /play lesson/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /restart lesson/i })).toBeInTheDocument();
     expect(screen.getByLabelText("Practice tempo")).toBeInTheDocument();
+  });
+
+  it("highlights the active single-note target on the piano", () => {
+    renderPlayer();
+
+    expect(keyFor("C4").className).toContain(targetClass);
+    expect(keyFor("D4").className).not.toContain(targetClass);
+  });
+
+  it("highlights black-key targets and every note in a chord target simultaneously", () => {
+    renderPlayer({
+      ...baseTimeline,
+      totalBeats: 2,
+      events: [
+        {
+          id: "c-major-with-black-key",
+          type: "note",
+          notes: ["C4", "C#4", "E4", "G4"],
+          startBeat: 0,
+          durationBeats: 1
+        }
+      ]
+    });
+
+    expect(keyFor("C4").className).toContain(targetClass);
+    expect(keyFor("C#4").className).toContain(targetClass);
+    expect(keyFor("E4").className).toContain(targetClass);
+    expect(keyFor("G4").className).toContain(targetClass);
+    expect(keyFor("D4").className).not.toContain(targetClass);
+  });
+
+  it("advances the piano target when the next unjudged event changes", async () => {
+    renderPlayer({
+      ...baseTimeline,
+      totalBeats: 3,
+      events: [
+        { id: "c4", type: "note", notes: ["C4"], startBeat: 0, durationBeats: 0.5 },
+        { id: "d4", type: "note", notes: ["D4"], startBeat: 1, durationBeats: 0.5 }
+      ]
+    });
+
+    expect(keyFor("C4").className).toContain(targetClass);
+    expect(keyFor("D4").className).not.toContain(targetClass);
+
+    clickPlay();
+    fireEvent.keyDown(window, { key: "d" });
+    await advanceClock(500);
+    fireEvent.keyUp(window, { key: "d" });
+
+    expect(keyFor("C4").className).not.toContain(targetClass);
+    expect(keyFor("D4").className).toContain(targetClass);
   });
 
   it("scores keyboard and on-screen piano input through the same path", () => {
     const { unmount } = renderPlayer();
     clickPlay();
     fireEvent.keyDown(window, { key: "d" });
+    expect(keyFor("C4").className).toContain(activeClass);
     now = 1000;
     fireEvent.keyUp(window, { key: "d" });
 
@@ -226,6 +286,8 @@ describe("TimelinePlayer", () => {
     fireEvent.keyDown(window, { key: "f" });
 
     expect(screen.getByText("Wrong note")).toBeInTheDocument();
+    expect(keyFor("D4").className).toContain(wrongClass);
+    expect(keyFor("C4").className).toContain(targetClass);
     expect(screen.getAllByText("0").length).toBeGreaterThan(0);
   });
 
@@ -244,6 +306,7 @@ describe("TimelinePlayer", () => {
     await advanceClock(1100);
 
     expect(screen.getAllByText("Lesson complete").length).toBeGreaterThan(0);
+    expect(keyFor("C4").className).not.toContain(targetClass);
     expect(onProgressSaved).toHaveBeenCalledTimes(1);
     expect(window.localStorage.getItem(PROGRESS_STORAGE_KEY)).toContain('"completionCount":1');
 
@@ -273,6 +336,7 @@ describe("TimelinePlayer", () => {
 
     expect(screen.getAllByText("Waiting").length).toBeGreaterThan(0);
     expect(screen.getByText("Play C4")).toBeInTheDocument();
+    expect(keyFor("C4").className).toContain(targetClass);
     expect(screen.getByRole("button", { name: /play lesson/i })).toHaveTextContent("Waiting");
 
     await advanceClock(5000);
@@ -296,10 +360,7 @@ describe("TimelinePlayer", () => {
 
     expect(screen.getByText("Hold C4")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /play lesson/i })).toHaveTextContent("Waiting");
-    expect(screen.getByTestId("falling-notes-stage")).toHaveAttribute(
-      "data-recovery-locked",
-      "true"
-    );
+    expect(keyFor("C4").className).toContain(activeClass);
     expect(playNote).toHaveBeenCalledTimes(1);
   });
 
@@ -318,6 +379,8 @@ describe("TimelinePlayer", () => {
     fireEvent.keyDown(window, { key: "f" });
 
     expect(screen.getByText("Wrong key - play C4")).toBeInTheDocument();
+    expect(keyFor("D4").className).toContain(wrongClass);
+    expect(keyFor("C4").className).toContain(targetClass);
     expect(screen.getAllByText("0").length).toBeGreaterThan(0);
   });
 
@@ -348,6 +411,8 @@ describe("TimelinePlayer", () => {
 
     expect(screen.getByText("Next: D4")).toBeInTheDocument();
     expect(screen.queryByText("Play C4")).not.toBeInTheDocument();
+    expect(keyFor("D4").className).toContain(targetClass);
+    expect(keyFor("C4").className).not.toContain(targetClass);
   });
 
   it("shows hold progress and changes to Release at the stop-and-wait hold threshold", async () => {
@@ -453,6 +518,7 @@ describe("TimelinePlayer", () => {
 
     expect(screen.getByText("Waiting for you")).toBeInTheDocument();
     expect(screen.getByText("Play C4")).toBeInTheDocument();
+    expect(keyFor("C4").className).toContain(targetClass);
     expect(screen.queryByRole("progressbar", { name: "Hold progress" })).not.toBeInTheDocument();
   });
 
