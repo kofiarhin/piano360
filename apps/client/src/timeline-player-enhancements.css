@@ -1,4 +1,4 @@
-/* Timeline player density. */
+/* Timeline player density and instruction hierarchy. */
 
 .timeline-player-page .site-header > div {
   padding-top: 0.55rem;
@@ -47,24 +47,25 @@
 }
 
 .timeline-status {
-  min-height: 0;
+  min-height: clamp(9.5rem, 21vh, 13rem);
   align-items: center;
   grid-template-columns: 1fr;
-  position: relative;
-  padding: 0.75rem 0 0.9rem;
+  padding: 1rem 0 0.75rem;
   text-align: center;
 }
 
 .timeline-status [aria-live="polite"] {
-  min-height: 7rem;
-  display: grid;
-  place-items: center;
+  min-height: 7.75rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   border-left: 0;
   padding-left: 0;
 }
 
 .timeline-status [aria-live="polite"] > p:first-child {
-  margin-bottom: 0.35rem;
+  margin-bottom: 0.45rem;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   font-size: 0.75rem;
   font-weight: 900;
@@ -74,20 +75,35 @@
 }
 
 .timeline-status [aria-live="polite"] > p:nth-child(2) {
-  max-width: 100%;
+  max-width: min(100%, 58rem);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-  font-size: clamp(3.75rem, 10vw, 7.5rem);
+  font-size: clamp(3.25rem, 8vw, 6.75rem);
   font-weight: 900;
-  line-height: 0.9;
-  letter-spacing: -0.045em;
+  line-height: 0.92;
+  letter-spacing: -0.04em;
   color: white;
   text-wrap: balance;
+  transition: color 160ms ease, transform 160ms ease;
 }
 
 .timeline-status > .grid {
-  position: absolute;
-  top: 0.75rem;
-  right: 0;
+  position: static;
+  justify-self: center;
+  margin-top: 0.25rem;
+  gap: 1.5rem;
+}
+
+.timeline-status > .grid span {
+  min-width: 4.5rem;
+  text-align: center;
+}
+
+.timeline-status [role="progressbar"] {
+  width: min(100%, 24rem);
+}
+
+.timeline-player-piano {
+  margin-top: 0.15rem;
 }
 
 @media (min-width: 1024px) {
@@ -120,19 +136,41 @@
   }
 
   .timeline-status {
+    min-height: 8.5rem;
     padding-top: 0.5rem;
   }
 
   .timeline-status [aria-live="polite"] {
-    min-height: 5.5rem;
+    min-height: 5.75rem;
   }
 
   .timeline-status [aria-live="polite"] > p:nth-child(2) {
-    font-size: clamp(2.75rem, 14vw, 5rem);
+    max-width: 95vw;
+    font-size: clamp(2.65rem, 13vw, 4.75rem);
   }
 
   .timeline-status > .grid {
-    position: static;
-    justify-self: center;
+    gap: 1rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .timeline-status {
+    min-height: 8rem;
+  }
+
+  .timeline-status [aria-live="polite"] > p:nth-child(2) {
+    font-size: clamp(2.35rem, 14vw, 4rem);
+    line-height: 0.98;
+  }
+
+  .timeline-status > .grid {
+    width: 100%;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+
+  .timeline-status > .grid span {
+    min-width: 0;
   }
 }
