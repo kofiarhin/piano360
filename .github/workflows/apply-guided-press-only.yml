@@ -20,11 +20,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-
       - name: Decode implementation payloads
         run: |
           python3 - <<'PY'
@@ -43,6 +38,23 @@ jobs:
               encoded = Path(source).read_text().strip()
               Path(target).write_bytes(gzip.decompress(base64.b64decode(encoded)))
           PY
+
+      - name: Commit implementation to main
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            apps/client/src/features/courses/timeline/guidedStopWait.ts \
+            apps/client/src/features/courses/timeline/TimelinePlayer.tsx \
+            apps/client/src/features/courses/timeline/guidedStopWait.test.ts \
+            apps/client/src/features/courses/timeline/TimelinePlayer.test.tsx
+          git commit -m "feat: simplify guided stop-and-wait input"
+          git push origin HEAD:main
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
 
       - name: Install dependencies
         run: npm ci
@@ -66,15 +78,3 @@ jobs:
 
       - name: Build client
         run: npm run build -w @piano360/client
-
-      - name: Commit implementation to main
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add \
-            apps/client/src/features/courses/timeline/guidedStopWait.ts \
-            apps/client/src/features/courses/timeline/TimelinePlayer.tsx \
-            apps/client/src/features/courses/timeline/guidedStopWait.test.ts \
-            apps/client/src/features/courses/timeline/TimelinePlayer.test.tsx
-          git commit -m "feat: simplify guided stop-and-wait input"
-          git push origin HEAD:main
