@@ -25,24 +25,52 @@ jobs:
           node-version: 24
           cache: npm
 
-      - run: npm ci
-
-      - name: Run focused tests
+      - name: Run validation and capture results
         run: |
-          npm test -w @piano360/client -- \
-            src/features/courses/timeline/guidedStopWait.test.ts \
-            src/features/courses/timeline/TimelinePlayer.test.tsx
+          set +e
+          npm ci > /tmp/npm-ci.log 2>&1
+          install_status=$?
 
-      - name: Typecheck client
-        run: npm run typecheck -w @piano360/client
+          test_status=125
+          typecheck_status=125
+          build_status=125
 
-      - name: Build client
-        run: npm run build -w @piano360/client
+          if [ "$install_status" -eq 0 ]; then
+            npm test -w @piano360/client -- \
+              src/features/courses/timeline/guidedStopWait.test.ts \
+              src/features/courses/timeline/TimelinePlayer.test.tsx \
+              > /tmp/tests.log 2>&1
+            test_status=$?
 
-      - name: Remove one-time validation workflow
-        run: |
+            npm run typecheck -w @piano360/client > /tmp/typecheck.log 2>&1
+            typecheck_status=$?
+
+            npm run build -w @piano360/client > /tmp/build.log 2>&1
+            build_status=$?
+          fi
+
+          {
+            echo "INSTALL_STATUS=$install_status"
+            echo "TEST_STATUS=$test_status"
+            echo "TYPECHECK_STATUS=$typecheck_status"
+            echo "BUILD_STATUS=$build_status"
+            echo
+            echo "=== npm ci ==="
+            tail -n 120 /tmp/npm-ci.log
+            echo
+            echo "=== focused tests ==="
+            test -f /tmp/tests.log && tail -n 220 /tmp/tests.log
+            echo
+            echo "=== typecheck ==="
+            test -f /tmp/typecheck.log && tail -n 220 /tmp/typecheck.log
+            echo
+            echo "=== build ==="
+            test -f /tmp/build.log && tail -n 160 /tmp/build.log
+          } > guided-press-only-validation.log
+
           git rm .github/workflows/validate-guided-press-only.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "ci: validate guided press-only changes"
+          git add guided-press-only-validation.log
+          git commit -m "ci: report guided press-only validation"
           git push origin HEAD:main
