@@ -1,248 +1,28 @@
 INSTALL_STATUS=0
-TEST_STATUS=1
+TEST_STATUS=0
 TYPECHECK_STATUS=0
 BUILD_STATUS=0
 
-=== npm ci ===
-npm warn deprecated whatwg-encoding@3.1.1: Use @exodus/bytes instead for a more spec-conformant and faster implementation
-npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
-npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
-npm warn deprecated glob@10.5.0: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
-
-added 734 packages, and audited 737 packages in 11s
-
-145 packages are looking for funding
-  run `npm fund` for details
-
-found 0 vulnerabilities
-npm warn allow-scripts 3 packages have install scripts not yet covered by allowScripts:
-npm warn allow-scripts   esbuild@0.28.1 (postinstall: node install.js)
-npm warn allow-scripts   mongodb-memory-server@11.2.0 (postinstall: node ./postinstall.js)
-npm warn allow-scripts   unrs-resolver@1.12.2 (postinstall: node postinstall.js)
-npm warn allow-scripts
-npm warn allow-scripts Run `npm approve-scripts --allow-scripts-pending` to review, or `npm approve-scripts <pkg>` to allow.
-
 === focused tests ===
-                [36m<span[39m
-                  [33mclass[39m=[32m"font-mono text-sm font-bold text-stone-300"[39m
-                [36m>[39m
-                  [0mBeat [0m
-                  [0m1.2[0m
-                  [0m /[0m
-                  [0m [0m
-                  [0m4[0m
-                [36m</span>[39m
-              [36m</div>[39m
-              [36m<div[39m
-                [33maria-hidden[39m=[32m"true"[39m
-                [33mclass[39m=[32m"timeline-progress-track h-2 overflow-hidden rounded-full bg-white/10"[39m
-              [36m>[39m
-                [36m<div[39m
-                  [33mclass[39m=[32m"h-full bg-amber-200"[39m
-                  [33mstyle[39m=[32m"width: 30.75%;"[39m
-                [36m/>[39m
-              [36m</div>[39m
-            [36m</div>[39m
-            [36m<label[39m
-              [33mclass[39m=[32m"grid min-w-36 gap-1 text-left"[39m
-            [36m>[39m
-              [36m<span[39m
-                [33mclas...
-[90m [2m❯[22m Object.getElementError ../../node_modules/@testing-library/dom/dist/config.js:[2m37:19[22m[39m
-[90m [2m❯[22m ../../node_modules/@testing-library/dom/dist/query-helpers.js:[2m76:38[22m[39m
-[90m [2m❯[22m ../../node_modules/@testing-library/dom/dist/query-helpers.js:[2m52:17[22m[39m
-[90m [2m❯[22m ../../node_modules/@testing-library/dom/dist/query-helpers.js:[2m95:19[22m[39m
-[36m [2m❯[22m src/features/courses/timeline/TimelinePlayer.test.tsx:[2m201:19[22m[39m
-    [90m199| [39m
-    [90m200| [39m    [35mawait[39m [34madvance[39m([34m2050[39m)[33m;[39m
-    [90m201| [39m    [34mexpect[39m(screen[33m.[39m[34mgetByText[39m([32m"Play C4"[39m))[33m.[39m[34mtoBeInTheDocument[39m()[33m;[39m
-    [90m   | [39m                  [31m^[39m
-    [90m202| [39m    expect(screen.queryByText("Lesson complete")).not.toBeInTheDocumen…
-    [90m203| [39m
 
-[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯[22m[39m
-
-[41m[1m FAIL [22m[49m src/features/courses/timeline/TimelinePlayer.test.tsx[2m > [22mTimelinePlayer guided press-only interaction[2m > [22mrequires every input source holding a repeated target to release
-[31m[1mTestingLibraryElementError[22m[39m: Unable to find an element with the text: Lesson complete. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
-
-Ignored nodes: comments, script, style
-[36m<body>[39m
-  [36m<div>[39m
-    [36m<div[39m
-      [33mclass[39m=[32m"mobile-landscape-shell  timeline-player-page bg-[#12110f] text-stone-100"[39m
-      [33mdata-mobile-landscape-shell[39m=[32m"inactive"[39m
-    [36m>[39m
-      [36m<header[39m
-        [33mclass[39m=[32m"site-header border-b border-white/10 bg-[#12110f]/95 text-stone-100 backdrop-blur"[39m
-      [36m>[39m
-        [36m<div[39m
-          [33mclass[39m=[32m"mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 md:px-6"[39m
-        [36m>[39m
-          [36m<a[39m
-            [33mclass[39m=[32m"group flex min-w-0 items-center gap-3"[39m
-            [33mhref[39m=[32m"/"[39m
-          [36m>[39m
-            [36m<span[39m
-              [33maria-hidden[39m=[32m"true"[39m
-              [33mclass[39m=[32m"grid h-10 w-10 grid-cols-5 overflow-hidden rounded-lg border border-amber-200/30 bg-[#f6f2ea] p-1"[39m
-            [36m>[39m
-              [36m<span[39m
-                [33mclass[39m=[32m"border-r border-stone-950/20 last:border-r-0 bg-[#f6f2ea]"[39m
-              [36m/>[39m
-              [36m<span[39m
-                [33mclass[39m=[32m"border-r border-stone-950/20 last:border-r-0 bg-stone-950"[39m
-              [36m/>[39m
-              [36m<span[39m
-                [33mclass[39m=[32m"border-r border-stone-950/20 last:border-r-0 bg-[#f6f2ea]"[39m
-              [36m/>[39m
-              [36m<span[39m
-                [33mclass[39m=[32m"border-r border-stone-950/20 last:border-r-0 bg-stone-950"[39m
-              [36m/>[39m
-              [36m<span[39m
-                [33mclass[39m=[32m"border-r border-stone-950/20 last:border-r-0 bg-[#f6f2ea]"[39m
-              [36m/>[39m
-            [36m</span>[39m
-            [36m<span[39m
-              [33mclass[39m=[32m"truncate text-lg font-black tracking-tight text-white"[39m
-            [36m>[39m
-              [0mPiano360[0m
-            [36m</span>[39m
-          [36m</a>[39m
-          [36m<nav[39m
-            [33maria-label[39m=[32m"Primary"[39m
-            [33mclass[39m=[32m"hidden items-center gap-2 md:flex"[39m
-          [36m>[39m
-            [36m<a[39m
-              [33mclass[39m=[32m"rounded-lg px-3 py-2 text-sm font-black transition active:translate-y-0.5 text-stone-200 hover:bg-white/10 hover:text-white"[39m
-              [33mhref[39m=[32m"/courses"[39m
-            [36m>[39m
-              [0mCourses[0m
-            [36m</a>[39m
-            [36m<a[39m
-              [33mclass[39m=[32m"rounded-lg bg-amber-200 px-4 py-2 text-sm font-black text-stone-950 transition hover:bg-amber-100 active:translate-y-0.5"[39m
-              [33mhref[39m=[32m"/courses"[39m
-            [36m>[39m
-              [0mStart Learning[0m
-            [36m</a>[39m
-          [36m</nav>[39m
-          [36m<button[39m
-            [33maria-controls[39m=[32m"mobile-navigation"[39m
-            [33maria-expanded[39m=[32m"false"[39m
-            [33mclass[39m=[32m"rounded-lg border border-white/15 px-3 py-2 text-sm font-black text-stone-100 transition active:translate-y-0.5 md:hidden"[39m
-            [33mtype[39m=[32m"button"[39m
-          [36m>[39m
-            [0mMenu[0m
-          [36m</button>[39m
-        [36m</div>[39m
-      [36m</header>[39m
-      [36m<main[39m
-        [33mclass[39m=[32m"timeline-player-main min-h-[100dvh] bg-[#12110f] text-stone-100"[39m
-      [36m>[39m
-        [36m<div[39m
-          [33mclass[39m=[32m"timeline-player-workspace mx-auto grid w-full max-w-7xl gap-3 px-4 py-4 md:px-6"[39m
-        [36m>[39m
-          [36m<nav[39m
-            [33mclass[39m=[32m"timeline-player-header flex min-w-0 flex-wrap items-center justify-between gap-3"[39m
-          [36m>[39m
-            [36m<div[39m
-              [33mclass[39m=[32m"min-w-0"[39m
-            [36m>[39m
-              [36m<a[39m
-                [33mclass[39m=[32m"font-bold text-amber-100 hover:underline"[39m
-                [33mhref[39m=[32m"/courses/finger-placement"[39m
-              [36m>[39m
-                [0mFinger Placement[0m
-              [36m</a>[39m
-              [36m<h1[39m
-                [33mclass[39m=[32m"mt-1 break-words text-2xl font-black text-white"[39m
-              [36m>[39m
-                [0mMiddle C Anchor[0m
-              [36m</h1>[39m
-            [36m</div>[39m
-            [36m<div[39m
-              [33mclass[39m=[32m"font-mono text-xs font-black uppercase tracking-[0.18em] text-stone-400"[39m
-            [36m>[39m
-              [0mInstructional timing[0m
-            [36m</div>[39m
-          [36m</nav>[39m
-          [36m<section[39m
-            [33mclass[39m=[32m"timeline-transport grid gap-3 border-y border-white/10 py-3 lg:grid-cols-[1fr_auto] lg:items-end"[39m
-          [36m>[39m
-            [36m<div[39m
-              [33mclass[39m=[32m"grid gap-2"[39m
-            [36m>[39m
-              [36m<div[39m
-                [33mclass[39m=[32m"flex flex-wrap items-center gap-2"[39m
-              [36m>[39m
-                [36m<button[39m
-                  [33maria-label[39m=[32m"Pause lesson"[39m
-                  [33mclass[39m=[32m"min-h-11 min-w-28 rounded-md bg-amber-200 px-4 font-black text-stone-950 transition active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50"[39m
-                  [33mtype[39m=[32m"button"[39m
-                [36m>[39m
-                  [0mPause[0m
-                [36m</button>[39m
-                [36m<button[39m
-                  [33maria-label[39m=[32m"Restart lesson"[39m
-                  [33mclass[39m=[32m"min-h-11 rounded-md border border-white/15 px-4 font-bold text-stone-100 transition active:translate-y-px"[39m
-                  [33mtype[39m=[32m"button"[39m
-                [36m>[39m
-                  [0mRestart[0m
-                [36m</button>[39m
-                [36m<span[39m
-                  [33mclass[39m=[32m"font-mono text-sm font-bold text-stone-300"[39m
-                [36m>[39m
-                  [0mBeat [0m
-                  [0m1.2[0m
-                  [0m /[0m
-                  [0m [0m
-                  [0m4[0m
-                [36m</span>[39m
-              [36m</div>[39m
-              [36m<div[39m
-                [33maria-hidden[39m=[32m"true"[39m
-                [33mclass[39m=[32m"timeline-progress-track h-2 overflow-hidden rounded-full bg-white/10"[39m
-              [36m>[39m
-                [36m<div[39m
-                  [33mclass[39m=[32m"h-full bg-amber-200"[39m
-                  [33mstyle[39m=[32m"width: 30.75%;"[39m
-                [36m/>[39m
-              [36m</div>[39m
-            [36m</div>[39m
-            [36m<label[39m
-              [33mclass[39m=[32m"grid min-w-36 gap-1 text-left"[39m
-            [36m>[39m
-              [36m<span[39m
-                [33mclas...
-[90m [2m❯[22m Object.getElementError ../../node_modules/@testing-library/dom/dist/config.js:[2m37:19[22m[39m
-[90m [2m❯[22m ../../node_modules/@testing-library/dom/dist/query-helpers.js:[2m76:38[22m[39m
-[90m [2m❯[22m ../../node_modules/@testing-library/dom/dist/query-helpers.js:[2m109:15[22m[39m
-[36m [2m❯[22m src/features/courses/timeline/TimelinePlayer.test.tsx:[2m271:19[22m[39m
-    [90m269| [39m
-    [90m270| [39m    fireEvent[33m.[39m[34mpointerDown[39m([34mkeyFor[39m([32m"C4"[39m)[33m,[39m { pointerId[33m:[39m [34m2[39m })[33m;[39m
-    [90m271| [39m    expect(screen.getAllByText("Lesson complete").length).toBeGreaterT…
-    [90m   | [39m                  [31m^[39m
-    [90m272| [39m  })[33m;[39m
-    [90m273| [39m
-
-[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯[22m[39m
+> @piano360/client@0.1.0 test
+> vitest run src/features/courses/timeline/guidedStopWait.test.ts src/features/courses/timeline/TimelinePlayer.test.tsx
 
 
-[2m Test Files [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m1 passed[39m[22m[90m (2)[39m
-[2m      Tests [22m [1m[31m2 failed[39m[22m[2m | [22m[1m[32m13 passed[39m[22m[90m (15)[39m
-[2m   Start at [22m 05:26:19
-[2m   Duration [22m 1.46s[2m (transform 235ms, setup 96ms, collect 340ms, tests 482ms, environment 606ms, prepare 311ms)[22m
+[1m[46m RUN [49m[22m [36mv3.2.7 [39m[90m/home/runner/work/piano360/piano360/apps/client[39m
 
+ [32m✓[39m src/features/courses/timeline/guidedStopWait.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+[90mstderr[2m | src/features/courses/timeline/TimelinePlayer.test.tsx[2m > [22m[2mTimelinePlayer guided press-only interaction[2m > [22m[2mcompletes a single note on the first correct keydown without hold UI
+[22m[39m⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
 
-::error file=/home/runner/work/piano360/piano360/apps/client/src/features/courses/timeline/TimelinePlayer.test.tsx,title=src/features/courses/timeline/TimelinePlayer.test.tsx > TimelinePlayer guided press-only interaction > advances immediately and blocks a repeated held note until release and fresh press,line=201,column=19::TestingLibraryElementError: Unable to find an element with the text: Play C4. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.%0A%0AIgnored nodes: comments, script, style%0A<body>%0A  <div>%0A    <div%0A      class="mobile-landscape-shell  timeline-player-page bg-[#12110f] text-stone-100"%0A      data-mobile-landscape-shell="inactive"%0A    >%0A      <header%0A        class="site-header border-b border-white/10 bg-[#12110f]/95 text-stone-100 backdrop-blur"%0A      >%0A        <div%0A          class="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 md:px-6"%0A        >%0A          <a%0A            class="group flex min-w-0 items-center gap-3"%0A            href="/"%0A          >%0A            <span%0A              aria-hidden="true"%0A              class="grid h-10 w-10 grid-cols-5 overflow-hidden rounded-lg border border-amber-200/30 bg-[#f6f2ea] p-1"%0A            >%0A              <span%0A                class="border-r border-stone-950/20 last:border-r-0 bg-[#f6f2ea]"%0A              />%0A              <span%0A                class="border-r border-stone-950/20 last:border-r-0 bg-stone-950"%0A              />%0A              <span%0A                class="border-r border-stone-950/20 last:border-r-0 bg-[#f6f2ea]"%0A              />%0A              <span%0A                class="border-r border-stone-950/20 last:border-r-0 bg-stone-950"%0A              />%0A              <span%0A                class="border-r border-stone-950/20 last:border-r-0 bg-[#f6f2ea]"%0A              />%0A            </span>%0A            <span%0A              class="truncate text-lg font-black tracking-tight text-white"%0A            >%0A              Piano360%0A            </span>%0A          </a>%0A          <nav%0A            aria-label="Primary"%0A            class="hidden items-center gap-2 md:flex"%0A          >%0A            <a%0A              class="rounded-lg px-3 py-2 text-sm font-black transition active:translate-y-0.5 text-stone-200 hover:bg-white/10 hover:text-white"%0A              href="/courses"%0A            >%0A              Courses%0A            </a>%0A            <a%0A              class="rounded-lg bg-amber-200 px-4 py-2 text-sm font-black text-stone-950 transition hover:bg-amber-100 active:translate-y-0.5"%0A              href="/courses"%0A            >%0A              Start Learning%0A            </a>%0A          </nav>%0A          <button%0A            aria-controls="mobile-navigation"%0A            aria-expanded="false"%0A            class="rounded-lg border border-white/15 px-3 py-2 text-sm font-black text-stone-100 transition active:translate-y-0.5 md:hidden"%0A            type="button"%0A          >%0A            Menu%0A          </button>%0A        </div>%0A      </header>%0A      <main%0A        class="timeline-player-main min-h-[100dvh] bg-[#12110f] text-stone-100"%0A      >%0A        <div%0A          class="timeline-player-workspace mx-auto grid w-full max-w-7xl gap-3 px-4 py-4 md:px-6"%0A        >%0A          <nav%0A            class="timeline-player-header flex min-w-0 flex-wrap items-center justify-between gap-3"%0A          >%0A            <div%0A              class="min-w-0"%0A            >%0A              <a%0A                class="font-bold text-amber-100 hover:underline"%0A                href="/courses/finger-placement"%0A              >%0A                Finger Placement%0A              </a>%0A              <h1%0A                class="mt-1 break-words text-2xl font-black text-white"%0A              >%0A                Middle C Anchor%0A              </h1>%0A            </div>%0A            <div%0A              class="font-mono text-xs font-black uppercase tracking-[0.18em] text-stone-400"%0A            >%0A              Instructional timing%0A            </div>%0A          </nav>%0A          <section%0A            class="timeline-transport grid gap-3 border-y border-white/10 py-3 lg:grid-cols-[1fr_auto] lg:items-end"%0A          >%0A            <div%0A              class="grid gap-2"%0A            >%0A              <div%0A                class="flex flex-wrap items-center gap-2"%0A              >%0A                <button%0A                  aria-label="Pause lesson"%0A                  class="min-h-11 min-w-28 rounded-md bg-amber-200 px-4 font-black text-stone-950 transition active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50"%0A                  type="button"%0A                >%0A                  Pause%0A                </button>%0A                <button%0A                  aria-label="Restart lesson"%0A                  class="min-h-11 rounded-md border border-white/15 px-4 font-bold text-stone-100 transition active:translate-y-px"%0A                  type="button"%0A                >%0A                  Restart%0A                </button>%0A                <span%0A                  class="font-mono text-sm font-bold text-stone-300"%0A                >%0A                  Beat %0A                  1.2%0A                   /%0A                   %0A                  4%0A                </span>%0A              </div>%0A              <div%0A                aria-hidden="true"%0A                class="timeline-progress-track h-2 overflow-hidden rounded-full bg-white/10"%0A              >%0A                <div%0A                  class="h-full bg-amber-200"%0A                  style="width: 30.75%25;"%0A                />%0A              </div>%0A            </div>%0A            <label%0A              class="grid min-w-36 gap-1 text-left"%0A            >%0A              <span%0A                clas...%0A ❯ Object.getElementError ../../node_modules/@testing-library/dom/dist/config.js:37:19%0A ❯ ../../node_modules/@testing-library/dom/dist/query-helpers.js:76:38%0A ❯ ../../node_modules/@testing-library/dom/dist/query-helpers.js:52:17%0A ❯ ../../node_modules/@testing-library/dom/dist/query-helpers.js:95:19%0A ❯ src/features/courses/timeline/TimelinePlayer.test.tsx:201:19%0A%0A
+ [32m✓[39m src/features/courses/timeline/TimelinePlayer.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[33m 597[2mms[22m[39m
 
-::error file=/home/runner/work/piano360/piano360/apps/client/src/features/courses/timeline/TimelinePlayer.test.tsx,title=src/features/courses/timeline/TimelinePlayer.test.tsx > TimelinePlayer guided press-only interaction > requires every input source holding a repeated target to release,line=271,column=19::TestingLibraryElementError: Unable to find an element with the text: Lesson complete. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.%0A%0AIgnored nodes: comments, script, style%0A<body>%0A  <div>%0A    <div%0A      class="mobile-landscape-shell  timeline-player-page bg-[#12110f] text-stone-100"%0A      data-mobile-landscape-shell="inactive"%0A    >%0A      <header%0A        class="site-header border-b border-white/10 bg-[#12110f]/95 text-stone-100 backdrop-blur"%0A      >%0A        <div%0A          class="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 md:px-6"%0A        >%0A          <a%0A            class="group flex min-w-0 items-center gap-3"%0A            href="/"%0A          >%0A            <span%0A              aria-hidden="true"%0A              class="grid h-10 w-10 grid-cols-5 overflow-hidden rounded-lg border border-amber-200/30 bg-[#f6f2ea] p-1"%0A            >%0A              <span%0A                class="border-r border-stone-950/20 last:border-r-0 bg-[#f6f2ea]"%0A              />%0A              <span%0A                class="border-r border-stone-950/20 last:border-r-0 bg-stone-950"%0A              />%0A              <span%0A                class="border-r border-stone-950/20 last:border-r-0 bg-[#f6f2ea]"%0A              />%0A              <span%0A                class="border-r border-stone-950/20 last:border-r-0 bg-stone-950"%0A              />%0A              <span%0A                class="border-r border-stone-950/20 last:border-r-0 bg-[#f6f2ea]"%0A              />%0A            </span>%0A            <span%0A              class="truncate text-lg font-black tracking-tight text-white"%0A            >%0A              Piano360%0A            </span>%0A          </a>%0A          <nav%0A            aria-label="Primary"%0A            class="hidden items-center gap-2 md:flex"%0A          >%0A            <a%0A              class="rounded-lg px-3 py-2 text-sm font-black transition active:translate-y-0.5 text-stone-200 hover:bg-white/10 hover:text-white"%0A              href="/courses"%0A            >%0A              Courses%0A            </a>%0A            <a%0A              class="rounded-lg bg-amber-200 px-4 py-2 text-sm font-black text-stone-950 transition hover:bg-amber-100 active:translate-y-0.5"%0A              href="/courses"%0A            >%0A              Start Learning%0A            </a>%0A          </nav>%0A          <button%0A            aria-controls="mobile-navigation"%0A            aria-expanded="false"%0A            class="rounded-lg border border-white/15 px-3 py-2 text-sm font-black text-stone-100 transition active:translate-y-0.5 md:hidden"%0A            type="button"%0A          >%0A            Menu%0A          </button>%0A        </div>%0A      </header>%0A      <main%0A        class="timeline-player-main min-h-[100dvh] bg-[#12110f] text-stone-100"%0A      >%0A        <div%0A          class="timeline-player-workspace mx-auto grid w-full max-w-7xl gap-3 px-4 py-4 md:px-6"%0A        >%0A          <nav%0A            class="timeline-player-header flex min-w-0 flex-wrap items-center justify-between gap-3"%0A          >%0A            <div%0A              class="min-w-0"%0A            >%0A              <a%0A                class="font-bold text-amber-100 hover:underline"%0A                href="/courses/finger-placement"%0A              >%0A                Finger Placement%0A              </a>%0A              <h1%0A                class="mt-1 break-words text-2xl font-black text-white"%0A              >%0A                Middle C Anchor%0A              </h1>%0A            </div>%0A            <div%0A              class="font-mono text-xs font-black uppercase tracking-[0.18em] text-stone-400"%0A            >%0A              Instructional timing%0A            </div>%0A          </nav>%0A          <section%0A            class="timeline-transport grid gap-3 border-y border-white/10 py-3 lg:grid-cols-[1fr_auto] lg:items-end"%0A          >%0A            <div%0A              class="grid gap-2"%0A            >%0A              <div%0A                class="flex flex-wrap items-center gap-2"%0A              >%0A                <button%0A                  aria-label="Pause lesson"%0A                  class="min-h-11 min-w-28 rounded-md bg-amber-200 px-4 font-black text-stone-950 transition active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50"%0A                  type="button"%0A                >%0A                  Pause%0A                </button>%0A                <button%0A                  aria-label="Restart lesson"%0A                  class="min-h-11 rounded-md border border-white/15 px-4 font-bold text-stone-100 transition active:translate-y-px"%0A                  type="button"%0A                >%0A                  Restart%0A                </button>%0A                <span%0A                  class="font-mono text-sm font-bold text-stone-300"%0A                >%0A                  Beat %0A                  1.2%0A                   /%0A                   %0A                  4%0A                </span>%0A              </div>%0A              <div%0A                aria-hidden="true"%0A                class="timeline-progress-track h-2 overflow-hidden rounded-full bg-white/10"%0A              >%0A                <div%0A                  class="h-full bg-amber-200"%0A                  style="width: 30.75%25;"%0A                />%0A              </div>%0A            </div>%0A            <label%0A              class="grid min-w-36 gap-1 text-left"%0A            >%0A              <span%0A                clas...%0A ❯ Object.getElementError ../../node_modules/@testing-library/dom/dist/config.js:37:19%0A ❯ ../../node_modules/@testing-library/dom/dist/query-helpers.js:76:38%0A ❯ ../../node_modules/@testing-library/dom/dist/query-helpers.js:109:15%0A ❯ src/features/courses/timeline/TimelinePlayer.test.tsx:271:19%0A%0A
-npm error Lifecycle script `test` failed with error:
-npm error code 1
-npm error path /home/runner/work/piano360/piano360/apps/client
-npm error workspace @piano360/client@0.1.0
-npm error location /home/runner/work/piano360/piano360/apps/client
-npm error command failed
-npm error command sh -c vitest run src/features/courses/timeline/guidedStopWait.test.ts src/features/courses/timeline/TimelinePlayer.test.tsx
+[2m Test Files [22m [1m[32m2 passed[39m[22m[90m (2)[39m
+[2m      Tests [22m [1m[32m15 passed[39m[22m[90m (15)[39m
+[2m   Start at [22m 05:29:24
+[2m   Duration [22m 1.75s[2m (transform 240ms, setup 118ms, collect 369ms, tests 605ms, environment 745ms, prepare 365ms)[22m
+
 
 === typecheck ===
 
@@ -268,4 +48,4 @@ computing gzip size...
 - Using dynamic import() to code-split the application
 - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
 - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.[39m
-[32m✓ built in 2.74s[39m
+[32m✓ built in 3.08s[39m
