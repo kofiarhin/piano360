@@ -1,0 +1,48 @@
+name: Validate guided press-only interaction
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/validate-guided-press-only.yml
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    if: github.repository == 'kofiarhin/piano360'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run focused tests
+        run: |
+          npm test -w @piano360/client -- \
+            src/features/courses/timeline/guidedStopWait.test.ts \
+            src/features/courses/timeline/TimelinePlayer.test.tsx
+
+      - name: Typecheck client
+        run: npm run typecheck -w @piano360/client
+
+      - name: Build client
+        run: npm run build -w @piano360/client
+
+      - name: Remove one-time validation workflow
+        run: |
+          git rm .github/workflows/validate-guided-press-only.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "ci: validate guided press-only changes"
+          git push origin HEAD:main
