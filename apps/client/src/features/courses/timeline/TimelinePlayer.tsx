@@ -974,7 +974,7 @@ export const TimelinePlayer = ({
                       ? "Pause"
                       : state.phase === "paused" || stopWaitManualPause
                         ? "Resume"
-                                 : "Play"}
+                        : "Play"}
                 </button>
                 <button
                   type="button"
