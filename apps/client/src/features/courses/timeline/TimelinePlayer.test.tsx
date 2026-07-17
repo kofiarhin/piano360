@@ -197,7 +197,7 @@ describe("TimelinePlayer guided press-only interaction", () => {
     expect(keyFor("C4").className).toContain(activeClass);
     expect(screen.queryByText("Good")).not.toBeInTheDocument();
 
-    await advance(2050);
+    await advance(3500);
     expect(screen.getByText("Play C4")).toBeInTheDocument();
     expect(screen.queryByText("Lesson complete")).not.toBeInTheDocument();
 
@@ -260,7 +260,7 @@ describe("TimelinePlayer guided press-only interaction", () => {
     await advance(20);
     fireEvent.keyDown(window, { key: "d" });
     fireEvent.pointerDown(keyFor("C4"), { pointerId: 1 });
-    await advance(2050);
+    await advance(3500);
 
     fireEvent.keyUp(window, { key: "d" });
     expect(keyFor("C4").className).toContain(activeClass);
