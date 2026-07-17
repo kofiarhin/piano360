@@ -1,8 +1,18 @@
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
 import { Link } from "react-router-dom";
 
 import { playNote, warmAudio } from "../../../audio/NotePlayer";
-import { MobileLandscapeShell, useMobileLandscapeMode } from "../../../shared/MobileLandscapeShell";
+import {
+  MobileLandscapeShell,
+  useMobileLandscapeMode,
+} from "../../../shared/MobileLandscapeShell";
 import { SiteHeader } from "../../../shared/SiteHeader";
 import { CoursePiano } from "../CoursePiano";
 import type { LessonDetail, NoteId, TimedNoteEvent } from "../courseTypes";
@@ -12,20 +22,23 @@ import {
   applyGuidedRecoveryPress,
   applyGuidedRecoveryRelease,
   createGuidedRecoveryState,
-  type GuidedRecoveryState
+  type GuidedRecoveryState,
 } from "./guidedRecovery";
 import {
   createGuidedPlayState,
   guidedPlayReducer,
   isGuidedPlayCompletionEligible,
-  summarizeGuidedPlay
+  summarizeGuidedPlay,
 } from "./guidedPlayReducer";
-import type { EventResult, GuidedPlaySummary, TimingFeedback } from "./guidedPlayScoring";
+import type {
+  EventResult,
+  GuidedPlaySummary,
+  TimingFeedback,
+} from "./guidedPlayScoring";
 import {
   applyGuidedStopWaitPress,
   applyGuidedStopWaitRelease,
   calculateStopWaitApproachToleranceBeats,
-  completeGuidedStopWaitHold,
   completeGuidedStopWait,
   createGuidedStopWaitState,
   guidedStopWaitPrompt,
@@ -36,7 +49,7 @@ import {
   resolveGuidedStopWaitApproachingPress,
   resumeGuidedStopWait,
   startGuidedStopWaitApproach,
-  type GuidedStopWaitState
+  type GuidedStopWaitState,
 } from "./guidedStopWait";
 import type { NoteAttempt } from "./noteInput";
 import type { ResolvedGuidedTimeline } from "./resolveGuidedTimeline";
@@ -49,7 +62,7 @@ import {
   expireMissedEvents,
   judgeTimelineInput,
   judgeTimelineRelease,
-  type TimelineJudgeState
+  type TimelineJudgeState,
 } from "./timingJudge";
 import { useTimelineInput } from "./useTimelineInput";
 import { useTimelineTransport } from "./useTimelineTransport";
@@ -62,16 +75,21 @@ type TimelinePlayerProps = {
 };
 
 const RECOVERY_CONFIRMATION_MS = 320;
-const STOP_WAIT_CONFIRMATION_MS = 320;
 const GUIDED_EVENT_LEAD_IN_BEATS = 4;
 
 type TimelineRuntimeMode = "guided-stop-wait" | "assisted" | "performance";
 
+type HeldInputSources = Map<NoteId, Set<NoteAttempt["source"]>>;
+
 const runtimeModeFor = (lesson: LessonDetail): TimelineRuntimeMode => {
   if (lesson.defaultPracticeMode === "performance") return "performance";
-  if (lesson.behaviour?.guidedInteractionMode === "stop-and-wait") return "guided-stop-wait";
+  if (lesson.behaviour?.guidedInteractionMode === "stop-and-wait")
+    return "guided-stop-wait";
   if (lesson.behaviour?.guidedInteractionMode === "assisted") return "assisted";
-  if ((lesson.behaviour?.pauseOnMiss ?? false) && lesson.behaviour?.enableTimingScore === false) {
+  if (
+    (lesson.behaviour?.pauseOnMiss ?? false) &&
+    lesson.behaviour?.enableTimingScore === false
+  ) {
     return "guided-stop-wait";
   }
   if (lesson.behaviour?.pauseOnMiss) return "assisted";
@@ -93,14 +111,15 @@ const feedbackLabel = (feedback?: TimingFeedback) => {
   if (feedback.classification === "partial") return "Partial target";
   if (feedback.classification === "missed") return "Missed";
   const delta = feedback.deltaMs ?? 0;
-  const label = feedback.classification[0].toUpperCase() + feedback.classification.slice(1);
+  const label =
+    feedback.classification[0].toUpperCase() + feedback.classification.slice(1);
   return `${label} ${delta >= 0 ? "+" : ""}${Math.round(delta)} ms`;
 };
 
 const progressSummaryToLegacyCompletion = (
   summary: GuidedPlaySummary,
   totalEvents: number,
-  lesson: LessonDetail
+  lesson: LessonDetail,
 ) => {
   const correctInputs = summary.fullyCorrectInputs;
 
@@ -127,19 +146,26 @@ const progressSummaryToLegacyCompletion = (
     missedInputs: summary.missedInputs,
     wrongInputs: summary.wrongInputs,
     meanAbsoluteTimingErrorMs: summary.meanAbsoluteTimingErrorMs,
-    rhythmicAccuracy: summary.scorePercent
+    rhythmicAccuracy: summary.scorePercent,
   };
 };
 
 const timingSourceLabel = (timeline: ResolvedGuidedTimeline) =>
-  timeline.timingSource === "verified" ? "Verified rhythm" : "Instructional timing";
+  timeline.timingSource === "verified"
+    ? "Verified rhythm"
+    : "Instructional timing";
 
-const recoveryPrompt = (event?: TimedNoteEvent, recovery?: GuidedRecoveryState) => {
+const recoveryPrompt = (
+  event?: TimedNoteEvent,
+  recovery?: GuidedRecoveryState,
+) => {
   if (!event) return "Waiting for you";
   if (recovery?.phase === "holding") return "Hold";
   if (recovery?.phase === "releasing") return "Release";
   if (event.notes.length > 1) {
-    return recovery?.phase === "collecting-chord" ? "Complete the chord" : "Play the full chord";
+    return recovery?.phase === "collecting-chord"
+      ? "Complete the chord"
+      : "Play the full chord";
   }
   return `Play ${event.notes[0]}`;
 };
@@ -148,12 +174,12 @@ const createStopWaitSummary = (
   stopWaitState: GuidedStopWaitState,
   events: TimedNoteEvent[],
   durationMs: number,
-  restartCount: number
+  restartCount: number,
 ): GuidedPlaySummary => {
   const masteredCount = stopWaitState.completedEventIds.length;
   const retryCount = Object.values(stopWaitState.retryCountByEventId).reduce(
     (sum, count) => sum + count,
-    0
+    0,
   );
   const incorrectInputs = stopWaitState.wrongNoteCount + retryCount;
 
@@ -174,7 +200,7 @@ const createStopWaitSummary = (
     wrongInputs: stopWaitState.wrongNoteCount,
     meanAbsoluteTimingErrorMs: 0,
     durationMs,
-    restartCount
+    restartCount,
   };
 };
 
@@ -182,31 +208,83 @@ export const TimelinePlayer = ({
   lesson,
   timeline,
   nextLessonSlug,
-  onProgressSaved
+  onProgressSaved,
 }: TimelinePlayerProps) => {
   const mobileLandscapeActive = useMobileLandscapeMode();
   const noteEvents = useMemo(() => timeline.events, [timeline.events]);
   const [tempoPercent, setTempoPercent] = useState(() =>
-    loadTempoPercent(lesson.courseSlug, lesson.slug)
+    loadTempoPercent(lesson.courseSlug, lesson.slug),
   );
   const initialBpm = tempoFromPercent(timeline.originalBpm, tempoPercent);
   const transport = useTimelineTransport({
     bpm: initialBpm,
     totalBeats: timeline.totalBeats,
-    countInBeats: timeline.countInBeats
+    countInBeats: timeline.countInBeats,
   });
-  const [state, dispatch] = useReducer(guidedPlayReducer, undefined, createGuidedPlayState);
+  const [state, dispatch] = useReducer(
+    guidedPlayReducer,
+    undefined,
+    createGuidedPlayState,
+  );
   const judgeStateRef = useRef<TimelineJudgeState>(createTimelineJudgeState());
   const savedCompletionRef = useRef(false);
   const recoveryTimerRef = useRef<number | undefined>(undefined);
-  const stopWaitTimerRef = useRef<number | undefined>(undefined);
+  const heldInputSourcesRef = useRef<HeldInputSources>(new Map());
   const [activeNotes, setActiveNotes] = useState<NoteId[]>([]);
   const [wrongNotes, setWrongNotes] = useState<NoteId[]>([]);
   const [recoveryState, setRecoveryState] = useState<GuidedRecoveryState>();
-  const [stopWaitState, setStopWaitState] = useState(() => createGuidedStopWaitState(noteEvents));
+  const [stopWaitState, setStopWaitState] = useState(() =>
+    createGuidedStopWaitState(noteEvents),
+  );
+  const stopWaitStateRef = useRef(stopWaitState);
   const runtimeMode = runtimeModeFor(lesson);
   const stopWaitEnabled = runtimeMode === "guided-stop-wait";
-  const recoveryEnabled = runtimeMode === "assisted" && (lesson.behaviour?.pauseOnMiss ?? true);
+  const recoveryEnabled =
+    runtimeMode === "assisted" && (lesson.behaviour?.pauseOnMiss ?? true);
+
+  const commitStopWaitState = useCallback((nextState: GuidedStopWaitState) => {
+    stopWaitStateRef.current = nextState;
+    setStopWaitState(nextState);
+  }, []);
+
+  const updateStopWaitState = useCallback(
+    (updater: (current: GuidedStopWaitState) => GuidedStopWaitState) => {
+      const nextState = updater(stopWaitStateRef.current);
+      commitStopWaitState(nextState);
+      return nextState;
+    },
+    [commitStopWaitState],
+  );
+
+  const getHeldNotes = useCallback(
+    () => [...heldInputSourcesRef.current.keys()],
+    [],
+  );
+
+  const updateHeldInput = useCallback((attempt: NoteAttempt) => {
+    const heldSources = heldInputSourcesRef.current;
+    const sources = new Set(heldSources.get(attempt.note) ?? []);
+
+    if (attempt.phase === "press") {
+      sources.add(attempt.source);
+    } else {
+      sources.delete(attempt.source);
+    }
+
+    if (sources.size) {
+      heldSources.set(attempt.note, sources);
+    } else {
+      heldSources.delete(attempt.note);
+    }
+
+    const heldNotes = [...heldSources.keys()];
+    setActiveNotes(heldNotes);
+
+    return {
+      heldNotes,
+      noteStillHeld: heldSources.has(attempt.note),
+    };
+  }, []);
 
   const nextUnjudgedEvent = useMemo(() => {
     const judged = new Set(judgeStateRef.current.judgedEventIds);
@@ -225,28 +303,25 @@ export const TimelinePlayer = ({
   const timingSummary = summarizeGuidedPlay(
     state,
     noteEvents,
-    beatToMilliseconds(timeline.totalBeats, transport.selectedBpm)
+    beatToMilliseconds(timeline.totalBeats, transport.selectedBpm),
   );
   const summary = stopWaitEnabled
     ? createStopWaitSummary(
         stopWaitState,
         noteEvents,
         beatToMilliseconds(timeline.totalBeats, transport.selectedBpm),
-        state.restartCount
+        state.restartCount,
       )
     : timingSummary;
   const completed = state.phase === "completed";
-  const recoveryLocked = state.phase === "recovery" && recoveryState !== undefined;
-  const stopWaitInputLocked = stopWaitEnabled && isGuidedStopWaitInputLocked(stopWaitState.phase);
-  const stopWaitConfirmation = stopWaitEnabled && stopWaitState.phase === "success-confirmation";
-  const stopWaitManualPause = stopWaitEnabled && stopWaitState.phase === "manual-pause";
+  const recoveryLocked =
+    state.phase === "recovery" && recoveryState !== undefined;
+  const stopWaitInputLocked =
+    stopWaitEnabled && isGuidedStopWaitInputLocked(stopWaitState.phase);
+  const stopWaitManualPause =
+    stopWaitEnabled && stopWaitState.phase === "manual-pause";
   const transportLocked = recoveryLocked || stopWaitInputLocked;
-  const confirmationLocked = state.phase === "recovery-confirmation" || stopWaitConfirmation;
-  const stopWaitHoldProgress =
-    stopWaitEnabled &&
-    (stopWaitState.phase === "holding" || stopWaitState.phase === "waiting-for-release")
-      ? (stopWaitState.holdProgress ?? (stopWaitState.phase === "waiting-for-release" ? 1 : 0))
-      : undefined;
+  const confirmationLocked = state.phase === "recovery-confirmation";
 
   const applyResults = useCallback((results: EventResult[]) => {
     for (const result of results) {
@@ -255,7 +330,9 @@ export const TimelinePlayer = ({
   }, []);
 
   const showWrongNote = useCallback((note: NoteId) => {
-    setWrongNotes((current) => (current.includes(note) ? current : [...current, note]));
+    setWrongNotes((current) =>
+      current.includes(note) ? current : [...current, note],
+    );
     window.setTimeout(() => {
       setWrongNotes((current) => current.filter((item) => item !== note));
     }, 300);
@@ -274,11 +351,14 @@ export const TimelinePlayer = ({
         feedback: {
           classification: "missed",
           label:
-            label ?? (event.notes.length > 1 ? "Play the full chord" : `Play ${event.notes[0]}`)
-        }
+            label ??
+            (event.notes.length > 1
+              ? "Play the full chord"
+              : `Play ${event.notes[0]}`),
+        },
       });
     },
-    [noteEvents, recoveryEnabled, transport]
+    [noteEvents, recoveryEnabled, transport],
   );
 
   const finishRecovery = useCallback(
@@ -293,45 +373,45 @@ export const TimelinePlayer = ({
         const judged = new Set(judgeStateRef.current.judgedEventIds);
         const nextEvent = noteEvents.find((event) => !judged.has(event.id));
         if (nextEvent) {
-          transport.seek(Math.max(0, nextEvent.startBeat - GUIDED_EVENT_LEAD_IN_BEATS));
+          transport.seek(
+            Math.max(0, nextEvent.startBeat - GUIDED_EVENT_LEAD_IN_BEATS),
+          );
           transport.play();
         } else {
           transport.seek(timeline.totalBeats);
         }
       }, RECOVERY_CONFIRMATION_MS);
     },
-    [noteEvents, timeline.totalBeats, transport]
+    [noteEvents, timeline.totalBeats, transport],
   );
 
   const finishStopWaitEvent = useCallback(
-    (completedStopWaitState: GuidedStopWaitState) => {
-      if (stopWaitTimerRef.current !== undefined) {
-        window.clearTimeout(stopWaitTimerRef.current);
-      }
-      dispatch({
-        type: "feedback",
-        feedback: { classification: "good", label: completedStopWaitState.feedback ?? "Good" }
-      });
-      stopWaitTimerRef.current = window.setTimeout(() => {
-        const nextEvent = nextUncompletedEvent(
-          noteEvents,
-          completedStopWaitState.completedEventIds
+    (completedStopWaitState: GuidedStopWaitState, heldNotes: NoteId[]) => {
+      const nextEvent = nextUncompletedEvent(
+        noteEvents,
+        completedStopWaitState.completedEventIds,
+      );
+
+      if (nextEvent) {
+        const nextState = startGuidedStopWaitApproach(
+          completedStopWaitState,
+          nextEvent,
+          heldNotes,
         );
+        commitStopWaitState(nextState);
+        transport.seek(
+          Math.max(0, nextEvent.startBeat - GUIDED_EVENT_LEAD_IN_BEATS),
+        );
+        transport.play();
+        dispatch({ type: "resume" });
+        return;
+      }
 
-        if (nextEvent) {
-          transport.seek(Math.max(0, nextEvent.startBeat - GUIDED_EVENT_LEAD_IN_BEATS));
-          setStopWaitState(startGuidedStopWaitApproach(completedStopWaitState, nextEvent));
-          transport.play();
-          dispatch({ type: "resume" });
-          return;
-        }
-
-        transport.seek(timeline.totalBeats);
-        setStopWaitState(completeGuidedStopWait(completedStopWaitState));
-        dispatch({ type: "complete" });
-      }, STOP_WAIT_CONFIRMATION_MS);
+      transport.seek(timeline.totalBeats);
+      commitStopWaitState(completeGuidedStopWait(completedStopWaitState));
+      dispatch({ type: "complete" });
     },
-    [noteEvents, timeline.totalBeats, transport]
+    [commitStopWaitState, noteEvents, timeline.totalBeats, transport],
   );
 
   useEffect(
@@ -339,48 +419,46 @@ export const TimelinePlayer = ({
       if (recoveryTimerRef.current !== undefined) {
         window.clearTimeout(recoveryTimerRef.current);
       }
-      if (stopWaitTimerRef.current !== undefined) {
-        window.clearTimeout(stopWaitTimerRef.current);
-      }
     },
-    []
+    [],
   );
 
   useEffect(() => {
-    if (!stopWaitEnabled || !stopWaitEvent || stopWaitState.phase !== "holding") return;
+    if (!stopWaitEnabled) return;
 
-    let frameId = 0;
-    const tick = () => {
-      setStopWaitState((current) =>
-        completeGuidedStopWaitHold(
-          current,
-          stopWaitEvent,
-          performance.now(),
-          transport.selectedBpm,
-          DEFAULT_TIMING_WINDOWS
+    const currentStopWaitState = stopWaitStateRef.current;
+    const currentStopWaitEvent = currentStopWaitState.activeEventId
+      ? noteEvents.find(
+          (event) => event.id === currentStopWaitState.activeEventId,
         )
-      );
-      frameId = window.requestAnimationFrame(tick);
-    };
+      : undefined;
 
-    frameId = window.requestAnimationFrame(tick);
-    return () => window.cancelAnimationFrame(frameId);
-  }, [stopWaitEnabled, stopWaitEvent, stopWaitState.phase, transport.selectedBpm]);
+    if (
+      currentStopWaitState.phase === "approaching" &&
+      currentStopWaitEvent &&
+      transport.isPlaying &&
+      transport.currentBeat >= currentStopWaitEvent.startBeat
+    ) {
+      transport.pause();
+      transport.seek(currentStopWaitEvent.startBeat);
+      commitStopWaitState(
+        lockGuidedStopWaitEvent(
+          currentStopWaitState,
+          currentStopWaitEvent,
+          getHeldNotes(),
+        ),
+      );
+    }
+  }, [
+    commitStopWaitState,
+    getHeldNotes,
+    noteEvents,
+    stopWaitEnabled,
+    transport,
+  ]);
 
   useEffect(() => {
-    if (stopWaitEnabled) {
-      if (
-        stopWaitState.phase === "approaching" &&
-        stopWaitEvent &&
-        transport.isPlaying &&
-        transport.currentBeat >= stopWaitEvent.startBeat
-      ) {
-        transport.pause();
-        transport.seek(stopWaitEvent.startBeat);
-        setStopWaitState((current) => lockGuidedStopWaitEvent(current, stopWaitEvent));
-      }
-      return;
-    }
+    if (stopWaitEnabled) return;
 
     if (transport.isPlaying && transport.currentBeat >= 0 && !recoveryState) {
       const expired = expireMissedEvents(
@@ -389,7 +467,7 @@ export const TimelinePlayer = ({
         beatToMilliseconds(transport.currentBeat, transport.selectedBpm),
         transport.selectedBpm,
         DEFAULT_TIMING_WINDOWS,
-        { stopAfterFirstFailure: recoveryEnabled }
+        { stopAfterFirstFailure: recoveryEnabled },
       );
 
       if (expired.results.length) {
@@ -399,11 +477,12 @@ export const TimelinePlayer = ({
         if (
           recoveryEnabled &&
           failed &&
-          (failed.classification === "missed" || failed.classification === "partial")
+          (failed.classification === "missed" ||
+            failed.classification === "partial")
         ) {
           beginRecovery(
             failed.eventId,
-            failed.classification === "partial" ? "Hold longer" : undefined
+            failed.classification === "partial" ? "Hold longer" : undefined,
           );
           return;
         }
@@ -416,7 +495,7 @@ export const TimelinePlayer = ({
       events: noteEvents,
       judgeState: judgeStateRef.current,
       currentBeat: transport.currentBeat,
-      totalBeats: timeline.totalBeats
+      totalBeats: timeline.totalBeats,
     });
     if (state.phase !== "completed" && completionEligible) {
       transport.pause();
@@ -428,79 +507,99 @@ export const TimelinePlayer = ({
     noteEvents,
     recoveryEnabled,
     recoveryState,
-    stopWaitEnabled,
-    stopWaitEvent,
-    stopWaitState.phase,
     state.phase,
+    stopWaitEnabled,
     timeline.totalBeats,
-    transport
+    transport,
   ]);
 
   const play = useCallback(() => {
-    if (recoveryState || confirmationLocked || stopWaitInputLocked) return;
+    const currentStopWaitState = stopWaitStateRef.current;
+    const currentStopWaitInputLocked =
+      stopWaitEnabled &&
+      isGuidedStopWaitInputLocked(currentStopWaitState.phase);
+
+    if (recoveryState || confirmationLocked || currentStopWaitInputLocked)
+      return;
     warmAudio();
+
     if (stopWaitEnabled) {
+      const currentStopWaitEvent = currentStopWaitState.activeEventId
+        ? noteEvents.find(
+            (event) => event.id === currentStopWaitState.activeEventId,
+          )
+        : undefined;
       const nextEvent =
-        stopWaitEvent ?? nextUncompletedEvent(noteEvents, stopWaitState.completedEventIds);
+        currentStopWaitEvent ??
+        nextUncompletedEvent(
+          noteEvents,
+          currentStopWaitState.completedEventIds,
+        );
+
       if (!nextEvent) {
-        setStopWaitState((current) => completeGuidedStopWait(current));
+        commitStopWaitState(completeGuidedStopWait(currentStopWaitState));
         dispatch({ type: "complete" });
         return;
       }
-      if (stopWaitState.phase === "manual-pause") {
-        setStopWaitState((current) => resumeGuidedStopWait(current));
-      } else if (stopWaitState.phase === "idle") {
-        setStopWaitState((current) => startGuidedStopWaitApproach(current, nextEvent));
+
+      if (currentStopWaitState.phase === "manual-pause") {
+        commitStopWaitState(
+          resumeGuidedStopWait(currentStopWaitState, getHeldNotes()),
+        );
+      } else if (currentStopWaitState.phase === "idle") {
+        commitStopWaitState(
+          startGuidedStopWaitApproach(
+            currentStopWaitState,
+            nextEvent,
+            getHeldNotes(),
+          ),
+        );
       }
     }
+
     transport.play();
     dispatch({ type: transport.currentBeat < 0 ? "play" : "resume" });
   }, [
+    commitStopWaitState,
     confirmationLocked,
+    getHeldNotes,
     noteEvents,
     recoveryState,
     stopWaitEnabled,
-    stopWaitEvent,
-    stopWaitInputLocked,
-    stopWaitState.completedEventIds,
-    stopWaitState.phase,
-    transport
+    transport,
   ]);
 
   const pause = useCallback(() => {
     if (recoveryState) return;
     transport.pause();
     if (stopWaitEnabled) {
-      setStopWaitState((current) => pauseGuidedStopWait(current));
+      updateStopWaitState((current) => pauseGuidedStopWait(current));
     }
     dispatch({ type: "pause" });
-  }, [recoveryState, stopWaitEnabled, transport]);
+  }, [recoveryState, stopWaitEnabled, transport, updateStopWaitState]);
 
   const restart = useCallback(() => {
     if (recoveryTimerRef.current !== undefined) {
       window.clearTimeout(recoveryTimerRef.current);
       recoveryTimerRef.current = undefined;
     }
-    if (stopWaitTimerRef.current !== undefined) {
-      window.clearTimeout(stopWaitTimerRef.current);
-      stopWaitTimerRef.current = undefined;
-    }
     transport.restart();
     judgeStateRef.current = createTimelineJudgeState();
     savedCompletionRef.current = false;
+    heldInputSourcesRef.current.clear();
     setActiveNotes([]);
     setWrongNotes([]);
     setRecoveryState(undefined);
-    setStopWaitState(createGuidedStopWaitState(noteEvents));
+    commitStopWaitState(createGuidedStopWaitState(noteEvents));
     dispatch({ type: "restart" });
-  }, [noteEvents, transport]);
+  }, [commitStopWaitState, noteEvents, transport]);
 
   const changeTempo = useCallback(
     (percent: number) => {
       if (transport.isPlaying) {
         transport.pause();
         if (stopWaitEnabled) {
-          setStopWaitState((current) => pauseGuidedStopWait(current));
+          updateStopWaitState((current) => pauseGuidedStopWait(current));
         }
         dispatch({ type: "pause" });
       }
@@ -508,7 +607,14 @@ export const TimelinePlayer = ({
       transport.setBpm(tempoFromPercent(timeline.originalBpm, percent));
       saveTempoPercent(lesson.courseSlug, lesson.slug, percent);
     },
-    [lesson.courseSlug, lesson.slug, stopWaitEnabled, timeline.originalBpm, transport]
+    [
+      lesson.courseSlug,
+      lesson.slug,
+      stopWaitEnabled,
+      timeline.originalBpm,
+      transport,
+      updateStopWaitState,
+    ],
   );
 
   const handleAttempt = useCallback(
@@ -519,59 +625,67 @@ export const TimelinePlayer = ({
         // Visual scoring must keep working if audio is unavailable.
       }
 
+      const { heldNotes, noteStillHeld } = updateHeldInput(attempt);
+
       if (attempt.phase === "press") {
-        setActiveNotes((current) =>
-          current.includes(attempt.note) ? current : [...current, attempt.note]
-        );
         try {
           playNote(attempt.note);
         } catch {
           // Visual scoring must keep working if audio is unavailable.
         }
-      } else {
-        setActiveNotes((current) => current.filter((note) => note !== attempt.note));
       }
 
       if (completed) return;
 
       if (stopWaitEnabled) {
-        if (!stopWaitEvent) return;
-        let stateForAttempt = stopWaitState;
+        const currentStopWaitState = stopWaitStateRef.current;
+        const currentStopWaitEvent = currentStopWaitState.activeEventId
+          ? noteEvents.find(
+              (event) => event.id === currentStopWaitState.activeEventId,
+            )
+          : undefined;
 
-        if (attempt.phase === "press" && stopWaitState.phase === "approaching") {
+        if (!currentStopWaitEvent) return;
+
+        let stateForAttempt = currentStopWaitState;
+
+        if (
+          attempt.phase === "press" &&
+          currentStopWaitState.phase === "approaching"
+        ) {
           const resolved = resolveGuidedStopWaitApproachingPress({
-            state: stopWaitState,
-            event: stopWaitEvent,
+            state: currentStopWaitState,
+            event: currentStopWaitEvent,
             pressBeat: transport.getBeatAtTimestamp(attempt.timestampMs),
-            toleranceBeats: calculateStopWaitApproachToleranceBeats(transport.selectedBpm)
+            toleranceBeats: calculateStopWaitApproachToleranceBeats(
+              transport.selectedBpm,
+            ),
           });
 
-          if (resolved.type === "too-early" || resolved.type === "ignored") return;
+          if (resolved.type === "too-early" || resolved.type === "ignored")
+            return;
 
           transport.pause();
-          transport.seek(stopWaitEvent.startBeat);
+          transport.seek(currentStopWaitEvent.startBeat);
           stateForAttempt = resolved.state;
         }
+
+        if (attempt.phase === "release" && noteStillHeld) return;
 
         const outcome =
           attempt.phase === "press"
             ? applyGuidedStopWaitPress(
                 stateForAttempt,
-                stopWaitEvent,
+                currentStopWaitEvent,
                 attempt.note,
-                attempt.timestampMs
               )
             : applyGuidedStopWaitRelease(
                 stateForAttempt,
-                stopWaitEvent,
+                currentStopWaitEvent,
                 attempt.note,
-                attempt.timestampMs,
-                transport.selectedBpm,
-                DEFAULT_TIMING_WINDOWS,
-                STOP_WAIT_CONFIRMATION_MS
               );
 
-        setStopWaitState(outcome.state);
+        commitStopWaitState(outcome.state);
 
         if (outcome.type === "ignored") return;
 
@@ -581,38 +695,46 @@ export const TimelinePlayer = ({
           }
           dispatch({
             type: "wrong-input",
-            feedback: { classification: "wrong", label: outcome.label }
+            feedback: { classification: "wrong", label: outcome.label },
           });
+          return;
+        }
+
+        if (outcome.type === "completed") {
+          finishStopWaitEvent(outcome.state, heldNotes);
           return;
         }
 
         dispatch({
           type: "feedback",
           feedback: {
-            classification: outcome.type === "retry" ? "partial" : "good",
-            label: outcome.label
-          }
+            classification: "good",
+            label: outcome.label,
+          },
         });
-
-        if (outcome.type === "completed") {
-          finishStopWaitEvent(outcome.state);
-        }
         return;
       }
 
       if (recoveryState) {
-        const event = noteEvents.find((item) => item.id === recoveryState.eventId);
+        const event = noteEvents.find(
+          (item) => item.id === recoveryState.eventId,
+        );
         if (!event) return;
         const recovered =
           attempt.phase === "press"
-            ? applyGuidedRecoveryPress(recoveryState, event, attempt.note, attempt.timestampMs)
+            ? applyGuidedRecoveryPress(
+                recoveryState,
+                event,
+                attempt.note,
+                attempt.timestampMs,
+              )
             : applyGuidedRecoveryRelease(
                 recoveryState,
                 event,
                 attempt.note,
                 attempt.timestampMs,
                 transport.selectedBpm,
-                DEFAULT_TIMING_WINDOWS
+                DEFAULT_TIMING_WINDOWS,
               );
         setRecoveryState(recovered.state);
 
@@ -627,8 +749,8 @@ export const TimelinePlayer = ({
               label:
                 event.notes.length > 1
                   ? "Play the full chord"
-                  : `Wrong key — play ${event.notes[0]}`
-            }
+                  : `Wrong key — play ${event.notes[0]}`,
+            },
           });
           return;
         }
@@ -637,8 +759,8 @@ export const TimelinePlayer = ({
             type: "feedback",
             feedback: {
               classification: recovered.type === "retry" ? "partial" : "good",
-              label: recovered.label
-            }
+              label: recovered.label,
+            },
           });
           return;
         }
@@ -650,8 +772,12 @@ export const TimelinePlayer = ({
 
       const activeBeat = transport.getBeatAtTimestamp(attempt.timestampMs);
       const isReleaseForPendingHold =
-        attempt.phase === "release" && judgeStateRef.current.pendingHold !== undefined;
-      if ((!transport.isPlaying && !isReleaseForPendingHold) || activeBeat < 0) {
+        attempt.phase === "release" &&
+        judgeStateRef.current.pendingHold !== undefined;
+      if (
+        (!transport.isPlaying && !isReleaseForPendingHold) ||
+        activeBeat < 0
+      ) {
         return;
       }
 
@@ -663,14 +789,14 @@ export const TimelinePlayer = ({
               noteEvents,
               attempt.note,
               elapsedMs,
-              transport.selectedBpm
+              transport.selectedBpm,
             )
           : judgeTimelineRelease(
               judgeStateRef.current,
               noteEvents,
               attempt.note,
               elapsedMs,
-              transport.selectedBpm
+              transport.selectedBpm,
             );
 
       judgeStateRef.current = judged.state;
@@ -679,7 +805,7 @@ export const TimelinePlayer = ({
       if (judged.type === "pending-chord") {
         dispatch({
           type: "feedback",
-          feedback: { classification: "partial", label: "Complete the chord" }
+          feedback: { classification: "partial", label: "Complete the chord" },
         });
         return;
       }
@@ -687,7 +813,11 @@ export const TimelinePlayer = ({
       if (judged.type === "holding") {
         dispatch({
           type: "feedback",
-          feedback: { classification: "good", deltaMs: judged.onsetDeltaMs, label: "Hold" }
+          feedback: {
+            classification: "good",
+            deltaMs: judged.onsetDeltaMs,
+            label: "Hold",
+          },
         });
         return;
       }
@@ -698,7 +828,11 @@ export const TimelinePlayer = ({
         }
         dispatch({
           type: "wrong-input",
-          feedback: { classification: "wrong", deltaMs: judged.result.deltaMs, label: "Wrong note" }
+          feedback: {
+            classification: "wrong",
+            deltaMs: judged.result.deltaMs,
+            label: "Wrong note",
+          },
         });
         return;
       }
@@ -710,6 +844,7 @@ export const TimelinePlayer = ({
     },
     [
       beginRecovery,
+      commitStopWaitState,
       completed,
       finishRecovery,
       finishStopWaitEvent,
@@ -718,10 +853,9 @@ export const TimelinePlayer = ({
       recoveryState,
       showWrongNote,
       stopWaitEnabled,
-      stopWaitEvent,
-      stopWaitState,
-      transport
-    ]
+      transport,
+      updateHeldInput,
+    ],
   );
 
   useTimelineInput(handleAttempt);
@@ -732,10 +866,10 @@ export const TimelinePlayer = ({
         note,
         source: "on-screen-piano",
         timestampMs: performance.now(),
-        phase: "press"
+        phase: "press",
       });
     },
-    [handleAttempt]
+    [handleAttempt],
   );
 
   const handlePianoRelease = useCallback(
@@ -744,10 +878,10 @@ export const TimelinePlayer = ({
         note,
         source: "on-screen-piano",
         timestampMs: performance.now(),
-        phase: "release"
+        phase: "release",
       });
     },
-    [handleAttempt]
+    [handleAttempt],
   );
 
   useEffect(() => {
@@ -755,7 +889,7 @@ export const TimelinePlayer = ({
     savedCompletionRef.current = true;
     recordLessonCompletion(
       loadProgress().progress,
-      progressSummaryToLegacyCompletion(summary, noteEvents.length, lesson)
+      progressSummaryToLegacyCompletion(summary, noteEvents.length, lesson),
     );
     onProgressSaved();
   }, [completed, lesson, noteEvents.length, onProgressSaved, summary]);
@@ -766,28 +900,26 @@ export const TimelinePlayer = ({
     : coursePath;
   const progressPercent = Math.min(
     100,
-    Math.max(0, (transport.currentBeat / timeline.totalBeats) * 100)
+    Math.max(0, (transport.currentBeat / timeline.totalBeats) * 100),
   );
   const statusTitle =
     stopWaitEnabled && stopWaitManualPause
       ? "Paused"
       : stopWaitEnabled && stopWaitInputLocked
         ? "Waiting"
-        : stopWaitEnabled && stopWaitConfirmation
-          ? "Good"
-          : stopWaitEnabled && stopWaitState.phase === "approaching"
-            ? "Get ready"
-            : transport.currentBeat < 0
-              ? "Count in"
-              : completed
-                ? "Complete"
-                : recoveryLocked
-                  ? "Waiting for you"
-                  : state.phase === "recovery-confirmation"
-                    ? "Recovered"
-                    : transport.isPlaying
-                      ? "Guided Play"
-                      : "Paused";
+        : stopWaitEnabled && stopWaitState.phase === "approaching"
+          ? "Get ready"
+          : transport.currentBeat < 0
+            ? "Count in"
+            : completed
+              ? "Complete"
+              : recoveryLocked
+                ? "Waiting for you"
+                : state.phase === "recovery-confirmation"
+                  ? "Recovered"
+                  : transport.isPlaying
+                    ? "Guided Play"
+                    : "Paused";
   const statusMessage =
     stopWaitEnabled && !completed
       ? guidedStopWaitPrompt(stopWaitEvent, stopWaitState)
@@ -809,10 +941,15 @@ export const TimelinePlayer = ({
         <div className="timeline-player-workspace mx-auto grid w-full max-w-7xl gap-3 px-4 py-4 md:px-6">
           <nav className="timeline-player-header flex min-w-0 flex-wrap items-center justify-between gap-3">
             <div className="min-w-0">
-              <Link className="font-bold text-amber-100 hover:underline" to={coursePath}>
+              <Link
+                className="font-bold text-amber-100 hover:underline"
+                to={coursePath}
+              >
                 {lesson.courseTitle}
               </Link>
-              <h1 className="mt-1 break-words text-2xl font-black text-white">{lesson.title}</h1>
+              <h1 className="mt-1 break-words text-2xl font-black text-white">
+                {lesson.title}
+              </h1>
             </div>
             <div className="font-mono text-xs font-black uppercase tracking-[0.18em] text-stone-400">
               {timingSourceLabel(timeline)}
@@ -824,7 +961,9 @@ export const TimelinePlayer = ({
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
-                  aria-label={transport.isPlaying ? "Pause lesson" : "Play lesson"}
+                  aria-label={
+                    transport.isPlaying ? "Pause lesson" : "Play lesson"
+                  }
                   onClick={transport.isPlaying ? pause : play}
                   disabled={transportLocked || confirmationLocked}
                   className="min-h-11 min-w-28 rounded-md bg-amber-200 px-4 font-black text-stone-950 transition active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50"
@@ -835,7 +974,7 @@ export const TimelinePlayer = ({
                       ? "Pause"
                       : state.phase === "paused" || stopWaitManualPause
                         ? "Resume"
-                        : "Play"}
+                                 : "Play"}
                 </button>
                 <button
                   type="button"
@@ -846,14 +985,18 @@ export const TimelinePlayer = ({
                   Restart
                 </button>
                 <span className="font-mono text-sm font-bold text-stone-300">
-                  Beat {Math.max(0, transport.currentBeat).toFixed(1)} / {timeline.totalBeats}
+                  Beat {Math.max(0, transport.currentBeat).toFixed(1)} /{" "}
+                  {timeline.totalBeats}
                 </span>
               </div>
               <div
                 className="timeline-progress-track h-2 overflow-hidden rounded-full bg-white/10"
                 aria-hidden="true"
               >
-                <div className="h-full bg-amber-200" style={{ width: `${progressPercent}%` }} />
+                <div
+                  className="h-full bg-amber-200"
+                  style={{ width: `${progressPercent}%` }}
+                />
               </div>
             </div>
             <TempoControl
@@ -872,31 +1015,16 @@ export const TimelinePlayer = ({
               }`}
             >
               <p className="text-xs font-bold text-stone-400">{statusTitle}</p>
-              <p className="break-words text-xl font-black text-white">{statusMessage}</p>
-              {stopWaitHoldProgress !== undefined ? (
-                <div
-                  className="mt-2 h-2 overflow-hidden rounded-full bg-white/10"
-                  aria-label="Hold progress"
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                  aria-valuenow={Math.round(stopWaitHoldProgress * 100)}
-                  data-testid="stop-wait-hold-progress"
-                  data-ready={stopWaitHoldProgress >= 1 ? "true" : "false"}
-                  role="progressbar"
-                >
-                  <div
-                    className={`h-full transition-[width,background-color] ${
-                      stopWaitHoldProgress >= 1 ? "bg-emerald-300" : "bg-sky-300"
-                    }`}
-                    style={{ width: `${Math.round(stopWaitHoldProgress * 100)}%` }}
-                  />
-                </div>
-              ) : null}
+              <p className="break-words text-xl font-black text-white">
+                {statusMessage}
+              </p>
             </div>
             <div className="grid grid-cols-3 gap-3 font-mono text-sm">
               <span>
                 <strong className="block text-lg text-emerald-300">
-                  {stopWaitEnabled ? stopWaitState.completedEventIds.length : state.score}
+                  {stopWaitEnabled
+                    ? stopWaitState.completedEventIds.length
+                    : state.score}
                 </strong>
                 {stopWaitEnabled ? "Mastered" : "Score"}
               </span>
@@ -905,7 +1033,7 @@ export const TimelinePlayer = ({
                   {stopWaitEnabled
                     ? Object.values(stopWaitState.retryCountByEventId).reduce(
                         (sum, count) => sum + count,
-                        0
+                        0,
                       )
                     : state.combo}
                 </strong>
@@ -930,7 +1058,9 @@ export const TimelinePlayer = ({
             autoScrollNotes={targetNotes}
             fitToContainer={mobileLandscapeActive}
             size={mobileLandscapeActive ? "compact" : "standard"}
-            orientationMode={mobileLandscapeActive ? "mobile-landscape" : "responsive"}
+            orientationMode={
+              mobileLandscapeActive ? "mobile-landscape" : "responsive"
+            }
             onInput={handlePianoInput}
             onRelease={handlePianoRelease}
             onPrepareAudio={warmAudio}
@@ -941,8 +1071,9 @@ export const TimelinePlayer = ({
               <div>
                 <h2 className="text-2xl font-black">Lesson complete</h2>
                 <p className="text-emerald-100">
-                  {summary.score} / {summary.maxPossibleScore} points / max combo {summary.maxCombo}{" "}
-                  / {formatDuration(summary.durationMs)}
+                  {summary.score} / {summary.maxPossibleScore} points / max
+                  combo {summary.maxCombo} /{" "}
+                  {formatDuration(summary.durationMs)}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
